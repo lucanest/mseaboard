@@ -10,13 +10,12 @@
   -ms-user-select: none;
 }
 
-html {
+html, body {
   font-size: 16px;
   zoom: 100%;
+  transform: none !important;
 }
-body {
-  transform: none;
-}
+
 .highlight-overlay { /* … */ }
 .highlight-overlay::after { /* … */ }
 
