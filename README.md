@@ -15,6 +15,7 @@ Visit `http://localhost:5173` and upload your files.
 
 ## Project structure
 
+```bash
 frontend/
 ├── index.html
 ├── package.json
@@ -31,4 +32,4 @@ frontend/
 │   ├── index.jsx
 │   └── main.jsx
 └── tailwind.config.js
-
+```
