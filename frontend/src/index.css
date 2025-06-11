@@ -3,10 +3,6 @@
 @tailwind utilities;
 
 
-html {
-  font-size: 16px;
-}
-/* — your existing overrides… */
 /* src/index.css */
 .react-grid-layout .react-grid-item {
   user-select: none;
@@ -14,6 +10,13 @@ html {
   -ms-user-select: none;
 }
 
+html {
+  font-size: 16px;
+  zoom: 100%;
+}
+body {
+  transform: none;
+}
 .highlight-overlay { /* … */ }
 .highlight-overlay::after { /* … */ }
 
