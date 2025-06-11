@@ -1,0 +1,68 @@
+{
+  "name": "phylotree",
+  "version": "2.1.0",
+  "main": "dist/phylotree.js",
+  "unpkg": "dist/phylotree.js",
+  "jsdelivr": "dist/phylotree.js",
+  "module": "src/index.js",
+  "bin": {
+    "root-to-tip": "./bin/root-to-tip.js",
+    "tag-branches": "./bin/phylotree-tag.js",
+    "phylotree": "./bin/phylotree.js",
+    "tip-date-extractor": "./bin/tip-date-extractor.js"
+  },
+  "keywords": [
+    "phylogenetics",
+    "phylogeny",
+    "d3",
+    "branching",
+    "tree"
+  ],
+  "ignore": [
+    "index.html"
+  ],
+  "dependencies": {
+    "commander": "^6.2.1",
+    "csv-stringify": "^5.3.6",
+    "d3": "6",
+    "jquery": "3",
+    "lodash": "^4.17.11",
+    "moment": "^2.29.4",
+    "pretty-data": "^0.40.0",
+    "rollup-plugin-node-resolve": "^5.2.0",
+    "underscore": "1.x",
+    "winston": "^3.2.1",
+    "xml2js": "^0.4.19"
+  },
+  "devDependencies": {
+    "concurrently": "^6.2.0",
+    "eslint": "^7.32.0",
+    "http-server": "^0.12.1",
+    "jsdoc-to-markdown": "^7.0.1",
+    "prettier": "^2.3.2",
+    "rollup": "^2.50.6",
+    "rollup-plugin-copy": "^3.3.0",
+    "rollup-plugin-execute": "^1.1.1",
+    "rollup-plugin-terser": "^7.0.2",
+    "rollup-watch": "^4.3.1",
+    "tape": "5.2.2",
+    "tape-watch": "^2.3.0",
+    "yarn": "^1.22.11"
+  },
+  "scripts": {
+    "lint": "eslint --ext .js --ignore-pattern data,docs,images,node_modules ./",
+    "dev": "rollup -w -c rollup.config.js",
+    "serve": "concurrently 'rollup -w -c rollup.config.js' 'http-server'",
+    "build": "rollup -c rollup.config.js",
+    "watch": "tape-watch -r source-map-support/register test/*-test.js",
+    "test": "tape -r source-map-support/register 'test/*-test.js'",
+    "postpublish": "zip -j dist/phylotree.js.zip -- LICENSE README.md dist/phylotree.js dist/phylotree.min.js dist/phylotree.css"
+  },
+  "files": [
+    "dist/phylotree.css",
+    "dist/phylotree.js",
+    "dist/phylotree.min.js",
+    "bin",
+    "src"
+  ]
+}

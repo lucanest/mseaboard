@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* — your existing overrides… */
+/* src/index.css */
+.react-grid-layout .react-grid-item {
+  user-select: none;
+  -webkit-user-select: none;
+  -ms-user-select: none;
+}
+
+.highlight-overlay { /* … */ }
+.highlight-overlay::after { /* … */ }
+
+/* highlight-overlay */
+.highlight-overlay {
+  outline: 2px solid #000000;
+  /* or background-color: rgba(255, 215, 0, 0.3); */
+}
+
+.alignment-highlight {
+  position: relative;
+  z-index: 1;
+}
+.alignment-highlight::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(253, 230, 138, 0.4); /* yellow-200, 40% opacity */
+  pointer-events: none;
+  z-index: 2;
+  border-radius: 0.25rem; /* match your span's rounding if any */
+}
+
+/* Histogram panel highlight */
+.histogram-highlight {
+  outline: 2px solid #000000;
+  background-color: #fee2e2 !important; /* red-100 */
+}
+
+/* — now the RGL placeholder override — */
+.react-grid-layout .react-grid-placeholder {
+  background-color: rgba(0, 123, 255, 0.2) !important;
+  border: 2px dashed #007bff        !important;
+}
