@@ -27,7 +27,7 @@
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(253, 230, 138, 0.4); /* yellow-200, 40% opacity */
+  background: rgba(253, 230, 138, 0.6); /* yellow-200, 60% opacity */
   pointer-events: none;
   z-index: 2;
   border-radius: 0.25rem; /* match your span's rounding if any */

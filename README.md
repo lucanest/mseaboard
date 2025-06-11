@@ -15,17 +15,20 @@ Visit `http://localhost:5173` and upload your files.
 
 ## Project structure
 
-mseaview/
-│  
-│ 
-├── frontend/
-│   ├── public/
-│   └── src/
-│       ├── components/     # React components
-│       ├── App.jsx
-│       └── main.jsx
-├── requirements.txt
+frontend/
+├── index.html
 ├── package.json
-└── README.md
-
+├── postcss.config.js
+├── public
+│   ├── d3.min.js
+│   └── index.html
+├── src
+│   ├── App.jsx
+│   ├── components
+│   │   ├── Histogram.jsx
+│   │   └── PhyloTreeViewer.jsx
+│   ├── index.css
+│   ├── index.jsx
+│   └── main.jsx
+└── tailwind.config.js
 
