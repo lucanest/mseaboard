@@ -11,7 +11,7 @@ npm install
 npm run dev
 ```
 
-Visit `http://localhost:5173` and upload your files.
+Visit `http://localhost:5173` and upload your files. Alternatively head directly to https://mseaview.com
 
 ## Project structure
 
