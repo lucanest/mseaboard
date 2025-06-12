@@ -87,6 +87,22 @@ function LinkButton({ onClick, isLinked, isLinkModeActive }) {
   );
 }
 
+function CodonToggleButton({ onClick, isActive }) {
+  return (
+    <button
+      onClick={onClick}
+      className="absolute right-24 top-0 p-0.5"
+      title="Toggle codon view"
+    >
+      <span className={`inline-flex items-center justify-center w-6 h-6 rounded
+        ${isActive ? 'bg-purple-200' : 'bg-gray-200'}
+        border border-gray-400 hover:bg-purple-300`}>
+        <span className="text-xs font-bold text-purple-800">3</span>
+      </span>
+    </button>
+  );
+}
+
 function Tooltip({ x, y, children }) {
   return (
     <div
@@ -124,6 +140,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [dims, setDims]           = useState({ width: 0, height: 0 });
   const [hoveredCol, setHoveredCol] = useState(null);
   const [tooltipPos, setTooltipPos]   = useState({ x: 0, y: 0 });
+  const [codonMode, setCodonMode] = useState(false);
 
   // sizing
   const LABEL_WIDTH = 66;  // px
@@ -171,11 +188,20 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const Cell = useCallback(({ columnIndex, rowIndex, style }) => {
     const char   = msaData[rowIndex].sequence[columnIndex];
     const baseBg = residueColors[char.toUpperCase()] || 'bg-white';
-    const isHoverHighlight  = hoveredCol === columnIndex;
+    const isHoverHighlight = codonMode
+  ? hoveredCol != null && Math.floor(hoveredCol / 3) === Math.floor(columnIndex / 3)
+  : hoveredCol === columnIndex;
     // two-way link: if this panel is linked to the origin of the highlight
-    const isLinkedHighlight = 
-      highlightedSite === columnIndex &&
-      linkedTo === highlightOrigin;
+let isLinkedHighlight = false;
+
+if (linkedTo === highlightOrigin && highlightedSite != null) {
+  if (codonMode) {
+    const codonStart = Math.floor(highlightedSite / 3) * 3;
+    isLinkedHighlight = columnIndex >= codonStart && columnIndex < codonStart + 3;
+  } else {
+    isLinkedHighlight = highlightedSite === columnIndex;
+  }
+}
 
     return (
       <div
@@ -229,17 +255,31 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
         isLinked={isLinked}
         isLinkModeActive={isLinkModeActive}/>
     </div>
+    <CodonToggleButton
+  onClick={() => setCodonMode(m => !m)}
+  isActive={codonMode}
+  />
 
     {/* — Hover tooltip (only in the origin panel) — */}
     {hoveredCol != null && id === highlightOrigin && (
-    <Tooltip x={tooltipPos.x} y={tooltipPos.y}> Site {hoveredCol + 1}</Tooltip>
+  <Tooltip x={tooltipPos.x} y={tooltipPos.y}>
+  {codonMode
+    ? `Codon ${Math.floor(hoveredCol / 3) + 1}`
+    : `Site ${hoveredCol + 1}`
+  }
+  </Tooltip>
     )}
 
     {/* — Persistent linked tooltip (only in the linked panel) — */}
     {highlightedSite != null
       && linkedTo === highlightOrigin
       && id !== highlightOrigin && (
-        <Tooltip x={tooltipPos.x} y={tooltipPos.y}> Site {highlightedSite + 1}</Tooltip>
+        <Tooltip x={tooltipPos.x} y={tooltipPos.y}>
+  {codonMode
+    ? `Codon ${Math.floor(highlightedSite / 3) + 1}`
+    : `Site ${highlightedSite + 1}`
+  }
+  </Tooltip>
     )}
 
     {/* labels + virtualized grid */}
@@ -290,7 +330,6 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
 
 const TreePanel = React.memo(function TreePanel({ id, data, onRemove, onReupload,onDuplicate, onSelectTip }) {
   const { data: newick, filename, isNhx } = data;
-
   return (
     <PanelContainer onDoubleClick={() => onReupload(id)}>
       <div className="panel-drag-handle select-none font-bold text-center bg-gray-100 p-1 mb-2 cursor-move relative">
@@ -337,7 +376,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
     ro.observe(chartContainerRef.current);
     return () => ro.disconnect();
   }, []);
-// pass highlight props into Histogram
+  // pass highlight props into Histogram
   return (
     <PanelContainer onDoubleClick={() => onReupload(id)}>
       <div className="panel-drag-handle select-none font-bold text-center bg-gray-100 p-1 mb-2 cursor-move relative">
@@ -448,7 +487,7 @@ function App() {
     return [...withoutFooter, newLayout, footer];
   });
   setPanelData(prev => ({ ...prev, [newId]: JSON.parse(JSON.stringify(data)) }));
-};
+  };
 
   const handleLinkClick = (id) => {
     if (!linkMode) {
@@ -500,27 +539,25 @@ function App() {
     setHighlightOrigin(null);
   };
 
-const CELL_SIZE = 24;
+  const CELL_SIZE = 24;
+  const handleHighlight = (site, originId) => {
+    setHighlightSite(site);
+    setHighlightOrigin(originId);
 
-const handleHighlight = (site, originId) => {
-  setHighlightSite(site);
-  setHighlightOrigin(originId);
+    const targetId = panelLinks[originId];
+    if (!targetId || site == null) return;
 
-  const targetId = panelLinks[originId];
-  if (!targetId || site == null) return;
+    const sourcePanel = panels.find(p => p.i === originId);
+    const targetPanel = panels.find(p => p.i === targetId);
+    if (!sourcePanel || !targetPanel) return;
 
-  const sourcePanel = panels.find(p => p.i === originId);
-  const targetPanel = panels.find(p => p.i === targetId);
-  if (!sourcePanel || !targetPanel) return;
-
-  if (sourcePanel.type === 'histogram' && targetPanel.type === 'alignment') {
-    setScrollPositions(prev => ({
-      ...prev,
-      [targetId]: site * CELL_SIZE
-    }));
-  }
-};
-
+    if (sourcePanel.type === 'histogram' && targetPanel.type === 'alignment') {
+      setScrollPositions(prev => ({
+        ...prev,
+        [targetId]: site * CELL_SIZE
+      }));
+    }
+  };
 
   // Trigger upload or reupload
   const triggerUpload = (type, panelId = null) => {
@@ -539,22 +576,22 @@ const handleHighlight = (site, originId) => {
     const filename = file.name;
 
     let panelPayload;
-if (type === 'alignment') {
-  const text = await file.text();
-  const parsed = parseFasta(text);
-  panelPayload = { data: parsed, filename };
-} else if (type === 'tree') {
+  if (type === 'alignment') {
+    const text = await file.text();
+    const parsed = parseFasta(text);
+    panelPayload = { data: parsed, filename };
+  } else if (type === 'tree') {
       const text = await file.text();
       const isNhx = /\.nhx$/i.test(filename) || text.includes('[&&NHX');
       parse(text);
       panelPayload = { data: text, filename, isNhx };
-    } else if (type === 'histogram') {
+  } else if (type === 'histogram') {
       const text = await file.text();
       const lines = text.trim().split(/\r?\n/);
       if (
   (filename.toLowerCase().endsWith('.tsv') && lines[0].includes('\t')) ||
   (filename.toLowerCase().endsWith('.csv') && lines[0].includes(','))
-) {
+  ) {
   const isTSV = filename.toLowerCase().endsWith('.tsv');
   const delimiter = isTSV ? '\t' : ',';
   const headers = lines[0].split(delimiter).map(h => h.trim());
@@ -569,7 +606,7 @@ if (type === 'alignment') {
     return obj;
   });
   panelPayload = { data: { headers, rows }, filename };
-}
+  }
       else {
         const values = text.trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
         panelPayload = { data: values, filename };
