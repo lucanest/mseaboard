@@ -87,6 +87,28 @@ function LinkButton({ onClick, isLinked, isLinkModeActive }) {
   );
 }
 
+function Tooltip({ x, y, children }) {
+  return (
+    <div
+      className="fixed px-1 py-0.5 text-xs bg-gray-200 rounded pointer-events-none z-50"
+      style={{ top: y+24, left: x+14}}
+    >
+      {children}
+    </div>
+  );
+}
+
+function PanelContainer({ children, onDoubleClick }) {
+  return (
+    <div
+      className="border rounded overflow-hidden h-full flex flex-col bg-white"
+      onDoubleClick={onDoubleClick}
+    >
+      {children}
+    </div>
+  );
+}
+
 const AlignmentPanel = React.memo(function AlignmentPanel({
   id,
   data: { data: msaData, filename },
@@ -189,6 +211,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   ]);
 
   return (
+    <PanelContainer onDoubleClick={() => onReupload(id)}>
     <div
       ref={containerRef}
       className="relative flex flex-col h-full border rounded bg-white"
@@ -196,9 +219,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
         setHoveredCol(null);
       if (id === highlightOrigin) {onHighlight(null, id);}
       }}
-      onDoubleClick={() => onReupload(id)}
     >
-
     <div className="panel-drag-handle select-none font-bold text-center bg-gray-100 p-1 mb-2 cursor-move relative">
       MSA: {filename}
       <DuplicateButton onClick={() => onDuplicate(id)} />
@@ -209,37 +230,23 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
         isLinkModeActive={isLinkModeActive}/>
     </div>
 
-  {/* — Hover tooltip (only in the origin panel) — */}
-  {hoveredCol != null && id === highlightOrigin && (
-    <div
-      className="fixed px-1 py-0.5 text-xs bg-gray-200 rounded pointer-events-none z-50"
-      style={{
-        top:  tooltipPos.y + 24,
-        left: tooltipPos.x + 14
-      }}>
-      Site {hoveredCol + 1}
-    </div>
-  )}
+    {/* — Hover tooltip (only in the origin panel) — */}
+    {hoveredCol != null && id === highlightOrigin && (
+    <Tooltip x={tooltipPos.x} y={tooltipPos.y}> Site {hoveredCol + 1}</Tooltip>
+    )}
 
-  {/* — Persistent linked tooltip (only in the linked panel) — */}
-  {highlightedSite != null
-    && linkedTo === highlightOrigin
-    && id !== highlightOrigin && (
-    <div
-      className="fixed px-1 py-0.5 text-xs bg-gray-200 rounded pointer-events-none z-50"
-      style={{
-        top:  derivedTooltipPos.y + 24,  
-        left: derivedTooltipPos.x + 14
-      }}>
-      Site {highlightedSite + 1}
-    </div>
-  )}
+    {/* — Persistent linked tooltip (only in the linked panel) — */}
+    {highlightedSite != null
+      && linkedTo === highlightOrigin
+      && id !== highlightOrigin && (
+        <Tooltip x={tooltipPos.x} y={tooltipPos.y}> Site {highlightedSite + 1}</Tooltip>
+    )}
 
-  {/* labels + virtualized grid */}
-  <div
-    ref={gridContainerRef}
-    className="flex-1 flex overflow-hidden font-mono text-sm"
-  >
+    {/* labels + virtualized grid */}
+    <div
+      ref={gridContainerRef}
+      className="flex-1 flex overflow-hidden font-mono text-sm"
+    >
     {/* sequence IDs */}
     <List
       ref={listRef}
@@ -261,22 +268,23 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
         </div>
       );
       }}
-    </List>
-    {/* the alignment */}
-      <Grid
-      ref={gridRef}
-        columnCount={colCount}
-        columnWidth={CELL_SIZE}
-        height={dims.height}
-        rowCount={rowCount}
-        rowHeight={CELL_SIZE}
-        width={Math.max(dims.width - LABEL_WIDTH, 0)}
-        onScroll={onScroll}
-      >
-        {Cell}
-      </Grid>
+      </List>
+      {/* the alignment */}
+        <Grid
+        ref={gridRef}
+          columnCount={colCount}
+          columnWidth={CELL_SIZE}
+          height={dims.height}
+          rowCount={rowCount}
+          rowHeight={CELL_SIZE}
+          width={Math.max(dims.width - LABEL_WIDTH, 0)}
+          onScroll={onScroll}
+        >
+          {Cell}
+        </Grid>
   </div>
   </div>
+  </PanelContainer>
   );
 });
 
@@ -284,10 +292,7 @@ const TreePanel = React.memo(function TreePanel({ id, data, onRemove, onReupload
   const { data: newick, filename, isNhx } = data;
 
   return (
-    <div
-      className="border rounded overflow-hidden h-full flex flex-col bg-white"
-      onDoubleClick={() => onReupload(id)}
-    >
+    <PanelContainer onDoubleClick={() => onReupload(id)}>
       <div className="panel-drag-handle select-none font-bold text-center bg-gray-100 p-1 mb-2 cursor-move relative">
         Tree: {filename}
         <DuplicateButton onClick={() => onDuplicate(id)} />
@@ -296,10 +301,9 @@ const TreePanel = React.memo(function TreePanel({ id, data, onRemove, onReupload
       <div className="flex-1 overflow-auto flex items-center justify-center">
         <PhyloTreeViewer newick={newick} isNhx={isNhx} onSelectTip={onSelectTip} />
       </div>
-    </div>
+    </PanelContainer>
   );
 });
-
 
 const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, onReupload,onDuplicate,
   onLinkClick, isLinkModeActive, isLinked, linkedTo,
@@ -335,10 +339,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
   }, []);
 // pass highlight props into Histogram
   return (
-    <div
-      className="border rounded overflow-hidden h-full flex flex-col bg-white"
-      onDoubleClick={() => onReupload(id)}
-    >
+    <PanelContainer onDoubleClick={() => onReupload(id)}>
       <div className="panel-drag-handle select-none font-bold text-center bg-gray-100 p-1 mb-2 cursor-move relative">
         Data: {filename}
       <DuplicateButton onClick={() => onDuplicate(id)} />
@@ -375,7 +376,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
     height={height}
   />
 </div>
-    </div>
+  </PanelContainer>
   );
 });
 
