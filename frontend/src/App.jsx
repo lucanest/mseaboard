@@ -39,6 +39,54 @@ function parseFasta(content) {
   return result;
 }
 
+function DuplicateButton({ onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="absolute right-8 top-0 p-0.5"
+      title="Duplicate panel"
+    >
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-gray-300">
+        <DocumentDuplicateIcon className="w-5 h-5 text-gray-700" />
+      </span>
+    </button>
+  );
+}
+
+function RemoveButton({ onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="absolute right-2 top-0 text-red-500 hover:text-red-700">
+      ×
+    </button>
+  );
+}
+
+function LinkButton({ onClick, isLinked, isLinkModeActive }) {
+  return (
+  <button
+        onClick={onClick}
+        className="absolute right-16 top-0 p-0.5"
+        title={isLinked ? 'Unlink panels' : 'Link this panel'}>
+        <span className={`inline-flex items-center justify-center w-6 h-6 rounded
+        ${isLinkModeActive ? 'bg-blue-200' :
+        isLinked         ? 'bg-green-200' :
+                           'bg-gray-200'}
+        border border-gray-400`}>
+          <LinkIcon
+          className={`
+            w-6 h-6
+            ${isLinkModeActive ? 'text-blue-700' :
+              isLinked         ? 'text-green-700' :
+                                'text-gray-500'}`}
+            aria-hidden="true"
+          />
+        </span>
+      </button>
+  );
+}
+
 const AlignmentPanel = React.memo(function AlignmentPanel({
   id,
   data: { data: msaData, filename },
@@ -150,45 +198,17 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
       }}
       onDoubleClick={() => onReupload(id)}
     >
-    {/* header */}
+
     <div className="panel-drag-handle select-none font-bold text-center bg-gray-100 p-1 mb-2 cursor-move relative">
       MSA: {filename}
-      <button
-        onClick={() => onDuplicate(id)}
-        className="absolute right-8 top-0 p-0.5"
-        title="Duplicate panel"
-      >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-gray-300">
-        <DocumentDuplicateIcon className="w-5 h-5 text-gray-700" />
-      </span>
-      </button>
-      <button
-        onClick={() => onRemove(id)}
-        className="absolute right-2 top-0 text-red-500 hover:text-red-700">
-        ×
-      </button>
-      <button
+      <DuplicateButton onClick={() => onDuplicate(id)} />
+      <RemoveButton onClick={() => onRemove(id)} />
+      <LinkButton
         onClick={() => onLinkClick(id)}
-        className="absolute right-16 top-0 p-0.5"
-        title={isLinked ? 'Unlink panels' : 'Link this panel'}>
-        <span className={`inline-flex items-center justify-center w-6 h-6 rounded
-        ${isLinkModeActive ? 'bg-blue-200' :
-        isLinked         ? 'bg-green-200' :
-                           'bg-gray-200'}
-        border border-gray-400`}>
-          <LinkIcon
-          className={`
-            w-6 h-6
-            ${isLinkModeActive ? 'text-blue-700' :
-              isLinked         ? 'text-green-700' :
-                                'text-gray-500'}`}
-            aria-hidden="true"
-          />
-        </span>
-      </button>
+        isLinked={isLinked}
+        isLinkModeActive={isLinkModeActive}/>
     </div>
 
-  {/* tooltip */}
   {/* — Hover tooltip (only in the origin panel) — */}
   {hoveredCol != null && id === highlightOrigin && (
     <div
@@ -208,7 +228,6 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
     <div
       className="fixed px-1 py-0.5 text-xs bg-gray-200 rounded pointer-events-none z-50"
       style={{
-        // you were using a default offset for linked:
         top:  derivedTooltipPos.y + 24,  
         left: derivedTooltipPos.x + 14
       }}>
@@ -243,7 +262,6 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
       );
       }}
     </List>
-    {/* spacer to push grid right */}
     {/* the alignment */}
       <Grid
       ref={gridRef}
@@ -272,19 +290,8 @@ const TreePanel = React.memo(function TreePanel({ id, data, onRemove, onReupload
     >
       <div className="panel-drag-handle select-none font-bold text-center bg-gray-100 p-1 mb-2 cursor-move relative">
         Tree: {filename}
-        <button
-  onClick={() => onDuplicate(id)}
-  className="absolute right-8 top-0 p-0.5"
-  title="Duplicate panel"
->
-  <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-gray-300">
-    <DocumentDuplicateIcon className="w-5 h-5 text-gray-700" />
-  </span>
-</button>
-        <button
-          onClick={() => onRemove(id)}
-          className="absolute right-2 top-0 text-red-500 hover:text-red-700"
-        >×</button>
+        <DuplicateButton onClick={() => onDuplicate(id)} />
+        <RemoveButton onClick={() => onRemove(id)} />
       </div>
       <div className="flex-1 overflow-auto flex items-center justify-center">
         <PhyloTreeViewer newick={newick} isNhx={isNhx} onSelectTip={onSelectTip} />
@@ -334,44 +341,12 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
     >
       <div className="panel-drag-handle select-none font-bold text-center bg-gray-100 p-1 mb-2 cursor-move relative">
         Data: {filename}
-        <button
-  onClick={() => onDuplicate(id)}
-  className="absolute right-8 top-0 p-0.5"
-  title="Duplicate panel"
->
-  <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-gray-300">
-    <DocumentDuplicateIcon className="w-5 h-5 text-gray-700" />
-  </span>
-</button>
-        <button
-          onClick={() => onRemove(id)}
-          className="absolute right-2 top-0 text-red-500 hover:text-red-700"
-        >×</button>
-<button
-  onClick={() => onLinkClick(id)}
-  className="absolute right-16 top-0 p-0.5"
-  title={isLinked ? 'Unlink panels' : 'Link this panel'}
->
-  <span
-    className={`
-      inline-flex items-center justify-center w-6 h-6 rounded
-      ${isLinkModeActive ? 'bg-blue-200' :
-        isLinked         ? 'bg-green-200' :
-                           'bg-gray-200'}
-      border border-gray-400
-    `}
-  >
-    <LinkIcon
-      className={`
-        w-6 h-6
-        ${isLinkModeActive ? 'text-blue-700' :
-          isLinked         ? 'text-green-700' :
-                             'text-gray-500'}
-      `}
-      aria-hidden="true"
-    />
-  </span>
-</button>
+      <DuplicateButton onClick={() => onDuplicate(id)} />
+      <RemoveButton onClick={() => onRemove(id)} />
+      <LinkButton
+        onClick={() => onLinkClick(id)}
+        isLinked={isLinked}
+        isLinkModeActive={isLinkModeActive}/>
       </div>
       <div className="p-2">
         {isTabular && (
