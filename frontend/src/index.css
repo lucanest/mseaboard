@@ -16,9 +16,6 @@ html, body {
   transform: none !important;
 }
 
-.highlight-overlay { /* … */ }
-.highlight-overlay::after { /* … */ }
-
 /* highlight-overlay */
 .highlight-overlay {
   outline: 2px solid #000000;
@@ -33,10 +30,8 @@ html, body {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(253, 230, 138, 0.6); /* yellow-200, 60% opacity */
-  pointer-events: none;
-  z-index: 2;
-  border-radius: 0.25rem; /* match your span's rounding if any */
+  box-shadow: 0 0 0 1.5px #000000;
+  border-radius: 0.25rem;
 }
 
 /* Histogram panel highlight */
@@ -45,7 +40,7 @@ html, body {
   background-color: #fee2e2 !important; /* red-100 */
 }
 
-/* — now the RGL placeholder override — */
+/* — RGL placeholder override — */
 .react-grid-layout .react-grid-placeholder {
   background-color: rgba(0, 123, 255, 0.2) !important;
   border: 2px dashed #007bff        !important;
