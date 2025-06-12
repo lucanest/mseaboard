@@ -46,7 +46,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   onLinkClick, isLinkModeActive, isLinked, linkedTo,
   highlightedSite, highlightOrigin, onHighlight,
   onSyncScroll, externalScrollLeft
-}) {
+}){
   const containerRef     = useRef(null);
   const gridContainerRef = useRef(null);
   const listRef          = useRef(null);
@@ -78,27 +78,24 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   }, []);
 
   useEffect(() => {
-  if (gridRef.current && typeof externalScrollLeft === 'number') {
-    gridRef.current.scrollTo({ scrollLeft: externalScrollLeft });
-  }
-}, [externalScrollLeft]);
+    if (gridRef.current && typeof externalScrollLeft === 'number') {
+      gridRef.current.scrollTo({ scrollLeft: externalScrollLeft });
+    }
+    }, [externalScrollLeft]);
 
-  const rowCount = msaData.length;
-  const colCount = msaData[0]?.sequence.length || 0;
-  const gridRef = useRef(null);
-  const derivedHighlightCol = hoveredCol != null ? hoveredCol
-                         : (highlightedSite != null && linkedTo === highlightOrigin) ? highlightedSite
-                         : null;
-const derivedTooltipPos = hoveredCol != null ? tooltipPos
-                          : { x: -5, y: -20 }; // Default for linked highlight
-  // sync label-list scroll with grid
-const onScroll = ({ scrollTop, scrollLeft }) => {
-  listRef.current?.scrollTo(scrollTop);
+    const rowCount = msaData.length;
+    const colCount = msaData[0]?.sequence.length || 0;
+    const gridRef = useRef(null);
+    const derivedTooltipPos = hoveredCol != null ? tooltipPos
+                            : { x: -5, y: -20 }; // Default for linked highlight
+    // sync label-list scroll with grid
+    const onScroll = ({ scrollTop, scrollLeft }) => {
+    listRef.current?.scrollTo(scrollTop);
 
-  if (linkedTo != null && scrollLeft != null) {
-    onSyncScroll(scrollLeft, id);
-  }
-};
+    if (linkedTo != null && scrollLeft != null) {
+      onSyncScroll(scrollLeft, id);
+    }
+  };
 
   // the Cell renderer checks for both hover and linked-panel highlight:
   const Cell = useCallback(({ columnIndex, rowIndex, style }) => {
@@ -130,9 +127,7 @@ const onScroll = ({ scrollTop, scrollLeft }) => {
         }}
         onMouseLeave={() => {
           setHoveredCol(null);
-          if (id === highlightOrigin) {
-     onHighlight(null, id);
-   }
+          if (id === highlightOrigin) {onHighlight(null, id);}
         }}
         //title={`Pos ${columnIndex + 1}, ${char}`}
       >
@@ -151,129 +146,119 @@ const onScroll = ({ scrollTop, scrollLeft }) => {
       className="relative flex flex-col h-full border rounded bg-white"
       onMouseLeave={() => {
         setHoveredCol(null);
- if (id === highlightOrigin) {
-     onHighlight(null, id);
-   }
+      if (id === highlightOrigin) {onHighlight(null, id);}
       }}
       onDoubleClick={() => onReupload(id)}
     >
-      {/* header */}
-      <div className="panel-drag-handle select-none font-bold text-center bg-gray-100 p-1 mb-2 cursor-move relative">
-        MSA: {filename}
-        <button
-  onClick={() => onDuplicate(id)}
-  className="absolute right-8 top-0 p-0.5"
-  title="Duplicate panel"
->
-  <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-gray-300">
-    <DocumentDuplicateIcon className="w-5 h-5 text-gray-700" />
-  </span>
-</button>
-        <button
-          onClick={() => onRemove(id)}
-          className="absolute right-2 top-0 text-red-500 hover:text-red-700"
-        >×</button>
-<button
-  onClick={() => onLinkClick(id)}
-  className="absolute right-16 top-0 p-0.5"
-  title={isLinked ? 'Unlink panels' : 'Link this panel'}
->
-  <span
-    className={`
-      inline-flex items-center justify-center w-6 h-6 rounded
-      ${isLinkModeActive ? 'bg-blue-200' :
+    {/* header */}
+    <div className="panel-drag-handle select-none font-bold text-center bg-gray-100 p-1 mb-2 cursor-move relative">
+      MSA: {filename}
+      <button
+        onClick={() => onDuplicate(id)}
+        className="absolute right-8 top-0 p-0.5"
+        title="Duplicate panel"
+      >
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-gray-300">
+        <DocumentDuplicateIcon className="w-5 h-5 text-gray-700" />
+      </span>
+      </button>
+      <button
+        onClick={() => onRemove(id)}
+        className="absolute right-2 top-0 text-red-500 hover:text-red-700">
+        ×
+      </button>
+      <button
+        onClick={() => onLinkClick(id)}
+        className="absolute right-16 top-0 p-0.5"
+        title={isLinked ? 'Unlink panels' : 'Link this panel'}>
+        <span className={`inline-flex items-center justify-center w-6 h-6 rounded
+        ${isLinkModeActive ? 'bg-blue-200' :
         isLinked         ? 'bg-green-200' :
                            'bg-gray-200'}
-      border border-gray-400
-    `}
-  >
-    <LinkIcon
-      className={`
-        w-6 h-6
-        ${isLinkModeActive ? 'text-blue-700' :
-          isLinked         ? 'text-green-700' :
-                             'text-gray-500'}
-      `}
-      aria-hidden="true"
-    />
-  </span>
-</button>
-      </div>
-
-      {/* tooltip */}
-{/* — Hover tooltip (only in the origin panel) — */}
-{hoveredCol != null && id === highlightOrigin && (
-  <div
-    className="fixed px-1 py-0.5 text-xs bg-gray-200 rounded pointer-events-none z-50"
-    style={{
-      top:  tooltipPos.y + 24,
-      left: tooltipPos.x + 14
-    }}
-  >
-    Site {hoveredCol + 1}
-  </div>
-)}
-
-{/* — Persistent linked tooltip (only in the linked panel) — */}
-{highlightedSite != null
-  && linkedTo === highlightOrigin
-  && id !== highlightOrigin && (
-  <div
-    className="fixed px-1 py-0.5 text-xs bg-gray-200 rounded pointer-events-none z-50"
-    style={{
-      // you were using a default offset for linked:
-      top:  derivedTooltipPos.y + 24,  
-      left: derivedTooltipPos.x + 14
-    }}
-  >
-    Site {highlightedSite + 1}
-  </div>
-)}
-
-      {/* labels + virtualized grid */}
-      <div
-        ref={gridContainerRef}
-        className="flex-1 flex overflow-hidden font-mono text-sm"
-      >
-        {/* sequence IDs */}
-        <List
-          ref={listRef}
-          height={dims.height}
-          width={LABEL_WIDTH}
-          itemCount={rowCount}
-          itemSize={CELL_SIZE}
-        >
-          {({ index, style }) => {
-const rawId = msaData[index].id.replace(/\s+/g, ' ').trim();
-const shortId = rawId.length > 10 ? rawId.slice(0, 10) + '...' : rawId;
-return (
-  <div
-    style={style}
-    className="flex items-center pr-2 pl-2 text-right font-bold truncate"
-    title={rawId}
-  >
-    {shortId}
-  </div>
-);
-          }}
-        </List>
-
-        {/* the alignment */}
-        <Grid
-        ref={gridRef}
-          columnCount={colCount}
-          columnWidth={CELL_SIZE}
-          height={dims.height}
-          rowCount={rowCount}
-          rowHeight={CELL_SIZE}
-          width={Math.max(dims.width - LABEL_WIDTH, 0)}
-          onScroll={onScroll}
-          style={{ marginLeft: LABEL_WIDTH }}
-        >
-          {Cell}
-        </Grid>
-      </div>
+        border border-gray-400`}>
+          <LinkIcon
+          className={`
+            w-6 h-6
+            ${isLinkModeActive ? 'text-blue-700' :
+              isLinked         ? 'text-green-700' :
+                                'text-gray-500'}`}
+            aria-hidden="true"
+          />
+        </span>
+      </button>
     </div>
+
+  {/* tooltip */}
+  {/* — Hover tooltip (only in the origin panel) — */}
+  {hoveredCol != null && id === highlightOrigin && (
+    <div
+      className="fixed px-1 py-0.5 text-xs bg-gray-200 rounded pointer-events-none z-50"
+      style={{
+        top:  tooltipPos.y + 24,
+        left: tooltipPos.x + 14
+      }}>
+      Site {hoveredCol + 1}
+    </div>
+  )}
+
+  {/* — Persistent linked tooltip (only in the linked panel) — */}
+  {highlightedSite != null
+    && linkedTo === highlightOrigin
+    && id !== highlightOrigin && (
+    <div
+      className="fixed px-1 py-0.5 text-xs bg-gray-200 rounded pointer-events-none z-50"
+      style={{
+        // you were using a default offset for linked:
+        top:  derivedTooltipPos.y + 24,  
+        left: derivedTooltipPos.x + 14
+      }}>
+      Site {highlightedSite + 1}
+    </div>
+  )}
+
+  {/* labels + virtualized grid */}
+  <div
+    ref={gridContainerRef}
+    className="flex-1 flex overflow-hidden font-mono text-sm"
+  >
+    {/* sequence IDs */}
+    <List
+      ref={listRef}
+      height={dims.height}
+      width={LABEL_WIDTH*1.9}
+      itemCount={rowCount}
+      itemSize={CELL_SIZE}
+    >
+      {({ index, style }) => {
+      const rawId = msaData[index].id.replace(/\s+/g, ' ').trim();
+      const shortId = rawId.length > 10 ? rawId.slice(0, 8) + '..' : rawId;
+      return (
+        <div
+          style={style}
+          className="flex items-center pr-2 pl-2 text-right font-bold truncate"
+          title={rawId}
+        >
+          {shortId}
+        </div>
+      );
+      }}
+    </List>
+    {/* spacer to push grid right */}
+    {/* the alignment */}
+      <Grid
+      ref={gridRef}
+        columnCount={colCount}
+        columnWidth={CELL_SIZE}
+        height={dims.height}
+        rowCount={rowCount}
+        rowHeight={CELL_SIZE}
+        width={Math.max(dims.width - LABEL_WIDTH, 0)}
+        onScroll={onScroll}
+      >
+        {Cell}
+      </Grid>
+  </div>
+  </div>
   );
 });
 
