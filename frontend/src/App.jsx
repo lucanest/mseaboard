@@ -116,12 +116,12 @@ function Tooltip({ x, y, children }) {
 
 function PanelContainer({ children, onDoubleClick }) {
   return (
-    <div
-      className="border rounded-xl overflow-hidden h-full flex flex-col bg-white"
-      onDoubleClick={onDoubleClick}
-    >
-      {children}
-    </div>
+<div
+  className="border rounded-2xl overflow-hidden h-full flex flex-col bg-white shadow-lg hover:shadow-xl"
+  onDoubleClick={onDoubleClick}
+>
+  {children}
+</div>
   );
 }
 
@@ -723,13 +723,13 @@ const handleSaveWorkspace = () => {
         <div className="flex items-center gap-4">
           <button
   onClick={handleSaveWorkspace}
-  className="w-40 h-20 bg-gray-200 text-black px-4 py-2 rounded-xl hover:bg-gray-400"
+  className="w-40 h-20 bg-gray-200 text-black px-4 py-2 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl"
 >
   Save Workspace
 </button>
 <button
   onClick={() => fileInputRefWorkspace.current.click()}
-  className="w-40 h-20 bg-gray-200 text-black px-4 py-2 rounded-xl hover:bg-gray-400"
+  className="w-40 h-20 bg-gray-200 text-black px-4 py-2 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl"
 >
   Load Workspace
 </button>
@@ -740,13 +740,13 @@ const handleSaveWorkspace = () => {
   onChange={handleLoadWorkspace}
   style={{ display: 'none' }}
 />
-          <button onClick={() => triggerUpload('alignment')} className="w-40 h-20 bg-green-200 text-black px-4 py-2 rounded-xl hover:bg-green-400">
+          <button onClick={() => triggerUpload('alignment')} className="w-40 h-20 bg-green-200 text-black px-4 py-2 rounded-xl hover:bg-green-300 shadow-lg hover:shadow-xl">
             Upload MSA (.fasta)
           </button>
-          <button onClick={() => triggerUpload('tree')} className="w-40 h-20 bg-blue-200 text-black px-4 py-2 rounded-xl hover:bg-blue-400">
+          <button onClick={() => triggerUpload('tree')} className="w-40 h-20 bg-blue-200 text-black px-4 py-2 rounded-xl hover:bg-blue-300 shadow-lg hover:shadow-xl">
             Upload Tree (.nwk/.nhx)
           </button>
-          <button onClick={() => triggerUpload('histogram')} className="w-40 h-20 bg-orange-200 text-black px-4 py-2 rounded-xl hover:bg-orange-400">
+          <button onClick={() => triggerUpload('histogram')} className="w-40 h-20 bg-orange-200 text-black px-4 py-2 rounded-xl hover:bg-orange-300 shadow-lg hover:shadow-xl">
             Upload data (.txt/.tsv/.csv)
           </button>
           <a
