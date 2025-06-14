@@ -57,7 +57,8 @@ function RemoveButton({ onClick }) {
   return (
     <button
       onClick={onClick}
-      className="absolute right-2 top-0 text-red-500 hover:text-red-700">
+      className="absolute right-2 top-0 text-red-500 hover:text-red-700"
+      title="Remove panel">
       ×
     </button>
   );
@@ -68,7 +69,7 @@ function LinkButton({ onClick, isLinked, isLinkModeActive }) {
   <button
         onClick={onClick}
         className="absolute right-16 top-0 p-0.5"
-        title={isLinked ? 'Unlink panels' : 'Link this panel'}>
+        title={isLinked ? 'Unlink panels' : 'Link panel'}>
         <span className={`inline-flex items-center justify-center w-6 h-6 rounded
         ${isLinkModeActive ? 'bg-blue-200' :
         isLinked         ? 'bg-green-200' :
@@ -106,7 +107,7 @@ function CodonToggleButton({ onClick, isActive }) {
 function Tooltip({ x, y, children }) {
   return (
     <div
-      className="fixed px-1 py-0.5 text-xs bg-gray-200 rounded pointer-events-none z-50"
+      className="fixed px-1 py-0.5 text-xs bg-gray-200 rounded-xl pointer-events-none z-50"
       style={{ top: y+24, left: x+14}}
     >
       {children}
@@ -229,7 +230,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
     <PanelContainer onDoubleClick={() => onReupload(id)}>
       <div
         ref={containerRef}
-        className="relative flex flex-col h-full border rounded bg-white"
+        className="relative flex flex-col h-full border rounded-xl bg-white"
         onMouseLeave={() => {
           setHoveredCol(null);
           if (id === highlightOrigin) {
@@ -427,7 +428,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
             <select
               value={selectedCol}
               onChange={e => setSelectedCol(e.target.value)}
-              className="border rounded p-1"
+              className="border rounded-xl p-1"
             >
               {numericCols.map(col => (
                 <option key={col} value={col}>{col}</option>
@@ -749,14 +750,14 @@ const handleSaveWorkspace = () => {
           <button onClick={() => triggerUpload('histogram')} className="w-40 h-20 bg-orange-200 text-black px-4 py-2 rounded-xl hover:bg-orange-300 shadow-lg hover:shadow-xl">
             Upload data (.txt/.tsv/.csv)
           </button>
-          <a
-            href="https://github.com/lucanest/mseaview"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center px-2 py-1 rounded hover:bg-gray-200"
-            title="View on GitHub"
-          >
-            <svg
+          <div className="relative group">
+  <a
+    href="https://github.com/lucanest/mseaview"
+    target="_blank"
+    rel="noopener noreferrer"
+    className="inline-flex items-center px-2 py-1 rounded hover:bg-gray-200"
+  >
+ <svg
               xmlns="http://www.w3.org/2000/svg"
               fill="currentColor"
               viewBox="0 0 24 24"
@@ -765,7 +766,14 @@ const handleSaveWorkspace = () => {
             >
               <path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.867 8.184 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.342-3.369-1.342-.454-1.154-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.004.07 1.532 1.032 1.532 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.339-2.221-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.254-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.025A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.295 2.748-1.025 2.748-1.025.546 1.378.202 2.396.1 2.65.64.7 1.028 1.595 1.028 2.688 0 3.847-2.337 4.695-4.566 4.944.36.31.68.921.68 1.857 0 1.34-.012 2.421-.012 2.751 0 .267.18.578.688.48C19.135 20.2 22 16.447 22 12.021 22 6.484 17.523 2 12 2z"/>
             </svg>
-          </a>
+  </a>
+
+  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 
+                  bg-gray-700 text-white text-xs px-2 py-1 rounded-md
+                  opacity-0 group-hover:opacity-80 transition-opacity duration-300 pointer-events-none whitespace-nowrap">
+    GitHub
+  </div>
+</div>
           {/*<button onClick={() => setDarkMode(prev => !prev)} className="bg-gray-800 text-white px-2 py-1 rounded hover:bg-gray-700 dark:bg-white dark:text-black dark:hover:bg-gray-300">
             {darkMode ? '☀︎' : '☾'}
           </button>*/}
