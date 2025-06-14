@@ -1,12 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 
-const PhyloTreeViewer = ({ newick: newickStr, isNhx = false }) => {
+const PhyloTreeViewer = ({
+  id,
+  newick: newickStr, isNhx = false,
+  highlightedSequenceId, onHoverTip,
+  linkedTo, highlightOrigin
+}) => {
   const containerRef = useRef();
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [debugInfo, setDebugInfo] = useState('');
 
-  // Enhanced Newick parser (same as your existing code)
   const parseNewick = (newickString) => {
     let pos = 0;
     const parseNode = () => {
@@ -70,7 +74,6 @@ const PhyloTreeViewer = ({ newick: newickStr, isNhx = false }) => {
     return parseNode();
   };
 
-  // ResizeObserver to update size
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -86,7 +89,6 @@ const PhyloTreeViewer = ({ newick: newickStr, isNhx = false }) => {
     return () => observer.disconnect();
   }, []);
 
-  // Render tree whenever newick, isNhx or size changes
   useEffect(() => {
     if (!newickStr || !size.width || !size.height) return;
 
@@ -183,12 +185,18 @@ const PhyloTreeViewer = ({ newick: newickStr, isNhx = false }) => {
         translate(${d.y},0)
       `)
       .attr('r', 4)
-      .attr('fill', d => {
-        const val = d.data.nhx?.[colorField];
-        return val ? colorMap[val] : '#555';
-      })
+.attr('fill', d => {
+  const isLinkedHighlight = 
+    highlightedSequenceId === d.data.name &&
+    (linkedTo === highlightOrigin || id === highlightOrigin);
+  if (isLinkedHighlight) return 'red';
+  const val = d.data.nhx?.[colorField];
+  return val ? colorMap[val] : '#555';
+})
       .attr('stroke', '#fff')
-      .attr('stroke-width', 1);
+      .attr('stroke-width', 1)
+.on('mouseenter', (event, d) => onHoverTip?.(d.data.name, id))
+.on('mouseleave', () => onHoverTip?.(null, null))
 
     g.append('g')
       .selectAll('text')
@@ -204,7 +212,14 @@ const PhyloTreeViewer = ({ newick: newickStr, isNhx = false }) => {
       .attr('text-anchor', d => d.x < Math.PI ? 'start' : 'end')
       .text(d => d.data.name)
       .style('font-size', '12px')
-      .style('fill', '#333');
+.style('fill', d => {
+  const isLinkedHighlight = 
+    highlightedSequenceId === d.data.name &&
+    (linkedTo === highlightOrigin || id === highlightOrigin);
+  return isLinkedHighlight ? 'red' : '#333';
+})
+      .on('mouseenter', (event, d) => onHoverTip?.(d.data.name))
+      .on('mouseleave', () => onHoverTip?.(null));
 
     if (Object.keys(colorMap).length > 0) {
       const legend = svg.append('g')
@@ -232,8 +247,7 @@ const PhyloTreeViewer = ({ newick: newickStr, isNhx = false }) => {
     }
 
     setDebugInfo(`Tree rendered successfully. Found ${Object.keys(colorMap).length} different ${colorField} values.`);
-
-  }, [newickStr, isNhx, size]);
+  }, [newickStr, isNhx, size, highlightedSequenceId, linkedTo, highlightOrigin, onHoverTip]);
 
   return (
     <div

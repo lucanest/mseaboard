@@ -132,34 +132,33 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   onRemove, onReupload, onDuplicate,
   onLinkClick, isLinkModeActive, isLinked, linkedTo,
   highlightedSite, highlightOrigin, onHighlight,
-  onSyncScroll, externalScrollLeft
-}){
-  const containerRef     = useRef(null);
+  onSyncScroll, externalScrollLeft,
+  highlightedSequenceId, setHighlightedSequenceId
+}) {
+  const containerRef = useRef(null);
   const gridContainerRef = useRef(null);
-  const listRef          = useRef(null);
+  const gridRef = useRef(null);
 
-  const [dims, setDims]           = useState({ width: 0, height: 0 });
+  const [dims, setDims] = useState({ width: 0, height: 0 });
   const [hoveredCol, setHoveredCol] = useState(null);
-  const [tooltipPos, setTooltipPos]   = useState({ x: 0, y: 0 });
+  const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [codonMode, setCodonMode] = useState(false);
+  const [scrollTop, setScrollTop] = useState(0);
 
-  // sizing
-  const LABEL_WIDTH = 66;  // px
-  const CELL_SIZE   = 24;  // px
+  const LABEL_WIDTH = 66;
+  const CELL_SIZE = 24;
 
-  // Re-measure on panel resize
   useEffect(() => {
     if (!gridContainerRef.current) return;
     const ro = new ResizeObserver(entries => {
       for (let { contentRect } of entries) {
         setDims({
-          width:  contentRect.width,
+          width: contentRect.width,
           height: contentRect.height
         });
       }
     });
     ro.observe(gridContainerRef.current);
-    // initial measure
     const { width, height } = gridContainerRef.current.getBoundingClientRect();
     setDims({ width, height });
     return () => ro.disconnect();
@@ -169,49 +168,41 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
     if (gridRef.current && typeof externalScrollLeft === 'number') {
       gridRef.current.scrollTo({ scrollLeft: externalScrollLeft });
     }
-    }, [externalScrollLeft]);
+  }, [externalScrollLeft]);
 
-    const rowCount = msaData.length;
-    const colCount = msaData[0]?.sequence.length || 0;
-    const gridRef = useRef(null);
-    const derivedTooltipPos = hoveredCol != null ? tooltipPos
-                            : { x: -5, y: -20 }; // Default for linked highlight
-    // sync label-list scroll with grid
-    const onScroll = ({ scrollTop, scrollLeft }) => {
-    listRef.current?.scrollTo(scrollTop);
+  const rowCount = msaData.length;
+  const colCount = msaData[0]?.sequence.length || 0;
 
+  const onScroll = ({ scrollTop, scrollLeft }) => {
+    setScrollTop(scrollTop);
     if (linkedTo != null && scrollLeft != null) {
       onSyncScroll(scrollLeft, id);
     }
   };
 
-  // the Cell renderer checks for both hover and linked-panel highlight:
   const Cell = useCallback(({ columnIndex, rowIndex, style }) => {
-    const char   = msaData[rowIndex].sequence[columnIndex];
+    const char = msaData[rowIndex].sequence[columnIndex];
     const baseBg = residueColors[char.toUpperCase()] || 'bg-white';
-    const isHoverHighlight = codonMode
-  ? hoveredCol != null && Math.floor(hoveredCol / 3) === Math.floor(columnIndex / 3)
-  : hoveredCol === columnIndex;
-    // two-way link: if this panel is linked to the origin of the highlight
-let isLinkedHighlight = false;
 
-if (linkedTo === highlightOrigin && highlightedSite != null) {
-  if (codonMode) {
-    const codonStart = Math.floor(highlightedSite / 3) * 3;
-    isLinkedHighlight = columnIndex >= codonStart && columnIndex < codonStart + 3;
-  } else {
-    isLinkedHighlight = highlightedSite === columnIndex;
-  }
-}
+    const isHoverHighlight = codonMode
+      ? hoveredCol != null && Math.floor(hoveredCol / 3) === Math.floor(columnIndex / 3)
+      : hoveredCol === columnIndex;
+
+    const isLinkedHighlight =
+      linkedTo &&
+      highlightedSite != null &&
+      (linkedTo === highlightOrigin || id === highlightOrigin) &&
+      (codonMode
+        ? columnIndex >= Math.floor(highlightedSite / 3) * 3 &&
+          columnIndex < Math.floor(highlightedSite / 3) * 3 + 3
+        : columnIndex === highlightedSite);
 
     return (
       <div
         style={style}
-        className={`
-          flex items-center justify-center
-          ${baseBg}
-          ${isHoverHighlight || isLinkedHighlight ? 'alignment-highlight' : ''}
-        `}
+        className={`flex items-center justify-center ${baseBg} ${
+          isHoverHighlight || isLinkedHighlight ? 'alignment-highlight' : ''
+        }`}
         onMouseEnter={e => {
           setHoveredCol(columnIndex);
           onHighlight(columnIndex, id);
@@ -224,122 +215,162 @@ if (linkedTo === highlightOrigin && highlightedSite != null) {
         }}
         onMouseLeave={() => {
           setHoveredCol(null);
-          if (id === highlightOrigin) {onHighlight(null, id);}
+          if (id === highlightOrigin) {
+            onHighlight(null, id);
+          }
         }}
-        //title={`Pos ${columnIndex + 1}, ${char}`}
       >
         {char}
       </div>
     );
-  }, [
-    msaData, hoveredCol,
-    highlightedSite, highlightOrigin,
-    linkedTo, id, onHighlight
-  ]);
+  }, [msaData, hoveredCol, highlightedSite, highlightOrigin, linkedTo, id, onHighlight, codonMode]);
 
   return (
     <PanelContainer onDoubleClick={() => onReupload(id)}>
-    <div
-      ref={containerRef}
-      className="relative flex flex-col h-full border rounded bg-white"
-      onMouseLeave={() => {
-        setHoveredCol(null);
-      if (id === highlightOrigin) {onHighlight(null, id);}
-      }}
-    >
-    <div className="panel-drag-handle select-none font-bold text-center bg-gray-100 p-1 mb-2 cursor-move relative">
-      MSA: {filename}
-      <DuplicateButton onClick={() => onDuplicate(id)} />
-      <RemoveButton onClick={() => onRemove(id)} />
-      <LinkButton
-        onClick={() => onLinkClick(id)}
-        isLinked={isLinked}
-        isLinkModeActive={isLinkModeActive}/>
-    </div>
-    <CodonToggleButton
-  onClick={() => setCodonMode(m => !m)}
-  isActive={codonMode}
-  />
-
-    {/* — Hover tooltip (only in the origin panel) — */}
-    {hoveredCol != null && id === highlightOrigin && (
-  <Tooltip x={tooltipPos.x} y={tooltipPos.y}>
-  {codonMode
-    ? `Codon ${Math.floor(hoveredCol / 3) + 1}`
-    : `Site ${hoveredCol + 1}`
-  }
-  </Tooltip>
-    )}
-
-    {/* — Persistent linked tooltip (only in the linked panel) — */}
-    {highlightedSite != null
-      && linkedTo === highlightOrigin
-      && id !== highlightOrigin && (
-        <Tooltip x={tooltipPos.x} y={tooltipPos.y}>
-  {codonMode
-    ? `Codon ${Math.floor(highlightedSite / 3) + 1}`
-    : `Site ${highlightedSite + 1}`
-  }
-  </Tooltip>
-    )}
-
-    {/* labels + virtualized grid */}
-    <div
-      ref={gridContainerRef}
-      className="flex-1 flex overflow-hidden font-mono text-sm"
-    >
-    {/* sequence IDs */}
-    <List
-      ref={listRef}
-      height={dims.height}
-      width={LABEL_WIDTH*1.9}
-      itemCount={rowCount}
-      itemSize={CELL_SIZE}
-    >
-      {({ index, style }) => {
-      const rawId = msaData[index].id.replace(/\s+/g, ' ').trim();
-      const shortId = rawId.length > 10 ? rawId.slice(0, 8) + '..' : rawId;
-      return (
-        <div
-          style={style}
-          className="flex items-center pr-2 pl-2 text-right font-bold truncate"
-          title={rawId}
-        >
-          {shortId}
+      <div
+        ref={containerRef}
+        className="relative flex flex-col h-full border rounded bg-white"
+        onMouseLeave={() => {
+          setHoveredCol(null);
+          if (id === highlightOrigin) {
+            onHighlight(null, id);
+          }
+        }}
+      >
+        <div className="panel-drag-handle select-none font-bold text-center bg-gray-100 p-1 mb-2 cursor-move relative">
+          MSA: {filename}
+          <DuplicateButton onClick={() => onDuplicate(id)} />
+          <RemoveButton onClick={() => onRemove(id)} />
+          <LinkButton
+            onClick={() => onLinkClick(id)}
+            isLinked={isLinked}
+            isLinkModeActive={isLinkModeActive}
+          />
         </div>
-      );
-      }}
-      </List>
-      {/* the alignment */}
-        <Grid
-        ref={gridRef}
-          columnCount={colCount}
-          columnWidth={CELL_SIZE}
-          height={dims.height}
-          rowCount={rowCount}
-          rowHeight={CELL_SIZE}
-          width={Math.max(dims.width - LABEL_WIDTH, 0)}
-          onScroll={onScroll}
+        <CodonToggleButton onClick={() => setCodonMode(m => !m)} isActive={codonMode} />
+
+        {hoveredCol != null && id === highlightOrigin && (
+          <Tooltip x={tooltipPos.x} y={tooltipPos.y}>
+            {codonMode
+              ? `Codon ${Math.floor(hoveredCol / 3) + 1}`
+              : `Site ${hoveredCol + 1}`}
+          </Tooltip>
+        )}
+
+        {highlightedSite != null &&
+          linkedTo === highlightOrigin &&
+          id !== highlightOrigin && (
+            <Tooltip x={tooltipPos.x} y={tooltipPos.y}>
+              {codonMode
+                ? `Codon ${Math.floor(highlightedSite / 3) + 1}`
+                : `Site ${highlightedSite + 1}`}
+            </Tooltip>
+          )}
+
+        <div
+          ref={gridContainerRef}
+          className="flex-1 flex overflow-hidden font-mono text-sm"
         >
-          {Cell}
-        </Grid>
-  </div>
-  </div>
-  </PanelContainer>
+          <div
+            style={{
+              width: LABEL_WIDTH * 1.9,
+              height: dims.height,
+              overflow: 'hidden',
+              position: 'relative'
+            }}
+          >
+            <div
+              style={{
+                transform: `translateY(-${scrollTop || 0}px)`,
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0
+              }}
+            >
+              {msaData.map((seq, index) => {
+                const rawId = seq.id.replace(/\s+/g, ' ').trim();
+                const shortId = rawId.length > 10 ? rawId.slice(0, 8) + '..' : rawId;
+                const isLinkedNameHighlight =
+                  linkedTo &&
+                  highlightedSequenceId === seq.id &&
+                  (linkedTo === highlightOrigin || id === highlightOrigin);
+
+                return (
+                  <div
+                    key={index}
+                    style={{
+                      height: CELL_SIZE,
+                      lineHeight: `${CELL_SIZE}px`
+                    }}
+                    className={`flex items-center pr-2 pl-2 text-right font-bold truncate ${
+                      isLinkedNameHighlight ? 'bg-yellow-100' : ''
+                    }`}
+                    title={rawId}
+onMouseEnter={() => {
+  if (linkedTo) {
+    setHighlightedSequenceId(seq.id);
+  }
+}}
+onMouseLeave={() => {
+  if (linkedTo) {
+    setHighlightedSequenceId(null);
+  }
+}}
+                  >
+                    {shortId}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <Grid
+            ref={gridRef}
+            columnCount={colCount}
+            columnWidth={CELL_SIZE}
+            height={dims.height}
+            rowCount={rowCount}
+            rowHeight={CELL_SIZE}
+            width={Math.max(dims.width - LABEL_WIDTH, 0)}
+            onScroll={onScroll}
+          >
+            {Cell}
+          </Grid>
+        </div>
+      </div>
+    </PanelContainer>
   );
 });
-
-const TreePanel = React.memo(function TreePanel({ id, data, onRemove, onReupload,onDuplicate, onSelectTip }) {
+const TreePanel = React.memo(function TreePanel({
+  id, data, onRemove, onReupload, onDuplicate,
+  highlightedSequenceId, onHoverTip,
+  linkedTo, highlightOrigin,
+  onLinkClick, isLinkModeActive, isLinked
+}) {
   const { data: newick, filename, isNhx } = data;
+
   return (
     <PanelContainer onDoubleClick={() => onReupload(id)}>
       <div className="panel-drag-handle select-none font-bold text-center bg-gray-100 p-1 mb-2 cursor-move relative">
         Tree: {filename}
         <DuplicateButton onClick={() => onDuplicate(id)} />
         <RemoveButton onClick={() => onRemove(id)} />
+        <LinkButton
+          onClick={() => onLinkClick(id)}
+          isLinked={isLinked}
+          isLinkModeActive={isLinkModeActive}
+        />
       </div>
       <div className="flex-1 overflow-auto flex items-center justify-center">
-        <PhyloTreeViewer newick={newick} isNhx={isNhx} onSelectTip={onSelectTip} />
+        <PhyloTreeViewer
+          newick={newick}
+          isNhx={isNhx}
+          highlightedSequenceId={highlightedSequenceId}
+          onHoverTip={onHoverTip}
+          linkedTo={linkedTo}
+          highlightOrigin={highlightOrigin}
+        />
       </div>
     </PanelContainer>
   );
@@ -431,6 +462,7 @@ function App() {
   const [scrollPositions, setScrollPositions] = useState({});
   const [highlightSite, setHighlightSite] = useState(null);
   const [highlightOrigin, setHighlightOrigin] = useState(null);
+  const [highlightedSequenceId, setHighlightedSequenceId] = useState(null);
   const [panelData, setPanelData] = useState({});
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [darkMode, setDarkMode] = useState(false);
@@ -779,29 +811,31 @@ const handleSaveWorkspace = () => {
     onRemove: removePanel,
     onReupload: id => triggerUpload(panel.type, id),
     onDuplicate: duplicatePanel,
-
     onLinkClick: handleLinkClick,
     isLinkModeActive: linkMode === panel.i,
     isLinked: !!panelLinks[panel.i],
     linkedTo: panelLinks[panel.i] || null,
-
     highlightedSite: highlightSite,
     highlightOrigin: highlightOrigin,
     onHighlight: handleHighlight,
   };
+
   return (
     <div key={panel.i}>
       {panel.type === 'alignment' ? (
-<AlignmentPanel
-  {...commonProps}
-  selectedId={selectedId}
-  onSyncScroll={onSyncScroll}
-  externalScrollLeft={scrollPositions[panel.i]}
-/>
+        <AlignmentPanel
+          {...commonProps}
+          selectedId={selectedId}
+          onSyncScroll={onSyncScroll}
+          externalScrollLeft={scrollPositions[panel.i]}
+          highlightedSequenceId={highlightedSequenceId}
+          setHighlightedSequenceId={setHighlightedSequenceId}
+        />
       ) : panel.type === 'tree' ? (
         <TreePanel
           {...commonProps}
-          onSelectTip={setSelectedId}
+          highlightedSequenceId={highlightedSequenceId}
+          onHoverTip={setHighlightedSequenceId}
         />
       ) : (
         <HistogramPanel
