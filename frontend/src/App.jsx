@@ -115,16 +115,21 @@ function Tooltip({ x, y, children }) {
   );
 }
 
-function PanelContainer({ children, onDoubleClick }) {
+function PanelContainer({ id, linkedTo, hoveredPanelId, setHoveredPanelId, children, onDoubleClick }) {
   return (
-<div
-  className="border rounded-2xl overflow-hidden h-full flex flex-col bg-white shadow-lg hover:shadow-xl"
-  onDoubleClick={onDoubleClick}
->
-  {children}
-</div>
+    <div
+      className={`border rounded-2xl overflow-hidden h-full flex flex-col bg-white
+                  shadow-lg
+                  ${hoveredPanelId === id || hoveredPanelId === linkedTo ? 'shadow-xl' : ''}`}
+      onMouseEnter={() => setHoveredPanelId(id)}
+      onMouseLeave={() => setHoveredPanelId(null)}
+      onDoubleClick={onDoubleClick}
+    >
+      {children}
+    </div>
   );
 }
+
 
 
 const AlignmentPanel = React.memo(function AlignmentPanel({
@@ -134,7 +139,8 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   onLinkClick, isLinkModeActive, isLinked, linkedTo,
   highlightedSite, highlightOrigin, onHighlight,
   onSyncScroll, externalScrollLeft,
-  highlightedSequenceId, setHighlightedSequenceId
+  highlightedSequenceId, setHighlightedSequenceId,hoveredPanelId,
+  setHoveredPanelId
 }) {
   const containerRef = useRef(null);
   const gridContainerRef = useRef(null);
@@ -227,7 +233,13 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   }, [msaData, hoveredCol, highlightedSite, highlightOrigin, linkedTo, id, onHighlight, codonMode]);
 
   return (
-    <PanelContainer onDoubleClick={() => onReupload(id)}>
+    <PanelContainer
+  id={id}
+  linkedTo={linkedTo}
+  hoveredPanelId={hoveredPanelId}
+  setHoveredPanelId={setHoveredPanelId}
+  onDoubleClick={() => onReupload(id)}
+>
       <div
         ref={containerRef}
         className="relative flex flex-col h-full border rounded-xl bg-white"
@@ -347,12 +359,19 @@ const TreePanel = React.memo(function TreePanel({
   id, data, onRemove, onReupload, onDuplicate,
   highlightedSequenceId, onHoverTip,
   linkedTo, highlightOrigin,
-  onLinkClick, isLinkModeActive, isLinked
+  onLinkClick, isLinkModeActive, isLinked,hoveredPanelId,
+  setHoveredPanelId
 }) {
   const { data: newick, filename, isNhx } = data;
 
   return (
-    <PanelContainer onDoubleClick={() => onReupload(id)}>
+    <PanelContainer
+  id={id}
+  linkedTo={linkedTo}
+  hoveredPanelId={hoveredPanelId}
+  setHoveredPanelId={setHoveredPanelId}
+  onDoubleClick={() => onReupload(id)}
+>
       <div className="panel-drag-handle select-none font-bold text-center bg-gray-100 p-1 mb-2 cursor-move relative">
         Tree: {filename}
         <DuplicateButton onClick={() => onDuplicate(id)} />
@@ -379,7 +398,8 @@ const TreePanel = React.memo(function TreePanel({
 
 const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, onReupload,onDuplicate,
   onLinkClick, isLinkModeActive, isLinked, linkedTo,
-  highlightedSite, highlightOrigin, onHighlight }) {
+  highlightedSite, highlightOrigin, onHighlight,hoveredPanelId,
+  setHoveredPanelId }) {
   const { filename } = data;
   const isTabular = !Array.isArray(data.data);
   const [selectedCol, setSelectedCol] = useState(
@@ -411,7 +431,13 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
   }, []);
   // pass highlight props into Histogram
   return (
-    <PanelContainer onDoubleClick={() => onReupload(id)}>
+    <PanelContainer
+  id={id}
+  linkedTo={linkedTo}
+  hoveredPanelId={hoveredPanelId}
+  setHoveredPanelId={setHoveredPanelId}
+  onDoubleClick={() => onReupload(id)}
+>
       <div className="panel-drag-handle select-none font-bold text-center bg-gray-100 p-1 mb-2 cursor-move relative">
         Data: {filename}
       <DuplicateButton onClick={() => onDuplicate(id)} />
@@ -467,7 +493,7 @@ function App() {
   const [panelData, setPanelData] = useState({});
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [darkMode, setDarkMode] = useState(false);
-
+  const [hoveredPanelId, setHoveredPanelId] = useState(null);
   const fileInputRef = useRef(null);
   const fileInputRefWorkspace = useRef(null);
   const pendingTypeRef = useRef(null);
@@ -826,31 +852,33 @@ const handleSaveWorkspace = () => {
     highlightedSite: highlightSite,
     highlightOrigin: highlightOrigin,
     onHighlight: handleHighlight,
+    hoveredPanelId,                    
+    setHoveredPanelId      
   };
 
   return (
-    <div key={panel.i}>
-      {panel.type === 'alignment' ? (
-        <AlignmentPanel
-          {...commonProps}
-          selectedId={selectedId}
-          onSyncScroll={onSyncScroll}
-          externalScrollLeft={scrollPositions[panel.i]}
-          highlightedSequenceId={highlightedSequenceId}
-          setHighlightedSequenceId={setHighlightedSequenceId}
-        />
-      ) : panel.type === 'tree' ? (
-        <TreePanel
-          {...commonProps}
-          highlightedSequenceId={highlightedSequenceId}
-          onHoverTip={setHighlightedSequenceId}
-        />
-      ) : (
-        <HistogramPanel
-          {...commonProps}
-        />
-      )}
-    </div>
+<div key={panel.i}>
+  {panel.type === 'alignment' ? (
+    <AlignmentPanel
+      {...commonProps}
+      selectedId={selectedId}
+      onSyncScroll={onSyncScroll}
+      externalScrollLeft={scrollPositions[panel.i]}
+      highlightedSequenceId={highlightedSequenceId}
+      setHighlightedSequenceId={setHighlightedSequenceId}
+    />
+  ) : panel.type === 'tree' ? (
+    <TreePanel
+      {...commonProps}
+      highlightedSequenceId={highlightedSequenceId}
+      onHoverTip={setHighlightedSequenceId}
+    />
+  ) : (
+    <HistogramPanel
+      {...commonProps}
+    />
+  )}
+</div>
   );
 })}
           </GridLayout>
