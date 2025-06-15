@@ -398,14 +398,19 @@ const TreePanel = React.memo(function TreePanel({
   );
 });
 
-const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, onReupload,onDuplicate,
+const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, onReupload, onDuplicate,
   onLinkClick, isLinkModeActive, isLinked, linkedTo,
-  highlightedSite, highlightOrigin, onHighlight,hoveredPanelId,
-  setHoveredPanelId }) {
+  highlightedSite, highlightOrigin, onHighlight, hoveredPanelId,
+  setHoveredPanelId, setPanelData // <-- add this prop
+}) {
   const { filename } = data;
   const isTabular = !Array.isArray(data.data);
   const [selectedCol, setSelectedCol] = useState(
-    isTabular ? data.data.headers.find(h => typeof data.data.rows[0][h] === 'number') : null
+    // Try to restore from data.selectedCol, fallback to first numeric col
+    isTabular
+      ? (data.selectedCol ||
+         data.data.headers.find(h => typeof data.data.rows[0][h] === 'number'))
+      : null
   );
   const numericCols = isTabular
     ? data.data.headers.filter(h =>
@@ -455,7 +460,17 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
             <label className="mr-2">Select column:</label>
             <select
               value={selectedCol}
-              onChange={e => setSelectedCol(e.target.value)}
+                   onChange={e => {
+                setSelectedCol(e.target.value);
+                // Persist selectedCol in panelData
+                setPanelData(prev => ({
+                  ...prev,
+                  [id]: {
+                    ...prev[id],
+                    selectedCol: e.target.value
+                  }
+                }));
+              }}
               className="border rounded-xl p-1"
             >
               {numericCols.map(col => (
@@ -878,6 +893,7 @@ const handleSaveWorkspace = () => {
   ) : (
     <HistogramPanel
       {...commonProps}
+      setPanelData={setPanelData}
     />
   )}
 </div>
