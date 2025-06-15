@@ -1,0 +1,1810 @@
+{
+  "panels": [
+    {
+      "i": "alignment-1749993396737",
+      "type": "alignment"
+    },
+    {
+      "i": "tree-1749993417110",
+      "type": "tree"
+    },
+    {
+      "i": "histogram-1749993436837",
+      "type": "histogram"
+    },
+    {
+      "i": "histogram-1749993453799",
+      "type": "histogram"
+    },
+    {
+      "i": "__footer",
+      "type": "footer"
+    }
+  ],
+  "layout": [
+    {
+      "w": 9,
+      "h": 14,
+      "x": 0,
+      "y": 0,
+      "i": "alignment-1749993396737",
+      "minW": 3,
+      "minH": 5,
+      "moved": false,
+      "static": false
+    },
+    {
+      "w": 3,
+      "h": 14,
+      "x": 9,
+      "y": 0,
+      "i": "tree-1749993417110",
+      "minW": 3,
+      "minH": 5,
+      "moved": false,
+      "static": false
+    },
+    {
+      "w": 12,
+      "h": 6,
+      "x": 0,
+      "y": 14,
+      "i": "histogram-1749993436837",
+      "minW": 3,
+      "minH": 5,
+      "moved": false,
+      "static": false
+    },
+    {
+      "w": 12,
+      "h": 6,
+      "x": 0,
+      "y": 20,
+      "i": "histogram-1749993453799",
+      "minW": 3,
+      "minH": 5,
+      "moved": false,
+      "static": false
+    },
+    {
+      "w": 12,
+      "h": 2,
+      "x": 0,
+      "y": 26,
+      "i": "__footer",
+      "moved": false,
+      "static": true
+    }
+  ],
+  "panelData": {
+    "alignment-1749993396737": {
+      "data": [
+        {
+          "id": "T25",
+          "sequence": "-T-Q-D---TWT---M-S----F-P-FCG--HFY-HHY-HYG--LHH-QI----CM--TH-LH-I-R---HS-FLC-H-SR-NVLI--LG---HF-AC-PLDCNA---QSYS--A--PSQPS-MGVMSQ---NH--M---LTSASAA--IYMQ--SC-TCI--ADC-P---NL-EW--MD--A-AC-AA----S-D---H-T-A-NN-YH--EYF-HAFH--W-Q--A----EYHM-AVE---M-S--NN"
+        },
+        {
+          "id": "T20",
+          "sequence": "-T-Q-D----WT---M-S----F-P-FCD---FYHH-YIH-G-I-H-HQ----C--W-TH--H-I-R-C-DS-FLC-H-SR-NVLT--L-------AC-PL-C-A---QSYS-----PS-PS-M--MSQ----H------LTSA-A---LYMQ--T--TC---ADC-P----L-EW--MD----AC-AA----S---------A-NN-----EDF--AFH--W-Q--A---HE-HMP-VE---MHA---H"
+        },
+        {
+          "id": "T11",
+          "sequence": "-T-Q------WT---M-S----F-P-FCD---FYHH-YIH-G-I-HHHQ----C--W-TH--H-I-R-C-DS-FL--H-SR-NVLT--LG------A--PL-C-A---QSYS-----PSQPS-M--MSQ---NH------LTSA-A---LYMQ--T--TCI---DC-P----L-EW--MD----AC--A----S---------A-NN-Y---EYF--AFH--W-Q--A---HE-HMP-VE---MHA---H"
+        },
+        {
+          "id": "T4",
+          "sequence": "-T-Q-D----WT---M-S----F-P-F-D---FYHH-YIH-G-I-HHHQ----C--W--H--H-I-R-C-DS-FL--H-SR-NVLT--LG------A--PL-C-A---QSYS-----PSQPS-M--MSQ---NH------LTSA-A---LYMQ--T--TCI---DC-P----L-EW--MD----AC--A----S---------A-NN-Y---EYF--AFH--W-Q--A---HE-HMP-VE---MHA---H"
+        },
+        {
+          "id": "T14",
+          "sequence": "---Q-D---AWA---M-S---I-MP-F----HF-H--YIH-----H---I---------H-N--I-R-C-HS-FP--H-SR--VL----G----F-AC--L--N--R-Q--------PSQ-SYMGVM-----NH------LTAASA---------N--T----A---P---NL-EW-P-D--A--C-AAN---S---Q-H-----TN-YH--ESF-H-FH----Q--A---H--H--AVE--DMHS----"
+        },
+        {
+          "id": "T31",
+          "sequence": "---Q-D---A-A---M-S---IFMP-F----H-YHH-Y-H-----H---I---------H-N--I-R-C-H--FP----SR-NVL---LG----F--C--L--N--R-QS--------S---YMGV-------H------LTAASAA----K---N--T----T---T---N---W-P-D--A--S-AAN---S---Q-H---A-T--YH--ECF-H-FH--W-Q--A-----YH--A-E--DMH---N-"
+        },
+        {
+          "id": "T15",
+          "sequence": "-----D---AWA---M-S---IFMP-F----HFYHH-YIH-----H---I---------H-N--I-R-C-HS-F---H-SR-NVL----G----F-SC--L--N--R-QS-------P-Q-SYMGVM-------------LTAASAP----K---N--TC---A-------NL-EW-P-D--A----A-N---S---Q-H------N-YH--ESF-H-FH--L-Q--A---H-YH----E--DMHS--N-"
+        },
+        {
+          "id": "T8",
+          "sequence": "-----D----W------S---I--P--C---H-YHH-YI----IL--HQI----CMW--H----I-R-C-HS-FL--H-SR-N-LT--LG---HF-A----D----R-QS-S--A--PS-PSYMGVMSQ---NH-------AA-S-S--LY----SC-T-I--AD--P---NL-EW--MD--A--C-AAN-----D-Q-H-T-A-N--YH--EYF---FH----Q------H--HMAAVE--DMHA--N-"
+        },
+        {
+          "id": "T27",
+          "sequence": "-----D----W------S---I--P--C---H-YHH-Y-----IL--HQI----CMW--H----I-R-C-HS-FLW-H-SR-NVLI--LG---HF-A----D-N--R-QS-S--A--PS-PSYMGVMSQ---NH------LTAAS-S--IY----SC-T-I---D--P---NL-EW-PMD-----C-AAN-----D-Q-H-T-A-N--YH--EYF---FH----Q------H--HMAAVE--D-HA--NN"
+        },
+        {
+          "id": "T23",
+          "sequence": "-T--FDN--IW--C---S--EIF-P--CD--H-YH-H-IHY----HH-QIL---CMW----R--I-R---D-MF-C-H----N-L-----HA-HF-A---LD--A-R-QS-S-----P-QPS-M-VM-Q--SNH--M--MLI-A-AST-MYTQ-IDC------AG--P---NL-EW-P-D-GA--C-AAN----WY-Q---T-A--N-YH-QEY--HA-H--W---RA---H-YHM-AV----MH-I-NH"
+        },
+        {
+          "id": "T17",
+          "sequence": "-T-QFDN--T-------S--EIF-P--CD--HFYH--Y-HY--I-HH-QIP--CCMW-T---H-I-R-C-D-MF-C-H--R-NVL---LGHA-HF-AC-PL---A-R-QS-S-----P-Q-S-M--M-Q--SN-A----MLTA-TA-T-MYTQ-IN----I--AA------NL-EW-PMD-GA--C-AAN---SWY-QHHYT-A-N--YH-QE---HAFH--W-Q-RA------HM-AVE---MH-I-NH"
+        },
+        {
+          "id": "T21",
+          "sequence": "-T-QFDN--T-------S--EIF-P--CD--HFYH--Y-HY--I-HH-QIP--CCMW-T---H-I-R-C-D-MF-C-H--R-NVL---LGHA-HF-AC-PLD----R-QS-S-----P-QPS-M-VM-Q--SN-A----MLTA-TA-T-MYTQ-IN----I--AA------NL-EW-PMD-GA--C-AAN---SWY-QHHYT-A-N--YH-QE---HAFH--W-Q-RA---H--HM-AVE---MH-I-NH"
+        },
+        {
+          "id": "T16",
+          "sequence": "-T-QFDN--T-------S--EIF-P--CD--HFYH--Y-HY--I-HH-QIP--CCMW-T---H-I-R-C-D--F-C-H--R-NVL---LGHA-HF-AC-PLD----R-QS-S-----P-QPS-M-VM-Q--SN-A----MLTA-TA-T-MYTQ-IN----I--AA------NL-EW-PMD-GA--C-AAN---SWY-QHHYT-A-N--YH-QE---HAFH--W-Q-RA---H--HM-AVE---MH-I-NH"
+        },
+        {
+          "id": "T7",
+          "sequence": "-T-QFDN--T-------S--EIF-P--CD--HFYH--Y-HY--I-HH-QIP--CCMW-T---H-I-R-C-D-MF-C-H--R-NVL---LGH--HF-AC-PLD----R-QS-S-----P-QPS-M-VM-Q--SN-A----MLTA-TA-T-MYTQ-IN----I--AA------NL-EW-PMD-GA--C-AAN---SWY-QHHYT-A-N--YH-QE---HAFH--W-Q-RA---H--HM-AVE---MH-I-NH"
+        },
+        {
+          "id": "T50",
+          "sequence": "-T-QFDN--TW--C---S--EIF-P--C---HF-H-HYIHY--I----QIP--CCMW-T--R--I---C-D-MF-C-H--R-NVL----GHA-H---C-PL---A-R-Q-YS--A--P-QP--M-VMSQ--SNHA-M--M-TAA-ALT--Y-Q-INC---I--AE--P---NL--W-PMD-GA--C-AAN---SWYLQHHY--A-DN-YH-QEY----F---W-Q-RA---H-YHM-A-E---MH---NH"
+        },
+        {
+          "id": "T42",
+          "sequence": "-T-QFDN--TW--C-M----EIF-P--CD--HF-H-HYIHY--I----QIP--CCMW-T--RH-I---C-D-MF-C-H--R--VL----GH--HF-AC-PLD--A-R-QSYS-----P-QP--M-VMSQ--SNHA----ML-AA-ALT-MYTQ-INC---I--AE--P---NL--W-PMD-GA----AANL--SWYLQHHYT-A-DN-Y----Y----FH----Q-RA---H-YHM--VE---MH-I-NH"
+        },
+        {
+          "id": "T46",
+          "sequence": "-T-QFDN--TW--C-M-S--EIF-P--CD--HF-H-HYIHY--I----QI---CCMW-T--SH-I---C-D-MF-C-H--R--VL----GH--HF-AC-PLD----R-QSYI-----P-QPS-M-VMSQ--SNHA----MLTAA--LT-MYTQ-INC---I--AE--A---NL-EW-P-D-GA----AA-L--SWYLQHHYT-A-DN-YH-Q-Y----FH----Q-RA---H-YHM--VE---MH-I-NH"
+        },
+        {
+          "id": "T37",
+          "sequence": "E--Q-DNRYT-AY-ALT--IEI-M-EFCD-RHFYH-H-IHYGRIL-HH-IPH----W-T-D-H-IM-LCNDS-FLC-HISRCN-L-ATL-HAMH-R-CA-L--N-PRC-SYSW-ATSPSQT-YM--MS-R-AN--SMHFM--AATASTF---Q-----T-IT-A-CL-YIRNLS-WLPMDH--PR-YA-NLPA--YLQH-YTM-Q-NHY--QEYFDHAFHI-W-QTR-ENLHQ-HM---EY-D--SIANH"
+        },
+        {
+          "id": "T40",
+          "sequence": "E-DQ-DNRYM-TY-ALT--IEI-M-DFCD-RHFYH-H-IHYGR-L-HH-IPHA---W-THD-H--M--CN-S-FL--HISRCNVL-ATL-HAMHFR-CAPLD-N-PRC-SY-W-ATSPSQP-YM--MS-R-SNH-SMHFMLSA-TASTF---Q-----T-IT-AECLTYIRNLS-WP-MDH--PRFYA-NLPA--YLQHHYTM-Q-NHYH-QE-FDHAFHIHWH-SR-ENLHQ-HM-AVEY-D-HSIA-H"
+        },
+        {
+          "id": "T45",
+          "sequence": "E-DQ-DNRYM-TY-ALT--IEI-M-EFCD-RHFYH-H-I-YGR-L-HH-IPHA---W-THD-H-IM--CN-S-FL--HISRCNVL-ATL-HAMHFR-CAPLD-N-PRC-SY-W-ATSPSQP-YM--MS-R-SNH-SMHFMLSA-TASTF---Q-----T-IT-AECLTYIRNLS-WP-MDH--PRFYA-NLPA--YLQHHYTM-Q-NHYH-QE-FDHAFHIHWH-CR-ENLHQ-HM-AVEY-D-HSIA-H"
+        },
+        {
+          "id": "T24",
+          "sequence": "E-DQ-DNRYT-TY-APT--IEI-M-EFCDHRHFYH-H-IHYGR-L-HH-IPHA-----THD-H-IM-LCNDS-FLC-HISRCNVL-ATL-HAMHFR-CAPLD-N-PRC-SY-W-ATS-SQT-YM--MS-R-SNH---HFMLSA-TASTF---Q-----T-IT-A-CLTYIRNLS-WP-MDH---RFYA-NLPA--YL-HHYT--Q-NHYH-QEYFDHAFHIHWH-NR-ENLHQ-HM-AVEY-D-HSIA-H"
+        },
+        {
+          "id": "T2",
+          "sequence": "E-DQ-DNRYT-TY-APT--IEI-M-EFCDHRHFYH-H-IHYGR-L-HH-IPHA-----THD-H-IM-LCNDS-FLC-HISRCNVL-ATL-HAMHFR-CAPLD-N-PRC-SY-W-ATS-SQT-YM--MS-R-SNH---HFMLSA-TASTF---Q-----T-IT-A-CLTYIRNLS-WP-MDH---RFYA-NLPA--YL-HHYT--Q-NHYH-QEYFDHAFHIHWH-NR-ENLHQ-HM-AVEY-D-HSIA-H"
+        },
+        {
+          "id": "T43",
+          "sequence": "E-DQ--N--T-TY-ART--IE----QFCDHRH-Y--H-I---RIL--H-IPHA----LT-D---IM-LC-DS--LC-HISRCN-L-AT--HAMHYR--APLD-N-P-C--Y-W--T-PS-T--M--M-----NH-G--FM-YAANA-TF---Q-----T-IT-A-CLPYIR-LS-WPPMD---PR-YA-NLPA--YL-HHYTM---NHY--Q--FD---HIHWHQAR--NL-Q-H--AVEY-D-HSI-NH"
+        },
+        {
+          "id": "T19",
+          "sequence": "E-DQ--N--T-TY-ART--IE----QFCDHRH-Y--H-I---RIL--H-IPHA----LT-D---IM-LC-DS-FLC-HISRCN-L-AT--HAMHYR--APLD-N-P-C--Y-W--T-PS-T-----M-----NH-G--SM-SAATA-TF---Q-----T-IT-A-CLPYIR-LS-WPPMD----R-YA-NLPA--DL-HHYTM---NHY--Q--FD---HIHWHQT---NL-Q-H---V-Y-D-HSI-NH"
+        },
+        {
+          "id": "T38",
+          "sequence": "E--Q-DN-Y--RY-AMT--I-I----FCD-R-FYH-H--H---I--HH-IPHA----LTHD----M----D--FLC---SRCNVL-A-L-HAMHFR-CA-L--N-PRC-S----ATS-S----M---S---S----MH-MLS-A-ASTF---Q-----T--T-AV--TYI-N-S----M------FYA-N-PA--YL-H-Y-M-Q-NHY--Q--F-H-F-I---QSR--NL-Q-HM-AVE--D-HSI-NH"
+        },
+        {
+          "id": "T39",
+          "sequence": "--D--D-R-S-TY--L---IEI----FCDHRHF-H-H-IH--R---HH-IPHA----LT-D---I--LC-DS-F-W-H-SR-NVL-A-L--AMHFR-CAPL--N-P-C-SY-W---S-S-T-YM---S-----H-SM-FMLYA-HASTF---Q-------IT--E-LPYIRNLS---PMD-----FYA-NLPA--Y-QH-Y-M-Q-NH---Q-YFD-AF-IH-H-SR--NLH--HM-AVEY---H-I-NH"
+        },
+        {
+          "id": "T6",
+          "sequence": "--D--D-R-S-TY--L---IEI----FCDH-HF-H-H-IH--R---HH-IPHA----LT-D---I--LC-DS-F-W-H-SR-NVL-A-L--AMHFR-CAPL--N-P-C-SY-W---S-S-T-YM---S-----H-SM-FMLYA-HAS-F---Q-------IT--E-LPYIRNLS---PMD-----FYA-NLPA--Y-QH-Y-M-Q-NH---Q-YFD-AF-IH-H--R--NLH--HM-AVEY---H-I-NH"
+        },
+        {
+          "id": "T5",
+          "sequence": "E-DQ--N-YT--Y-ALT----I---EF-EH-H-YH----H--RI--HH----A----LTHD---IM-L--HS---C--I-R-N-----L---M--R-C-PLD----R--SY---ATSPS-T--M--M----S---S-HC-L-AA-ASTF---Q----------AE---YIR--S-WAP-D---TTF-A--L----YLQHHYTM-Q-NHY--Q--F----HIHLH--R---L-H-HM--VED-D-HT---H"
+        },
+        {
+          "id": "T34",
+          "sequence": "E-DK--N-YT--Y-A-T----I---EF-EH-H-YH----H--RI--HH----A----LTHD---I--L--HS---C--I-RCN-----L-H-MH-R-C-PLD-N--R--SY-W-ATSPS-T-YM--M----S---S-HC-LSAA-ASTF---Q-----T-----E--T-IR--S-WAP-D---TT-YA--L----YLQHHYTM-Q-NHY--Q--F-HA-HIHLH--R---L-H-HM--V-D-D--T---H"
+        },
+        {
+          "id": "T13",
+          "sequence": "E-DQ--N-YT--Y-ALT--------EFCGH-H-YH----H--RI--HH----A----LTHD---IM-L--HS---C--I-RCN-------HAMH---CAPLD-N--R--SY-W-ATSPS-T--M-------SN---MHI-L-AA-A-TF---------T----AE-LTY-R--S-W-P-D----TFYA--LP---YLQHHYT--Q-NHY--Q--F-HA-HIHLH--R-E-L-H-HM--VED-D-HS---H"
+        },
+        {
+          "id": "T12",
+          "sequence": "E-DQ--N-YT--Y-ALT--------EFCGH-H-YH----H--RI--HH----A----LTHD---IM-L--HS---C-HI-RCN-------HAMH---CAPLD-N--R--SY-W-ATS-S-T--M-------SN---MHI-L-AA-A-TF---------T----AE-LTY-R--S-W-P-D----TFYA--LP---YLQHHYT--Q-NHY--Q--F-HA-HIHLH--R-E-L-H-HM--VED-D-HS---H"
+        },
+        {
+          "id": "T41",
+          "sequence": "E-DQ--N-YT--Y-ALT--------EFCG--H-YH----H--RI--HH----A----LTHD---IM-L--HS---C-HI-RCN-------HAMH---CAPLD-N--R--SY-W--TSPS-T--M-------SN---MHI-L-AA-A-TF---------T----AE-LTY-R--S-W-P-D----TFYA--LP---YLQHHYT--Q-NHY--Q--F-HA-HIHLH--R-E-L-H-HM--VED-D-HS---H"
+        },
+        {
+          "id": "T26",
+          "sequence": "E-DQ--N-YT--Y-ALI--------EFCGH-H-YH----H--RI--HH----A----LT-D----M-L--HS---C-HI-RCN-----L-HAMH---CAPLD-N--R--SY-W-ATSPS-T--M-------SN---MHI-L-AA-A-TF---------T----TE-LTY-R--S-W-P-D----TFYA--LP---YLQHHYT--Q-NHY--Q--F-HA-HIHLH--R-E-L-H-HM--VED-D-HS---H"
+        },
+        {
+          "id": "T3",
+          "sequence": "E-DQ--N-YT--Y-ALT--------EFCEH-H-YH----H--P---HH----A----LTHD---IM----HS---C-HI-R-N-----L--AMH----AP-D-N--R--SY-W-ATSPS-T--M--M----S----MHC-L-AA-A-TF---Q----------AE-LTYIR--S---P-D----TFYA--LP----LQHHY---Q--HY--Q--F-HA-H-HLH--R-E-L-H-HM--VED-D-H----H"
+        },
+        {
+          "id": "T49",
+          "sequence": "E-D---N-YT--Y-ALT----I---QFCD--H-YH----H--RI---H----A----LTHD----M-L--HS-----HI--C--L---L-HAMH-R-CAPLD-N--R--SY-W-ATSPS-T--M-------SN--SMHF-LSAA-AS-F---Q-----T----AQ-LAYIR--S-WPP-D---SIFYA--LP----LQHHYT----NHY--Q--F-HA-HIHLH--R---L-H-HM--VE----HS---H"
+        },
+        {
+          "id": "T36",
+          "sequence": "E-D---N-YT----ALT--------QFC-H-H-YH----H--RI---H----A----LTHD----M-L---S-----HI--CN-L---L-HAMH-R-CAPLD-N-----SY-W-ATSPS-T--M-------SN--SMHF-LSAA-AS-F---Q-----T----AQ-LAYIR--S-WPP-D---P-FYA--LP----LQHHYT----NHY--Q--F-HA-HNHLH--R---L-H-HM--VE----HS---H"
+        },
+        {
+          "id": "T44",
+          "sequence": "E-DQ--N-YR--Y-ALT----I---QFCEH-H-YH----H--RI---H----A----LTHD---IM-L--HS---C-HI-RCN-L---L-HAMH-R--APLD-N-----SY-W-ATSPS-T-----M----SN--S-H--LSAA-AS-F---Q-----T----AE-LAYIR--S-WPP-D---STF-A--LP----LQ-H-TM---NHY--Q--F-H--HI-LH--R---L-H-HM-AVE----HS---N"
+        },
+        {
+          "id": "T47",
+          "sequence": "--D-F------N----------F---F----H--H-H-I-YG--L----I------------H-I------S--LW-HI-R-N-----L--------C--L--N---C---------P-Q----GV-SQ--SN----H-----ASA-TF----------C--A-----Y---L-------------C----L---Y-Q--YT-AQ-NL-H------HA---HW--G------Q------ED-DM--I-NH"
+        },
+        {
+          "id": "T35",
+          "sequence": "--D-FD-----T--A-----E-F---F-D--HF---H-IHYG-------I-HA-----------I---CN-S--LC--I-R-N----TV--A-HF---A-L--N-P-C--YSW----P-Q--YMGV-SQ--SNH---H-M-S-ASA-TF-Y-Q---CD----A--Y--YI------QP-----T-CYA---LA--Y-Q--YT-AQ-NLYH---Y--HT-H-HW--GR---LH-------ED--MH-I-NH"
+        },
+        {
+          "id": "T18",
+          "sequence": "--D-F------T--A-----E-F---F-D--HF---H-IHYG-------I-HA---------H-I---CN-S--LC--I---N----TV--A-HF---A-L----P-C--YSW----P-Q--YMGV-SQ--SNH---H---S-AS--TF-Y-Q---CD----A--Y--Y-------QP-----P-CYA---LA--Y-Q--YT-AQ-NLYH---Y--HT-H-H---GR---LHQ------ED--MH-I-NH"
+        },
+        {
+          "id": "T10",
+          "sequence": "--D-FD-----T--A-----E-F---F-D--HF---H-IHYG-------I-HA---------H-I---CN-S--LC--I---N----TV--A-HF---A-L----P-C--YSW----P-Q--YMGV-SQ--SNH---H-M-S-AS--TF-Y-Q---CD----A--Y--Y-------QP-----P-CYA---LA--Y-Q--YT-AQ-NLYH---Y--HT-H-H---GR---LHQ------ED--MH-I-NH"
+        },
+        {
+          "id": "T22",
+          "sequence": "--D-FD-----T--A-----E-F---F----HF---H-IHYG-------I-HA---------H-I---CN-S--LC--I-R-N----TV--A-HF---A-L--N-P-C--YSW----P-Q--YMGV-SQ--SNH---H-M-S-ASA-TF-Y-Q---CD----A--Y--YI------QP-----P-CYA---LA--Y-Q--YT-AQ-NLYH---Y--HT-H-HW--GR---LHQ------ED--MH-I-NH"
+        },
+        {
+          "id": "T33",
+          "sequence": "--D-FD-R------A-------F---F-D--HF--HH-IHYG--L----I-HA------H--H-I---CN-S-FL--H--R-N----TV----HFR-C-------P-C--YSW----P-Q--YMGV-SQ--SNH-----MLP-ASA-TF-Y-Q------C---S-C---I--L---PP-------C-A---LA--Y-Q---T--Q-NLY----Y-DHA-H-HW--GR----HQ-------D-DMH-I-N-"
+        },
+        {
+          "id": "T32",
+          "sequence": "----FDNR---T--A------IF------H-H-Y--H---Y--------I--------THD-------------L-L-I---N----T--H------CA-------R---Y------P--TS---------S-------M-------T-M--QM---D---T--E--SY-----E-L--DH-A---YA--L---WYLQ--Y-----NLYH---Y---A---H---IR--------M-A-E----HT----"
+        },
+        {
+          "id": "T48",
+          "sequence": "----FDNR---I--A------IF------H-H-Y--H---Y--------I---------HD-------------L-L-I---N----T--H------CA-------R---Y------P--TS---------S-------M-------T-M--QL---D---T--E--SY-----E-L--DH-A----A--L---WYLQ--Y-----NLYH---Y---A---H---LR--------M-A-E----HT----"
+        },
+        {
+          "id": "T1",
+          "sequence": "----F--------------IE----------H--------Y---L-------------------------D--A------R---------H----R-------N-------S-------------------S-H-----M-C---A-T--Y-Q------------C--------A--PM--------A--L---W-L------A---------Y-----H----------L---------------I---"
+        },
+        {
+          "id": "T9",
+          "sequence": "-------------------IE----V--G--H---------G--L------H------------------S-------ISR------------H-----------------SW--------------------H-S---M-----A------QM-----------------------P-D---L-G-A----A-W-L-----M---N------Y-D-------H------L----M-------M------"
+        },
+        {
+          "id": "T29",
+          "sequence": "--D----------------I-----------H--------YG---------H------------------A--D----I-------A------H---------N-------S----------Y----------H-----MLY---A------Q----------T------A------P-D---L---A------W-L-----MA---------Y-D-------H------LH---M----------I---"
+        },
+        {
+          "id": "T30",
+          "sequence": "--D----------------IE--------------------G--L------H------------------P-------I-R------------H---------N-------S----------Y------------S----LY---A------Q----------T------G------P-D---L-G-A------W-------MA---------Y-D-------H------LH---M-------M--I---"
+        },
+        {
+          "id": "T28",
+          "sequence": "--D---NRY----------I--------DH--FY----I-----L------H----------H-I---C-DS----LH-S----LLA---HA--VR--APM----Q----Y---------TSY-GV----ISNHA--HFMLS-----TF-Y------D---T---CLP--R---E--PMD---P-CY-A---A----Q--Y-M---NF---------A----------E-L----M-AV------SI---"
+        }
+      ],
+      "filename": "11_50_tips.fasta"
+    },
+    "tree-1749993417110": {
+      "data": "((((T25:0.0569955[&&NHX:Trait=1],(T20:0.024707[&&NHX:Trait=0],(T11:0.00341417[&&NHX:Trait=0],T4:0.00712396[&&NHX:Trait=0]):0.0193423[&&NHX:Trait=0]):0.108201[&&NHX:Trait=0]):0.0095031[&&NHX:Trait=1],((T14:0.0558046[&&NHX:Trait=1],(T31:0.0743196[&&NHX:Trait=1],T15:0.0436416[&&NHX:Trait=1]):0.00118203[&&NHX:Trait=1]):0.184371[&&NHX:Trait=1],(T8:0.0292946[&&NHX:Trait=0],T27:0.0230694[&&NHX:Trait=1]):0.126674[&&NHX:Trait=1]):0.00930189[&&NHX:Trait=1]):0.0869766[&&NHX:Trait=1],(T23:0.0856381[&&NHX:Trait=0],((T17:0.015695[&&NHX:Trait=0],(T21:0.00262069[&&NHX:Trait=0],(T16:0.00192247[&&NHX:Trait=0],T7:0.00230867[&&NHX:Trait=0]):0.000876172[&&NHX:Trait=0]):0.00751249[&&NHX:Trait=0]):0.0530177[&&NHX:Trait=0],(T50:0.0268416[&&NHX:Trait=0],(T42:0.0212912[&&NHX:Trait=0],T46:0.0220177[&&NHX:Trait=0]):0.0202581[&&NHX:Trait=0]):0.0311526[&&NHX:Trait=0]):0.00450889[&&NHX:Trait=0]):0.0716621[&&NHX:Trait=0]):0.102333[&&NHX:Trait=0],(((T37:0.032457[&&NHX:Trait=0],((T40:0.00328247[&&NHX:Trait=0],T45:0.00289872[&&NHX:Trait=0]):0.0142464[&&NHX:Trait=0],(T24:0.00209913[&&NHX:Trait=0],T2:0.00209676[&&NHX:Trait=0]):0.0138455[&&NHX:Trait=0]):0.0179[&&NHX:Trait=0]):0.00973833[&&NHX:Trait=0],((T43:0.00912728[&&NHX:Trait=0],T19:0.0164086[&&NHX:Trait=1]):0.0778346[&&NHX:Trait=0],((T38:0.133031[&&NHX:Trait=0],(T39:0.00403462[&&NHX:Trait=0],T6:0.00768495[&&NHX:Trait=0]):0.0883[&&NHX:Trait=0]):0.012286[&&NHX:Trait=0],(((T5:0.0163305[&&NHX:Trait=1],T34:0.0153631[&&NHX:Trait=1]):0.0287481[&&NHX:Trait=1],(((T13:0.00176202[&&NHX:Trait=1],(T12:0.00392968[&&NHX:Trait=1],T41:0.00263113[&&NHX:Trait=1]):0.00100021[&&NHX:Trait=1]):0.00390892[&&NHX:Trait=1],T26:0.00593925[&&NHX:Trait=1]):0.0121817[&&NHX:Trait=1],T3:0.0402664[&&NHX:Trait=1]):0.0109286[&&NHX:Trait=1]):0.0244113[&&NHX:Trait=1],((T49:0.0118351[&&NHX:Trait=0],T36:0.0198708[&&NHX:Trait=0]):0.0296421[&&NHX:Trait=0],T44:0.0295401[&&NHX:Trait=1]):0.0234685[&&NHX:Trait=1]):0.0733946[&&NHX:Trait=1]):0.00348447[&&NHX:Trait=0]):0.0266683[&&NHX:Trait=0]):0.0623906[&&NHX:Trait=0],((T47:0.202768[&&NHX:Trait=0],(((T35:0.00852174[&&NHX:Trait=1],(T18:0.00301657[&&NHX:Trait=1],T10:0.00167326[&&NHX:Trait=1]):0.0142958[&&NHX:Trait=1]):0.0031904[&&NHX:Trait=1],T22:0.0250474[&&NHX:Trait=0]):0.0664012[&&NHX:Trait=0],T33:0.0797773[&&NHX:Trait=0]):0.00186947[&&NHX:Trait=0]):0.14323[&&NHX:Trait=0],((T32:0.0270763[&&NHX:Trait=0],T48:0.0271439[&&NHX:Trait=0]):0.375037[&&NHX:Trait=0],((T1:0.22239[&&NHX:Trait=0],(T9:0.211169[&&NHX:Trait=1],(T29:0.0672033[&&NHX:Trait=1],T30:0.0591758[&&NHX:Trait=0]):0.0914035[&&NHX:Trait=1]):0.0871035[&&NHX:Trait=1]):0.264428[&&NHX:Trait=0],T28:0.234712[&&NHX:Trait=0]):0.0574834[&&NHX:Trait=0]):0.0144036[&&NHX:Trait=0]):0.103365[&&NHX:Trait=0]):0.0532971[&&NHX:Trait=0])[&&NHX:Trait=0];",
+      "filename": "11_50_tips.nhx",
+      "isNhx": true
+    },
+    "histogram-1749993436837": {
+      "data": [
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        0,
+        4,
+        4,
+        4,
+        4,
+        4,
+        0,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        1,
+        4,
+        4,
+        2,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        0,
+        4,
+        4,
+        2,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        1,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        0,
+        4,
+        4,
+        4,
+        4,
+        4,
+        2,
+        4,
+        4,
+        2,
+        4,
+        4,
+        3,
+        2,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        2,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        0,
+        4,
+        0,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        2,
+        4,
+        4,
+        2,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        2,
+        4,
+        1,
+        0,
+        4,
+        4,
+        2,
+        4,
+        4,
+        4,
+        1,
+        2,
+        4,
+        2,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        0,
+        4,
+        4,
+        4,
+        4,
+        4,
+        0,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        2,
+        2,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        2,
+        4,
+        4,
+        4,
+        4,
+        2,
+        4,
+        4,
+        4,
+        4,
+        0,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        1,
+        4,
+        4,
+        4,
+        2,
+        4,
+        2,
+        1,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        2,
+        4,
+        4,
+        4,
+        2,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        4,
+        2
+      ],
+      "filename": "Per-site selective pressure regimes (0:Neutral, 1:Persistent positive, 2:Profile change with trait, 3:Profile change with other trait, 4:Purifying)"
+    },
+    "histogram-1749993453799": {
+      "data": {
+        "headers": [
+          "site",
+          "output",
+          "Classification"
+        ],
+        "rows": [
+          {
+            "site": 0,
+            "output": 0.351,
+            "Classification": 0
+          },
+          {
+            "site": 1,
+            "output": 0.454,
+            "Classification": 0
+          },
+          {
+            "site": 2,
+            "output": 0.338,
+            "Classification": 0
+          },
+          {
+            "site": 3,
+            "output": 0.594,
+            "Classification": 1
+          },
+          {
+            "site": 4,
+            "output": 0.385,
+            "Classification": 0
+          },
+          {
+            "site": 5,
+            "output": 0.342,
+            "Classification": 0
+          },
+          {
+            "site": 6,
+            "output": 0.344,
+            "Classification": 0
+          },
+          {
+            "site": 7,
+            "output": 0.479,
+            "Classification": 0
+          },
+          {
+            "site": 8,
+            "output": 0.407,
+            "Classification": 0
+          },
+          {
+            "site": 9,
+            "output": 0.413,
+            "Classification": 0
+          },
+          {
+            "site": 10,
+            "output": 0.367,
+            "Classification": 0
+          },
+          {
+            "site": 11,
+            "output": 0.412,
+            "Classification": 0
+          },
+          {
+            "site": 12,
+            "output": 0.405,
+            "Classification": 0
+          },
+          {
+            "site": 13,
+            "output": 0.498,
+            "Classification": 0
+          },
+          {
+            "site": 14,
+            "output": 0.398,
+            "Classification": 0
+          },
+          {
+            "site": 15,
+            "output": 0.323,
+            "Classification": 0
+          },
+          {
+            "site": 16,
+            "output": 0.562,
+            "Classification": 1
+          },
+          {
+            "site": 17,
+            "output": 0.381,
+            "Classification": 0
+          },
+          {
+            "site": 18,
+            "output": 0,
+            "Classification": 0
+          },
+          {
+            "site": 19,
+            "output": 0.369,
+            "Classification": 0
+          },
+          {
+            "site": 20,
+            "output": 0.342,
+            "Classification": 0
+          },
+          {
+            "site": 21,
+            "output": 0.356,
+            "Classification": 0
+          },
+          {
+            "site": 22,
+            "output": 0.327,
+            "Classification": 0
+          },
+          {
+            "site": 23,
+            "output": 0.37,
+            "Classification": 0
+          },
+          {
+            "site": 24,
+            "output": 0.383,
+            "Classification": 0
+          },
+          {
+            "site": 25,
+            "output": 0.286,
+            "Classification": 0
+          },
+          {
+            "site": 26,
+            "output": 0.312,
+            "Classification": 0
+          },
+          {
+            "site": 27,
+            "output": 0.343,
+            "Classification": 0
+          },
+          {
+            "site": 28,
+            "output": 0.902,
+            "Classification": 1
+          },
+          {
+            "site": 29,
+            "output": 0.367,
+            "Classification": 0
+          },
+          {
+            "site": 30,
+            "output": 0.449,
+            "Classification": 0
+          },
+          {
+            "site": 31,
+            "output": 0.335,
+            "Classification": 0
+          },
+          {
+            "site": 32,
+            "output": 0.33,
+            "Classification": 0
+          },
+          {
+            "site": 33,
+            "output": 0.379,
+            "Classification": 0
+          },
+          {
+            "site": 34,
+            "output": 0.341,
+            "Classification": 0
+          },
+          {
+            "site": 35,
+            "output": 0.365,
+            "Classification": 0
+          },
+          {
+            "site": 36,
+            "output": 0.388,
+            "Classification": 0
+          },
+          {
+            "site": 37,
+            "output": 0.392,
+            "Classification": 0
+          },
+          {
+            "site": 38,
+            "output": 0.371,
+            "Classification": 0
+          },
+          {
+            "site": 39,
+            "output": 0.342,
+            "Classification": 0
+          },
+          {
+            "site": 40,
+            "output": 0.398,
+            "Classification": 0
+          },
+          {
+            "site": 41,
+            "output": 0.359,
+            "Classification": 0
+          },
+          {
+            "site": 42,
+            "output": 0.535,
+            "Classification": 1
+          },
+          {
+            "site": 43,
+            "output": 0.369,
+            "Classification": 0
+          },
+          {
+            "site": 44,
+            "output": 0.388,
+            "Classification": 0
+          },
+          {
+            "site": 45,
+            "output": 0.362,
+            "Classification": 0
+          },
+          {
+            "site": 46,
+            "output": 0.369,
+            "Classification": 0
+          },
+          {
+            "site": 47,
+            "output": 0.357,
+            "Classification": 0
+          },
+          {
+            "site": 48,
+            "output": 0.404,
+            "Classification": 0
+          },
+          {
+            "site": 49,
+            "output": 0.356,
+            "Classification": 0
+          },
+          {
+            "site": 50,
+            "output": 0.477,
+            "Classification": 0
+          },
+          {
+            "site": 51,
+            "output": 0.354,
+            "Classification": 0
+          },
+          {
+            "site": 52,
+            "output": 0.401,
+            "Classification": 0
+          },
+          {
+            "site": 53,
+            "output": 0.458,
+            "Classification": 0
+          },
+          {
+            "site": 54,
+            "output": 0.379,
+            "Classification": 0
+          },
+          {
+            "site": 55,
+            "output": 0.394,
+            "Classification": 0
+          },
+          {
+            "site": 56,
+            "output": 0.409,
+            "Classification": 0
+          },
+          {
+            "site": 57,
+            "output": 0.407,
+            "Classification": 0
+          },
+          {
+            "site": 58,
+            "output": 0.379,
+            "Classification": 0
+          },
+          {
+            "site": 59,
+            "output": 0.345,
+            "Classification": 0
+          },
+          {
+            "site": 60,
+            "output": 0.361,
+            "Classification": 0
+          },
+          {
+            "site": 61,
+            "output": 0.537,
+            "Classification": 1
+          },
+          {
+            "site": 62,
+            "output": 0.392,
+            "Classification": 0
+          },
+          {
+            "site": 63,
+            "output": 0,
+            "Classification": 0
+          },
+          {
+            "site": 64,
+            "output": 0.348,
+            "Classification": 0
+          },
+          {
+            "site": 65,
+            "output": 0.374,
+            "Classification": 0
+          },
+          {
+            "site": 66,
+            "output": 0.312,
+            "Classification": 0
+          },
+          {
+            "site": 67,
+            "output": 0.41,
+            "Classification": 0
+          },
+          {
+            "site": 68,
+            "output": 0.336,
+            "Classification": 0
+          },
+          {
+            "site": 69,
+            "output": 0.406,
+            "Classification": 0
+          },
+          {
+            "site": 70,
+            "output": 0.962,
+            "Classification": 1
+          },
+          {
+            "site": 71,
+            "output": 0.352,
+            "Classification": 0
+          },
+          {
+            "site": 72,
+            "output": 0.502,
+            "Classification": 1
+          },
+          {
+            "site": 73,
+            "output": 0.403,
+            "Classification": 0
+          },
+          {
+            "site": 74,
+            "output": 0.583,
+            "Classification": 1
+          },
+          {
+            "site": 75,
+            "output": 0.273,
+            "Classification": 0
+          },
+          {
+            "site": 76,
+            "output": 0.506,
+            "Classification": 1
+          },
+          {
+            "site": 77,
+            "output": 0.346,
+            "Classification": 0
+          },
+          {
+            "site": 78,
+            "output": 0.35,
+            "Classification": 0
+          },
+          {
+            "site": 79,
+            "output": 0.355,
+            "Classification": 0
+          },
+          {
+            "site": 80,
+            "output": 0.284,
+            "Classification": 0
+          },
+          {
+            "site": 81,
+            "output": 0.366,
+            "Classification": 0
+          },
+          {
+            "site": 82,
+            "output": 0.322,
+            "Classification": 0
+          },
+          {
+            "site": 83,
+            "output": 0.337,
+            "Classification": 0
+          },
+          {
+            "site": 84,
+            "output": 0.38,
+            "Classification": 0
+          },
+          {
+            "site": 85,
+            "output": 0.69,
+            "Classification": 1
+          },
+          {
+            "site": 86,
+            "output": 0.43,
+            "Classification": 0
+          },
+          {
+            "site": 87,
+            "output": 0.445,
+            "Classification": 0
+          },
+          {
+            "site": 88,
+            "output": 0.362,
+            "Classification": 0
+          },
+          {
+            "site": 89,
+            "output": 0.379,
+            "Classification": 0
+          },
+          {
+            "site": 90,
+            "output": 0.369,
+            "Classification": 0
+          },
+          {
+            "site": 91,
+            "output": 0.406,
+            "Classification": 0
+          },
+          {
+            "site": 92,
+            "output": 0.369,
+            "Classification": 0
+          },
+          {
+            "site": 93,
+            "output": 0.337,
+            "Classification": 0
+          },
+          {
+            "site": 94,
+            "output": 0.363,
+            "Classification": 0
+          },
+          {
+            "site": 95,
+            "output": 0.333,
+            "Classification": 0
+          },
+          {
+            "site": 96,
+            "output": 0.595,
+            "Classification": 1
+          },
+          {
+            "site": 97,
+            "output": 0.332,
+            "Classification": 0
+          },
+          {
+            "site": 98,
+            "output": 0.406,
+            "Classification": 0
+          },
+          {
+            "site": 99,
+            "output": 0.385,
+            "Classification": 0
+          },
+          {
+            "site": 100,
+            "output": 0.385,
+            "Classification": 0
+          },
+          {
+            "site": 101,
+            "output": 0.348,
+            "Classification": 0
+          },
+          {
+            "site": 102,
+            "output": 0.423,
+            "Classification": 0
+          },
+          {
+            "site": 103,
+            "output": 0.316,
+            "Classification": 0
+          },
+          {
+            "site": 104,
+            "output": 0.462,
+            "Classification": 0
+          },
+          {
+            "site": 105,
+            "output": 0.445,
+            "Classification": 0
+          },
+          {
+            "site": 106,
+            "output": 0.296,
+            "Classification": 0
+          },
+          {
+            "site": 107,
+            "output": 0.405,
+            "Classification": 0
+          },
+          {
+            "site": 108,
+            "output": 0.368,
+            "Classification": 0
+          },
+          {
+            "site": 109,
+            "output": 0.361,
+            "Classification": 0
+          },
+          {
+            "site": 110,
+            "output": 0.39,
+            "Classification": 0
+          },
+          {
+            "site": 111,
+            "output": 0.394,
+            "Classification": 0
+          },
+          {
+            "site": 112,
+            "output": 0.363,
+            "Classification": 0
+          },
+          {
+            "site": 113,
+            "output": 0,
+            "Classification": 0
+          },
+          {
+            "site": 114,
+            "output": 0.401,
+            "Classification": 0
+          },
+          {
+            "site": 115,
+            "output": 0.39,
+            "Classification": 0
+          },
+          {
+            "site": 116,
+            "output": 0.398,
+            "Classification": 0
+          },
+          {
+            "site": 117,
+            "output": 0.354,
+            "Classification": 0
+          },
+          {
+            "site": 118,
+            "output": 0.362,
+            "Classification": 0
+          },
+          {
+            "site": 119,
+            "output": 0.378,
+            "Classification": 0
+          },
+          {
+            "site": 120,
+            "output": 0.355,
+            "Classification": 0
+          },
+          {
+            "site": 121,
+            "output": 0.382,
+            "Classification": 0
+          },
+          {
+            "site": 122,
+            "output": 0.373,
+            "Classification": 0
+          },
+          {
+            "site": 123,
+            "output": 0.338,
+            "Classification": 0
+          },
+          {
+            "site": 124,
+            "output": 0.366,
+            "Classification": 0
+          },
+          {
+            "site": 125,
+            "output": 0.323,
+            "Classification": 0
+          },
+          {
+            "site": 126,
+            "output": 0.347,
+            "Classification": 0
+          },
+          {
+            "site": 127,
+            "output": 0.397,
+            "Classification": 0
+          },
+          {
+            "site": 128,
+            "output": 0.388,
+            "Classification": 0
+          },
+          {
+            "site": 129,
+            "output": 0.505,
+            "Classification": 1
+          },
+          {
+            "site": 130,
+            "output": 0.503,
+            "Classification": 1
+          },
+          {
+            "site": 131,
+            "output": 0.406,
+            "Classification": 0
+          },
+          {
+            "site": 132,
+            "output": 0.333,
+            "Classification": 0
+          },
+          {
+            "site": 133,
+            "output": 0.337,
+            "Classification": 0
+          },
+          {
+            "site": 134,
+            "output": 0.508,
+            "Classification": 1
+          },
+          {
+            "site": 135,
+            "output": 0.389,
+            "Classification": 0
+          },
+          {
+            "site": 136,
+            "output": 0.383,
+            "Classification": 0
+          },
+          {
+            "site": 137,
+            "output": 0.361,
+            "Classification": 0
+          },
+          {
+            "site": 138,
+            "output": 0.944,
+            "Classification": 1
+          },
+          {
+            "site": 139,
+            "output": 0.355,
+            "Classification": 0
+          },
+          {
+            "site": 140,
+            "output": 0.361,
+            "Classification": 0
+          },
+          {
+            "site": 141,
+            "output": 0.353,
+            "Classification": 0
+          },
+          {
+            "site": 142,
+            "output": 0.41,
+            "Classification": 0
+          },
+          {
+            "site": 143,
+            "output": 0.371,
+            "Classification": 0
+          },
+          {
+            "site": 144,
+            "output": 0.623,
+            "Classification": 1
+          },
+          {
+            "site": 145,
+            "output": 0.359,
+            "Classification": 0
+          },
+          {
+            "site": 146,
+            "output": 0.447,
+            "Classification": 0
+          },
+          {
+            "site": 147,
+            "output": 0.385,
+            "Classification": 0
+          },
+          {
+            "site": 148,
+            "output": 0.329,
+            "Classification": 0
+          },
+          {
+            "site": 149,
+            "output": 0.935,
+            "Classification": 1
+          },
+          {
+            "site": 150,
+            "output": 0.406,
+            "Classification": 0
+          },
+          {
+            "site": 151,
+            "output": 0.562,
+            "Classification": 1
+          },
+          {
+            "site": 152,
+            "output": 0.348,
+            "Classification": 0
+          },
+          {
+            "site": 153,
+            "output": 0.43,
+            "Classification": 0
+          },
+          {
+            "site": 154,
+            "output": 0.493,
+            "Classification": 0
+          },
+          {
+            "site": 155,
+            "output": 0.41,
+            "Classification": 0
+          },
+          {
+            "site": 156,
+            "output": 0.368,
+            "Classification": 0
+          },
+          {
+            "site": 157,
+            "output": 0.416,
+            "Classification": 0
+          },
+          {
+            "site": 158,
+            "output": 0.358,
+            "Classification": 0
+          },
+          {
+            "site": 159,
+            "output": 0.381,
+            "Classification": 0
+          },
+          {
+            "site": 160,
+            "output": 0.389,
+            "Classification": 0
+          },
+          {
+            "site": 161,
+            "output": 0.491,
+            "Classification": 0
+          },
+          {
+            "site": 162,
+            "output": 0.465,
+            "Classification": 0
+          },
+          {
+            "site": 163,
+            "output": 0.495,
+            "Classification": 0
+          },
+          {
+            "site": 164,
+            "output": 0.342,
+            "Classification": 0
+          },
+          {
+            "site": 165,
+            "output": 0.723,
+            "Classification": 1
+          },
+          {
+            "site": 166,
+            "output": 0.413,
+            "Classification": 0
+          },
+          {
+            "site": 167,
+            "output": 0.352,
+            "Classification": 0
+          },
+          {
+            "site": 168,
+            "output": 0.398,
+            "Classification": 0
+          },
+          {
+            "site": 169,
+            "output": 0.382,
+            "Classification": 0
+          },
+          {
+            "site": 170,
+            "output": 0.542,
+            "Classification": 1
+          },
+          {
+            "site": 171,
+            "output": 0.335,
+            "Classification": 0
+          },
+          {
+            "site": 172,
+            "output": 0.392,
+            "Classification": 0
+          },
+          {
+            "site": 173,
+            "output": 0.393,
+            "Classification": 0
+          },
+          {
+            "site": 174,
+            "output": 0.368,
+            "Classification": 0
+          },
+          {
+            "site": 175,
+            "output": 0.355,
+            "Classification": 0
+          },
+          {
+            "site": 176,
+            "output": 0.624,
+            "Classification": 1
+          },
+          {
+            "site": 177,
+            "output": 0.332,
+            "Classification": 0
+          },
+          {
+            "site": 178,
+            "output": 0.393,
+            "Classification": 0
+          },
+          {
+            "site": 179,
+            "output": 0.318,
+            "Classification": 0
+          },
+          {
+            "site": 180,
+            "output": 0.488,
+            "Classification": 0
+          },
+          {
+            "site": 181,
+            "output": 0.505,
+            "Classification": 1
+          },
+          {
+            "site": 182,
+            "output": 0.402,
+            "Classification": 0
+          },
+          {
+            "site": 183,
+            "output": 0.776,
+            "Classification": 1
+          },
+          {
+            "site": 184,
+            "output": 0.818,
+            "Classification": 1
+          },
+          {
+            "site": 185,
+            "output": 0.336,
+            "Classification": 0
+          },
+          {
+            "site": 186,
+            "output": 0.414,
+            "Classification": 0
+          },
+          {
+            "site": 187,
+            "output": 0.366,
+            "Classification": 0
+          },
+          {
+            "site": 188,
+            "output": 0.401,
+            "Classification": 0
+          },
+          {
+            "site": 189,
+            "output": 0.336,
+            "Classification": 0
+          },
+          {
+            "site": 190,
+            "output": 0.398,
+            "Classification": 0
+          },
+          {
+            "site": 191,
+            "output": 0.433,
+            "Classification": 0
+          },
+          {
+            "site": 192,
+            "output": 0.408,
+            "Classification": 0
+          },
+          {
+            "site": 193,
+            "output": 0.396,
+            "Classification": 0
+          },
+          {
+            "site": 194,
+            "output": 0.366,
+            "Classification": 0
+          },
+          {
+            "site": 195,
+            "output": 0.811,
+            "Classification": 1
+          },
+          {
+            "site": 196,
+            "output": 0.364,
+            "Classification": 0
+          },
+          {
+            "site": 197,
+            "output": 0.348,
+            "Classification": 0
+          },
+          {
+            "site": 198,
+            "output": 0.369,
+            "Classification": 0
+          },
+          {
+            "site": 199,
+            "output": 0.341,
+            "Classification": 0
+          },
+          {
+            "site": 200,
+            "output": 0.397,
+            "Classification": 0
+          },
+          {
+            "site": 201,
+            "output": 0.366,
+            "Classification": 0
+          },
+          {
+            "site": 202,
+            "output": 0.344,
+            "Classification": 0
+          },
+          {
+            "site": 203,
+            "output": 0.381,
+            "Classification": 0
+          },
+          {
+            "site": 204,
+            "output": 0.382,
+            "Classification": 0
+          },
+          {
+            "site": 205,
+            "output": 0.439,
+            "Classification": 0
+          },
+          {
+            "site": 206,
+            "output": 0.317,
+            "Classification": 0
+          },
+          {
+            "site": 207,
+            "output": 0.347,
+            "Classification": 0
+          },
+          {
+            "site": 208,
+            "output": 0.373,
+            "Classification": 0
+          },
+          {
+            "site": 209,
+            "output": 0.348,
+            "Classification": 0
+          },
+          {
+            "site": 210,
+            "output": 0,
+            "Classification": 0
+          },
+          {
+            "site": 211,
+            "output": 0.381,
+            "Classification": 0
+          },
+          {
+            "site": 212,
+            "output": 0.337,
+            "Classification": 0
+          },
+          {
+            "site": 213,
+            "output": 0.486,
+            "Classification": 0
+          },
+          {
+            "site": 214,
+            "output": 0.309,
+            "Classification": 0
+          },
+          {
+            "site": 215,
+            "output": 0.355,
+            "Classification": 0
+          },
+          {
+            "site": 216,
+            "output": 0.346,
+            "Classification": 0
+          },
+          {
+            "site": 217,
+            "output": 0.637,
+            "Classification": 1
+          },
+          {
+            "site": 218,
+            "output": 0.322,
+            "Classification": 0
+          },
+          {
+            "site": 219,
+            "output": 0.339,
+            "Classification": 0
+          },
+          {
+            "site": 220,
+            "output": 0.417,
+            "Classification": 0
+          },
+          {
+            "site": 221,
+            "output": 0.363,
+            "Classification": 0
+          },
+          {
+            "site": 222,
+            "output": 0.715,
+            "Classification": 1
+          },
+          {
+            "site": 223,
+            "output": 0.343,
+            "Classification": 0
+          },
+          {
+            "site": 224,
+            "output": 0.364,
+            "Classification": 0
+          },
+          {
+            "site": 225,
+            "output": 0.313,
+            "Classification": 0
+          },
+          {
+            "site": 226,
+            "output": 0.311,
+            "Classification": 0
+          },
+          {
+            "site": 227,
+            "output": 0.405,
+            "Classification": 0
+          },
+          {
+            "site": 228,
+            "output": 0.367,
+            "Classification": 0
+          },
+          {
+            "site": 229,
+            "output": 0.458,
+            "Classification": 0
+          },
+          {
+            "site": 230,
+            "output": 0.361,
+            "Classification": 0
+          },
+          {
+            "site": 231,
+            "output": 0.343,
+            "Classification": 0
+          },
+          {
+            "site": 232,
+            "output": 0.636,
+            "Classification": 1
+          },
+          {
+            "site": 233,
+            "output": 0.406,
+            "Classification": 0
+          },
+          {
+            "site": 234,
+            "output": 0.341,
+            "Classification": 0
+          },
+          {
+            "site": 235,
+            "output": 0.331,
+            "Classification": 0
+          },
+          {
+            "site": 236,
+            "output": 0.622,
+            "Classification": 1
+          },
+          {
+            "site": 237,
+            "output": 0.4,
+            "Classification": 0
+          },
+          {
+            "site": 238,
+            "output": 0.324,
+            "Classification": 0
+          },
+          {
+            "site": 239,
+            "output": 0.321,
+            "Classification": 0
+          },
+          {
+            "site": 240,
+            "output": 0.68,
+            "Classification": 1
+          },
+          {
+            "site": 241,
+            "output": 0,
+            "Classification": 0
+          },
+          {
+            "site": 242,
+            "output": 0.337,
+            "Classification": 0
+          },
+          {
+            "site": 243,
+            "output": 0.341,
+            "Classification": 0
+          },
+          {
+            "site": 244,
+            "output": 0.339,
+            "Classification": 0
+          },
+          {
+            "site": 245,
+            "output": 0.34,
+            "Classification": 0
+          },
+          {
+            "site": 246,
+            "output": 0.38,
+            "Classification": 0
+          },
+          {
+            "site": 247,
+            "output": 0.515,
+            "Classification": 1
+          },
+          {
+            "site": 248,
+            "output": 0.331,
+            "Classification": 0
+          },
+          {
+            "site": 249,
+            "output": 0.804,
+            "Classification": 1
+          }
+        ]
+      },
+      "filename": "Model's output probabilities for class 2",
+      "selectedCol": "output"
+    }
+  },
+  "panelLinks": {}
+}
