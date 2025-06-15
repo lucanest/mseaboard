@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import throttle from 'lodash.throttle'
 import { LinkIcon, DocumentDuplicateIcon,PencilSquareIcon,XMarkIcon, Bars3Icon  } from '@heroicons/react/24/outline';
 import { FixedSizeGrid as Grid } from 'react-window';
 import GridLayout from 'react-grid-layout';
@@ -256,6 +257,31 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [codonMode, setCodonMode] = useState(false);
   const [scrollTop, setScrollTop] = useState(0);
+  // throttle highlight to ~60fps
+  const throttledHighlight = useMemo(
+    () => throttle((col, originId, clientX, clientY) => {
+      // 1) visual hover
+      setHoveredCol(col);
+      // 2) tooltip position
+      const rect = containerRef.current.getBoundingClientRect();
+      setTooltipPos({ x: clientX - rect.left, y: clientY - rect.top });
+      // 3) notify parent
+      onHighlight(col, originId);
+    }, 16),
+    [onHighlight]
+  );
+ 
+
+  // throttle scroll handler to once every 50ms
+  const throttledOnScroll = useCallback(
+    throttle(({ scrollTop, scrollLeft }) => {
+      setScrollTop(scrollTop);
+      if (linkedTo != null && scrollLeft != null) {
+        onSyncScroll(scrollLeft, id);
+      }
+    }, 50),
+    [onSyncScroll, linkedTo, id]
+  );
 
   const LABEL_WIDTH = 66;
   const CELL_SIZE = 24;
@@ -281,10 +307,26 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   }, []);
 
   useEffect(() => {
-    if (gridRef.current && typeof externalScrollLeft === 'number') {
-      gridRef.current.scrollTo({ scrollLeft: externalScrollLeft });
+    if (!gridRef.current || typeof externalScrollLeft !== 'number') return;
+
+    // compute the width of the scrollable MSA grid viewport
+    const viewportWidth = dims.width - LABEL_WIDTH;
+
+    // grab the real current scrollLeft from the grid's outer scrolling element
+    // (react-window stores it internally on _outerRef)
+    const outer = gridRef.current._outerRef;
+    const currentScrollLeft = outer ? outer.scrollLeft : 0;
+
+    // if our desired scroll position would put column N fully outside the
+    // current [currentScrollLeft…currentScrollLeft+viewportWidth] window,
+    // then actually scroll — otherwise do nothing.
+    const colStart = externalScrollLeft;
+    const colEnd   = externalScrollLeft + CELL_SIZE;
+
+    if (colStart < currentScrollLeft || colEnd > currentScrollLeft + viewportWidth) {
+          gridRef.current.scrollTo({ scrollLeft: codonMode ? externalScrollLeft * 3 : externalScrollLeft });
     }
-  }, [externalScrollLeft]);
+  }, [externalScrollLeft, dims.width]);
 
   const rowCount = msaData.length;
   const colCount = msaData[0]?.sequence.length || 0;
@@ -299,18 +341,18 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const Cell = useCallback(({ columnIndex, rowIndex, style }) => {
     const char = msaData[rowIndex].sequence[columnIndex];
     const baseBg = residueColors[char.toUpperCase()] || 'bg-white';
-
+    // if codonMode, hoveredCol is a CODON index; else it's a raw column
+    const codonIndex = Math.floor(columnIndex / 3);
     const isHoverHighlight = codonMode
-      ? hoveredCol != null && Math.floor(hoveredCol / 3) === Math.floor(columnIndex / 3)
+      ? hoveredCol != null && hoveredCol === codonIndex
       : hoveredCol === columnIndex;
-
+// link by codon index when in codonMode, otherwise by exact site
     const isLinkedHighlight =
       linkedTo &&
       highlightedSite != null &&
       (linkedTo === highlightOrigin || id === highlightOrigin) &&
       (codonMode
-        ? columnIndex >= Math.floor(highlightedSite / 3) * 3 &&
-          columnIndex < Math.floor(highlightedSite / 3) * 3 + 3
+        ? codonIndex === highlightedSite
         : columnIndex === highlightedSite);
 
     return (
@@ -320,26 +362,33 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
           isHoverHighlight || isLinkedHighlight ? 'alignment-highlight' : ''
         }`}
         onMouseEnter={e => {
-          setHoveredCol(columnIndex);
-          onHighlight(columnIndex, id);
-          const rect = containerRef.current.getBoundingClientRect();
-          setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+          const { clientX, clientY } = e;
+          // in codonMode send codonIndex, else raw columnIndex
+          const idx = codonMode ? codonIndex : columnIndex;
+          throttledHighlight(idx, id, clientX, clientY);
         }}
         onMouseMove={e => {
-          const rect = containerRef.current.getBoundingClientRect();
-          setTooltipPos({ x: e.clientX - rect.left, y: e.clientY - rect.top });
+          const { clientX, clientY } = e;
+          const idx = codonMode ? codonIndex : columnIndex;
+          throttledHighlight(idx, id, clientX, clientY);
         }}
         onMouseLeave={() => {
+          throttledHighlight.cancel();
           setHoveredCol(null);
-          if (id === highlightOrigin) {
-            onHighlight(null, id);
-          }
+          onHighlight(null, id);
         }}
       >
         {char}
       </div>
     );
   }, [msaData, hoveredCol, highlightedSite, highlightOrigin, linkedTo, id, onHighlight, codonMode]);
+
+  useEffect(() => {
+    return () => {
+      throttledHighlight.cancel();
+      throttledOnScroll.cancel();
+    };
+  }, [throttledHighlight, throttledOnScroll]);
 
   return (
     <PanelContainer
@@ -384,9 +433,9 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
 
         {hoveredCol != null && id === highlightOrigin && (
           <Tooltip x={tooltipPos.x} y={tooltipPos.y}>
-            {codonMode
-              ? `Codon ${Math.floor(hoveredCol / 3) + 1}`
-              : `Site ${hoveredCol + 1}`}
+        {codonMode
+          ? `Codon ${hoveredCol + 1}`     // hoveredCol is codon index
+          : `Site ${hoveredCol + 1}`}
           </Tooltip>
         )}
 
@@ -395,7 +444,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
           id !== highlightOrigin && (
             <Tooltip x={tooltipPos.x} y={tooltipPos.y}>
               {codonMode
-                ? `Codon ${Math.floor(highlightedSite / 3) + 1}`
+                ? `Codon ${highlightedSite + 1}`  // highlightedSite is codon index
                 : `Site ${highlightedSite + 1}`}
             </Tooltip>
           )}
@@ -466,7 +515,7 @@ onMouseLeave={() => {
             rowCount={rowCount}
             rowHeight={CELL_SIZE}
             width={Math.max(dims.width - LABEL_WIDTH, 0)}
-            onScroll={onScroll}
+            onScroll={throttledOnScroll}
           >
             {Cell}
           </Grid>
@@ -755,24 +804,32 @@ function App() {
   };
 
   const CELL_SIZE = 24;
-  const handleHighlight = (site, originId) => {
-    setHighlightSite(site);
-    setHighlightOrigin(originId);
+const handleHighlight = (site, originId) => {
+  setHighlightSite(site);
+  setHighlightOrigin(originId);
 
-    const targetId = panelLinks[originId];
-    if (!targetId || site == null) return;
+  const targetId = panelLinks[originId];
+  if (!targetId || site == null) return;
 
-    const sourcePanel = panels.find(p => p.i === originId);
-    const targetPanel = panels.find(p => p.i === targetId);
-    if (!sourcePanel || !targetPanel) return;
+  const sourcePanel = panels.find(p => p.i === originId);
+  const targetPanel = panels.find(p => p.i === targetId);
+  if (!sourcePanel || !targetPanel) return;
 
-    if (sourcePanel.type === 'histogram' && targetPanel.type === 'alignment') {
-      setScrollPositions(prev => ({
-        ...prev,
-        [targetId]: site * CELL_SIZE
-      }));
-    }
-  };
+  // If both source and target are alignments, scroll target to the same column
+  if (sourcePanel.type === 'alignment' && targetPanel.type === 'alignment') {
+    setScrollPositions(prev => ({
+      ...prev,
+      [targetId]: site * CELL_SIZE
+    }));
+  }
+  // Keep your existing histogram→alignment behavior
+  else if (sourcePanel.type === 'histogram' && targetPanel.type === 'alignment') {
+    setScrollPositions(prev => ({
+      ...prev,
+      [targetId]: site * CELL_SIZE
+    }));
+  }
+};
 
   // Trigger upload or reupload
   const triggerUpload = (type, panelId = null) => {
