@@ -119,8 +119,10 @@ function PanelContainer({ id, linkedTo, hoveredPanelId, setHoveredPanelId, child
   return (
     <div
       className={`border rounded-2xl overflow-hidden h-full flex flex-col bg-white
-                  shadow-lg
-                  ${hoveredPanelId === id || hoveredPanelId === linkedTo ? 'shadow-xl' : ''}`}
+        shadow-lg
+        ${hoveredPanelId === id ? 'shadow-xl' : ''}
+        ${linkedTo && (hoveredPanelId === id || hoveredPanelId === linkedTo) ? 'shadow-blue-400/50' : ''}
+      `}
       onMouseEnter={() => setHoveredPanelId(id)}
       onMouseLeave={() => setHoveredPanelId(null)}
       onDoubleClick={onDoubleClick}
