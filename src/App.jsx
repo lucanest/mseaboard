@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { parse } from 'newick';
 import { LinkIcon, DocumentDuplicateIcon,PencilSquareIcon,XMarkIcon, Bars3Icon  } from '@heroicons/react/24/outline';
-import { FixedSizeGrid as Grid, FixedSizeList as List } from 'react-window';
+import { FixedSizeGrid as Grid } from 'react-window';
 import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
@@ -17,6 +16,51 @@ const residueColors = {
   T: 'bg-green-100', V: 'bg-blue-100', W: 'bg-purple-300', Y: 'bg-purple-100',
   '-': 'bg-white'
 };
+
+function PanelHeader({
+  id,
+  prefix = '',
+  filename,
+  setPanelData,
+  editing,
+  setEditing,
+  filenameInput,
+  setFilenameInput,
+  extraButtons = [],
+  onDuplicate,
+  onLinkClick,
+  isLinkModeActive,
+  isLinked,
+  onRemove,
+}) {
+  return (
+    <div className="panel-drag-handle bg-gray-100 p-1 mb-2 cursor-move flex items-center justify-between font-bold">
+      <div className="w-12" />
+      <div className="flex-1 flex justify-center">
+        <EditableFilename
+          id={id}
+          filename={filename}
+          setPanelData={setPanelData}
+          prefix={prefix}
+          editing={editing}
+          setEditing={setEditing}
+          filenameInput={filenameInput}
+          setFilenameInput={setFilenameInput}
+        />
+      </div>
+      <div className="flex items-center gap-1">
+        {extraButtons.map((btn, i) => <React.Fragment key={i}>{btn}</React.Fragment>)}
+        <DuplicateButton onClick={() => onDuplicate(id)} />
+        <LinkButton
+          onClick={() => onLinkClick(id)}
+          isLinked={isLinked}
+          isLinkModeActive={isLinkModeActive}
+        />
+        <RemoveButton onClick={() => onRemove(id)} />
+      </div>
+    </div>
+  );
+}
 
 function parseFasta(content) {
   const lines = content.split(/\r?\n/);
@@ -98,7 +142,7 @@ function DuplicateButton({ onClick }) {
       className="p-0.5"
       title="Duplicate panel"
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-gray-300">
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-blue-300">
         <DocumentDuplicateIcon className="w-5 h-5 text-gray-700" />
       </span>
     </button>
@@ -124,7 +168,7 @@ function LinkButton({ onClick, isLinked, isLinkModeActive }) {
         onClick={onClick}
         className="p-0.5"
         title={isLinked ? 'Unlink panels' : 'Link panel'}>
-        <span className={`inline-flex items-center justify-center w-6 h-6 rounded hover:bg-gray-300
+        <span className={`inline-flex items-center justify-center w-6 h-6 rounded hover:bg-yellow-300
         ${isLinkModeActive ? 'bg-blue-200' :
         isLinked         ? 'bg-green-200' :
                            'bg-gray-200'}
@@ -315,34 +359,27 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
           }
         }}
       >
-        <div className="panel-drag-handle bg-gray-100 p-1 mb-2 cursor-move flex items-center justify-between font-bold">
-  {/* Left spacer for symmetry */}
-  <div className="w-12" />
-  {/* Centered filename (with editing) */}
-  <div className="flex-1 flex justify-center">
-    <EditableFilename
-      id={id}
-      filename={filename}
-      setPanelData={setPanelData}
-      prefix="MSA: "
-      editing={editing}
-      setEditing={setEditing}
-      filenameInput={filenameInput}
-      setFilenameInput={setFilenameInput}
-    />
-  </div>
-  {/* Right-aligned action buttons */}
-  <div className="flex items-center gap-1">
-    <CodonToggleButton onClick={() => setCodonMode(m => !m)} isActive={codonMode} />
-    <DuplicateButton onClick={() => onDuplicate(id)} />
-    <LinkButton
-      onClick={() => onLinkClick(id)}
-      isLinked={isLinked}
-      isLinkModeActive={isLinkModeActive}
-    />
-    <RemoveButton onClick={() => onRemove(id)} />
-  </div>
-</div>
+      <PanelHeader
+         id={id}
+         prefix="MSA: "
+         filename={filename}
+         setPanelData={setPanelData}
+         editing={editing}
+         setEditing={setEditing}
+         filenameInput={filenameInput}
+         setFilenameInput={setFilenameInput}
+         extraButtons={[
+           <CodonToggleButton
+             onClick={() => setCodonMode(m => !m)}
+             isActive={codonMode}
+           />
+         ]}
+         onDuplicate={onDuplicate}
+         onLinkClick={onLinkClick}
+         isLinkModeActive={isLinkModeActive}
+         isLinked={isLinked}
+         onRemove={onRemove}
+       />
       
 
         {hoveredCol != null && id === highlightOrigin && (
@@ -460,30 +497,21 @@ const TreePanel = React.memo(function TreePanel({
   setHoveredPanelId={setHoveredPanelId}
   onDoubleClick={() => onReupload(id)}
 >
-      <div className="panel-drag-handle bg-gray-100 p-1 mb-2 cursor-move flex items-center justify-between font-bold">
-  <div className="w-12" />
-  <div className="flex-1 flex justify-center">
-    <EditableFilename
-      id={id}
-      filename={filename}
-      setPanelData={setPanelData}
-      prefix="Tree: "
-      editing={editing}
-      setEditing={setEditing}
-      filenameInput={filenameInput}
-      setFilenameInput={setFilenameInput}
-    />
-  </div>
-  <div className="flex items-center gap-1">
-    <DuplicateButton onClick={() => onDuplicate(id)} />
-    <LinkButton
-      onClick={() => onLinkClick(id)}
-      isLinked={isLinked}
-      isLinkModeActive={isLinkModeActive}
-    />
-    <RemoveButton onClick={() => onRemove(id)} />
-  </div>
-</div>
+        <PanelHeader
+        id={id}
+        prefix="Tree: "
+        filename={filename}
+        setPanelData={setPanelData}
+        editing={editing}
+        setEditing={setEditing}
+        filenameInput={filenameInput}
+        setFilenameInput={setFilenameInput}
+        onDuplicate={onDuplicate}
+        onLinkClick={onLinkClick}
+        isLinkModeActive={isLinkModeActive}
+        isLinked={isLinked}
+        onRemove={onRemove}
+      />
       <div className="flex-1 overflow-auto flex items-center justify-center">
         <PhyloTreeViewer
           newick={newick}
@@ -549,30 +577,21 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
   setHoveredPanelId={setHoveredPanelId}
   onDoubleClick={() => onReupload(id)}
 >
-      <div className="panel-drag-handle bg-gray-100 p-1 mb-2 cursor-move flex items-center justify-between font-bold">
-  <div className="w-12" />
-  <div className="flex-1 flex justify-center">
-    <EditableFilename
-      id={id}
-      filename={filename}
-      setPanelData={setPanelData}
-      prefix="Data: "
-      editing={editing}
-      setEditing={setEditing}
-      filenameInput={filenameInput}
-      setFilenameInput={setFilenameInput}
-    />
-  </div>
-  <div className="flex items-center gap-1">
-    <DuplicateButton onClick={() => onDuplicate(id)} />
-    <LinkButton
-      onClick={() => onLinkClick(id)}
-      isLinked={isLinked}
-      isLinkModeActive={isLinkModeActive}
-    />
-    <RemoveButton onClick={() => onRemove(id)} />
-  </div>
-</div>
+        <PanelHeader
+        id={id}
+        prefix="Data: "
+        filename={filename}
+        setPanelData={setPanelData}
+        editing={editing}
+        setEditing={setEditing}
+        filenameInput={filenameInput}
+        setFilenameInput={setFilenameInput}
+        onDuplicate={onDuplicate}
+        onLinkClick={onLinkClick}
+        isLinkModeActive={isLinkModeActive}
+        isLinked={isLinked}
+        onRemove={onRemove}
+      />
       <div className="p-2">
         {isTabular && (
           <>
@@ -618,32 +637,19 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
 function App() {
   const [panels, setPanels] = useState([]);
   const [layout, setLayout] = useState([]);
-  const [selectedId, setSelectedId] = useState(null);
   const [linkMode, setLinkMode] = useState(null);
   const [panelLinks, setPanelLinks] = useState({}); // { [id]: linkedId }
-  const [scrollSyncEnabled, setScrollSyncEnabled] = useState(true);
   const [scrollPositions, setScrollPositions] = useState({});
   const [highlightSite, setHighlightSite] = useState(null);
   const [highlightOrigin, setHighlightOrigin] = useState(null);
   const [highlightedSequenceId, setHighlightedSequenceId] = useState(null);
   const [panelData, setPanelData] = useState({});
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
-  const [darkMode, setDarkMode] = useState(false);
   const [hoveredPanelId, setHoveredPanelId] = useState(null);
   const fileInputRef = useRef(null);
   const fileInputRefWorkspace = useRef(null);
   const pendingTypeRef = useRef(null);
   const pendingPanelRef = useRef(null);
-
-  useEffect(() => {
-    const saved = localStorage.getItem('darkMode');
-    if (saved !== null) setDarkMode(saved === 'true');
-  }, []);
-
-  useEffect(() => {
-    document.documentElement.classList.toggle('dark', darkMode);
-    localStorage.setItem('darkMode', darkMode);
-  }, [darkMode]);
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -721,13 +727,24 @@ function App() {
         } else {
           // create new link: first unlink any existing
           setPanelLinks(pl => {
-            const copy = { ...pl };
-            if (copy[a]) { delete copy[a]; delete copy[copy[a]]; }
-            if (copy[b]) { delete copy[b]; delete copy[copy[b]]; }
-            copy[a] = b;
-            copy[b] = a;
-            return copy;
-          });
+  const copy = { ...pl };
+  // Unlink any existing partner of “a”
+  const oldA = copy[a];
+  if (oldA) {
+    delete copy[a];
+    delete copy[oldA];
+  }
+  // Unlink any existing partner of “b”
+  const oldB = copy[b];
+  if (oldB) {
+    delete copy[b];
+    delete copy[oldB];
+  }
+  // Create new link
+  copy[a] = b;
+  copy[b] = a;
+  return copy;
+});
         }
         setLinkMode(null);
       }
@@ -781,7 +798,6 @@ function App() {
   } else if (type === 'tree') {
       const text = await file.text();
       const isNhx = /\.nhx$/i.test(filename) || text.includes('[&&NHX');
-      parse(text);
       panelPayload = { data: text, filename, isNhx };
   } else if (type === 'histogram') {
       const text = await file.text();
@@ -836,12 +852,27 @@ function App() {
     if (fileInputRef.current) fileInputRef.current.value = null;
   };
 
-  const removePanel = (id) => {
-    if (id === '__footer') return;
-    setPanels(p => p.filter(panel => panel.i !== id));
-    setPanelData(d => { const c = { ...d }; delete c[id]; return c; });
-    setLayout(l => l.filter(entry => entry.i !== id));
-  };
+const removePanel = id => {
+  setPanels(p => p.filter(p => p.i !== id));
+  setPanelData(d => { const c={...d}; delete c[id]; return c; });
+  setLayout(l => l.filter(e => e.i !== id));
+  setPanelLinks(pl => {
+    const c = { ...pl };
+    const other = c[id];
+    delete c[id];
+    if (other) delete c[other];
+    return c;
+  });
+  setScrollPositions(sp => {
+    const c = { ...sp };
+    delete c[id];
+    return c;
+  });
+  if (highlightOrigin === id) {
+    setHighlightOrigin(null);
+    setHighlightSite(null);
+  }
+};
 
   const handleLoadWorkspace = async (e) => {
   const file = e.target.files[0];
@@ -876,7 +907,7 @@ const handleSaveWorkspace = () => {
 };
 
   return (
-    <div className="h-screen w-screen flex flex-col overflow-hidden bg-white text-black dark:bg-gray-900 dark:text-black">
+    <div className="h-screen w-screen flex flex-col overflow-hidden bg-white text-black">
       <div className="p-4 flex justify-between items-center">
         <div className="flex items-center justify-start w-full">
           {'MSEAVIEW'.split('').map((char, i) => (
@@ -923,7 +954,7 @@ const handleSaveWorkspace = () => {
               xmlns="http://www.w3.org/2000/svg"
               fill="currentColor"
               viewBox="0 0 24 24"
-              className="w-7 h-7 text-gray-800 dark:text-gray-200"
+              className="w-7 h-7 text-gray-800"
               aria-hidden="true"
             >
               <path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.867 8.184 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.342-3.369-1.342-.454-1.154-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.004.07 1.532 1.032 1.532 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.339-2.221-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.254-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.025A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.295 2.748-1.025 2.748-1.025.546 1.378.202 2.396.1 2.65.64.7 1.028 1.595 1.028 2.688 0 3.847-2.337 4.695-4.566 4.944.36.31.68.921.68 1.857 0 1.34-.012 2.421-.012 2.751 0 .267.18.578.688.48C19.135 20.2 22 16.447 22 12.021 22 6.484 17.523 2 12 2z"/>
@@ -936,9 +967,6 @@ const handleSaveWorkspace = () => {
     GitHub
   </div>
 </div>
-          {/*<button onClick={() => setDarkMode(prev => !prev)} className="bg-gray-800 text-white px-2 py-1 rounded hover:bg-gray-700 dark:bg-white dark:text-black dark:hover:bg-gray-300">
-            {darkMode ? '☀︎' : '☾'}
-          </button>*/}
           <input ref={fileInputRef} type="file" accept=".fasta,.nwk,.nhx,.txt,.tsv,.csv,.fas" onChange={handleFileUpload} style={{ display: 'none' }} />
         </div>
       </div>
@@ -969,7 +997,7 @@ const handleSaveWorkspace = () => {
 {panels.map(panel => {
   if (panel.i === '__footer') {
     return (
-      <div key="__footer" className="flex items-center justify-center text-gray-500 dark:text-gray-400 text-sm" />
+      <div key="__footer" className="flex items-center justify-center text-gray-500 text-sm" />
     );
   }
   const data = panelData[panel.i];
@@ -998,7 +1026,6 @@ const handleSaveWorkspace = () => {
     <AlignmentPanel
       {...commonProps}
       setPanelData={setPanelData}
-      selectedId={selectedId}
       onSyncScroll={onSyncScroll}
       externalScrollLeft={scrollPositions[panel.i]}
       highlightedSequenceId={highlightedSequenceId}
