@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { parse } from 'newick';
-import { LinkIcon, DocumentDuplicateIcon } from '@heroicons/react/24/outline';
+import { LinkIcon, DocumentDuplicateIcon,PencilSquareIcon,XMarkIcon, Bars3Icon  } from '@heroicons/react/24/outline';
 import { FixedSizeGrid as Grid, FixedSizeList as List } from 'react-window';
 import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
@@ -39,11 +39,63 @@ function parseFasta(content) {
   return result;
 }
 
+function EditableFilename({ 
+  id, 
+  filename, 
+  setPanelData, 
+  prefix = '', 
+  className = '' 
+}) {
+  const [editing, setEditing] = useState(false);
+  const [filenameInput, setFilenameInput] = useState(filename);
+
+  useEffect(() => {
+    setFilenameInput(filename);
+  }, [filename]);
+
+  return editing ? (
+    <form
+      onSubmit={e => {
+        e.preventDefault();
+        setPanelData(prev => ({
+          ...prev,
+          [id]: { ...prev[id], filename: filenameInput }
+        }));
+        setEditing(false);
+      }}
+      className={`inline ${className}`}
+    >
+      <input
+        className="border rounded px-1 w-32 text-sm"
+        value={filenameInput}
+        onChange={e => setFilenameInput(e.target.value)}
+        autoFocus
+        onBlur={() => setEditing(false)}
+      />
+    </form>
+  ) : (
+    <div className="flex items-center">
+      <span>{prefix}{filename}</span>
+      <button
+        type="button"
+        className="ml-2 p-0.5"
+        onClick={() => setEditing(true)}
+        title="Edit filename"
+      >
+        <span className="inline-flex items-center justify-center w-6 h-6">
+          <PencilSquareIcon className="w-5 h-5 text-gray-700"/>
+        </span>
+      </button>
+    </div>
+  );
+}
+
+
 function DuplicateButton({ onClick }) {
   return (
     <button
       onClick={onClick}
-      className="absolute right-8 top-0 p-0.5"
+      className="p-0.5"
       title="Duplicate panel"
     >
       <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-gray-300">
@@ -57,9 +109,11 @@ function RemoveButton({ onClick }) {
   return (
     <button
       onClick={onClick}
-      className="absolute right-2 top-0 text-red-500 hover:text-red-700"
+      className="p-0.5"
       title="Remove panel">
-      ×
+<span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-red-300">
+        <XMarkIcon className="w-5 h-5 text-gray-700" />
+      </span>
     </button>
   );
 }
@@ -68,16 +122,16 @@ function LinkButton({ onClick, isLinked, isLinkModeActive }) {
   return (
   <button
         onClick={onClick}
-        className="absolute right-16 top-0 p-0.5"
+        className="p-0.5"
         title={isLinked ? 'Unlink panels' : 'Link panel'}>
-        <span className={`inline-flex items-center justify-center w-6 h-6 rounded
+        <span className={`inline-flex items-center justify-center w-6 h-6 rounded hover:bg-gray-300
         ${isLinkModeActive ? 'bg-blue-200' :
         isLinked         ? 'bg-green-200' :
                            'bg-gray-200'}
         border border-gray-400`}>
           <LinkIcon
           className={`
-            w-6 h-6
+            w-5 h-5
             ${isLinkModeActive ? 'text-blue-700' :
               isLinked         ? 'text-green-700' :
                                 'text-gray-500'}`}
@@ -92,13 +146,15 @@ function CodonToggleButton({ onClick, isActive }) {
   return (
     <button
       onClick={onClick}
-      className="absolute right-24 top-0 p-0.5"
+      className="p-0.5"
       title="Toggle codon view"
     >
       <span className={`inline-flex items-center justify-center w-6 h-6 rounded
         ${isActive ? 'bg-purple-200' : 'bg-gray-200'}
         border border-gray-400 hover:bg-purple-300`}>
-        <span className="text-xs font-bold text-purple-800">3</span>
+        <span className="text-xs font-bold text-purple-800 leading-none">
+          <Bars3Icon className="w-5 h-5" />
+        </span>
       </span>
     </button>
   );
@@ -136,18 +192,21 @@ function PanelContainer({ id, linkedTo, hoveredPanelId, setHoveredPanelId, child
 
 const AlignmentPanel = React.memo(function AlignmentPanel({
   id,
-  data: { data: msaData, filename },
+  data,
   onRemove, onReupload, onDuplicate,
   onLinkClick, isLinkModeActive, isLinked, linkedTo,
   highlightedSite, highlightOrigin, onHighlight,
   onSyncScroll, externalScrollLeft,
   highlightedSequenceId, setHighlightedSequenceId,hoveredPanelId,
-  setHoveredPanelId
+  setHoveredPanelId, setPanelData
 }) {
+  const msaData = data.data;
+  const filename = data.filename;
   const containerRef = useRef(null);
   const gridContainerRef = useRef(null);
   const gridRef = useRef(null);
-
+  const [editing, setEditing] = useState(false);
+  const [filenameInput, setFilenameInput] = useState(filename);
   const [dims, setDims] = useState({ width: 0, height: 0 });
   const [hoveredCol, setHoveredCol] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
@@ -156,6 +215,10 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
 
   const LABEL_WIDTH = 66;
   const CELL_SIZE = 24;
+
+  useEffect(() => {
+  setFilenameInput(filename);
+}, [filename]);
 
   useEffect(() => {
     if (!gridContainerRef.current) return;
@@ -252,17 +315,35 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
           }
         }}
       >
-        <div className="panel-drag-handle select-none font-bold text-center bg-gray-100 p-1 mb-2 cursor-move relative">
-          MSA: {filename}
-          <DuplicateButton onClick={() => onDuplicate(id)} />
-          <RemoveButton onClick={() => onRemove(id)} />
-          <LinkButton
-            onClick={() => onLinkClick(id)}
-            isLinked={isLinked}
-            isLinkModeActive={isLinkModeActive}
-          />
-        </div>
-        <CodonToggleButton onClick={() => setCodonMode(m => !m)} isActive={codonMode} />
+        <div className="panel-drag-handle bg-gray-100 p-1 mb-2 cursor-move flex items-center justify-between font-bold">
+  {/* Left spacer for symmetry */}
+  <div className="w-12" />
+  {/* Centered filename (with editing) */}
+  <div className="flex-1 flex justify-center">
+    <EditableFilename
+      id={id}
+      filename={filename}
+      setPanelData={setPanelData}
+      prefix="MSA: "
+      editing={editing}
+      setEditing={setEditing}
+      filenameInput={filenameInput}
+      setFilenameInput={setFilenameInput}
+    />
+  </div>
+  {/* Right-aligned action buttons */}
+  <div className="flex items-center gap-1">
+    <CodonToggleButton onClick={() => setCodonMode(m => !m)} isActive={codonMode} />
+    <DuplicateButton onClick={() => onDuplicate(id)} />
+    <LinkButton
+      onClick={() => onLinkClick(id)}
+      isLinked={isLinked}
+      isLinkModeActive={isLinkModeActive}
+    />
+    <RemoveButton onClick={() => onRemove(id)} />
+  </div>
+</div>
+      
 
         {hoveredCol != null && id === highlightOrigin && (
           <Tooltip x={tooltipPos.x} y={tooltipPos.y}>
@@ -362,10 +443,15 @@ const TreePanel = React.memo(function TreePanel({
   highlightedSequenceId, onHoverTip,
   linkedTo, highlightOrigin,
   onLinkClick, isLinkModeActive, isLinked,hoveredPanelId,
-  setHoveredPanelId
+  setHoveredPanelId, setPanelData
 }) {
   const { data: newick, filename, isNhx } = data;
+  const [editing, setEditing] = useState(false);
+  const [filenameInput, setFilenameInput] = useState(filename);
 
+  useEffect(() => {
+  setFilenameInput(filename);
+}, [filename]);
   return (
     <PanelContainer
   id={id}
@@ -374,16 +460,30 @@ const TreePanel = React.memo(function TreePanel({
   setHoveredPanelId={setHoveredPanelId}
   onDoubleClick={() => onReupload(id)}
 >
-      <div className="panel-drag-handle select-none font-bold text-center bg-gray-100 p-1 mb-2 cursor-move relative">
-        Tree: {filename}
-        <DuplicateButton onClick={() => onDuplicate(id)} />
-        <RemoveButton onClick={() => onRemove(id)} />
-        <LinkButton
-          onClick={() => onLinkClick(id)}
-          isLinked={isLinked}
-          isLinkModeActive={isLinkModeActive}
-        />
-      </div>
+      <div className="panel-drag-handle bg-gray-100 p-1 mb-2 cursor-move flex items-center justify-between font-bold">
+  <div className="w-12" />
+  <div className="flex-1 flex justify-center">
+    <EditableFilename
+      id={id}
+      filename={filename}
+      setPanelData={setPanelData}
+      prefix="Tree: "
+      editing={editing}
+      setEditing={setEditing}
+      filenameInput={filenameInput}
+      setFilenameInput={setFilenameInput}
+    />
+  </div>
+  <div className="flex items-center gap-1">
+    <DuplicateButton onClick={() => onDuplicate(id)} />
+    <LinkButton
+      onClick={() => onLinkClick(id)}
+      isLinked={isLinked}
+      isLinkModeActive={isLinkModeActive}
+    />
+    <RemoveButton onClick={() => onRemove(id)} />
+  </div>
+</div>
       <div className="flex-1 overflow-auto flex items-center justify-center">
         <PhyloTreeViewer
           newick={newick}
@@ -401,9 +501,11 @@ const TreePanel = React.memo(function TreePanel({
 const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, onReupload, onDuplicate,
   onLinkClick, isLinkModeActive, isLinked, linkedTo,
   highlightedSite, highlightOrigin, onHighlight, hoveredPanelId,
-  setHoveredPanelId, setPanelData // <-- add this prop
+  setHoveredPanelId, setPanelData
 }) {
   const { filename } = data;
+  const [editing, setEditing] = useState(false);
+  const [filenameInput, setFilenameInput] = useState(filename);
   const isTabular = !Array.isArray(data.data);
   const [selectedCol, setSelectedCol] = useState(
     // Try to restore from data.selectedCol, fallback to first numeric col
@@ -425,7 +527,9 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
 
   const chartContainerRef = useRef(null);
   const [height, setHeight] = useState(300); // default height
-
+  useEffect(() => {
+  setFilenameInput(filename);
+}, [filename]);
   useEffect(() => {
     if (!chartContainerRef.current) return;
     const handleResize = () => {
@@ -445,15 +549,30 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
   setHoveredPanelId={setHoveredPanelId}
   onDoubleClick={() => onReupload(id)}
 >
-      <div className="panel-drag-handle select-none font-bold text-center bg-gray-100 p-1 mb-2 cursor-move relative">
-        Data: {filename}
-      <DuplicateButton onClick={() => onDuplicate(id)} />
-      <RemoveButton onClick={() => onRemove(id)} />
-      <LinkButton
-        onClick={() => onLinkClick(id)}
-        isLinked={isLinked}
-        isLinkModeActive={isLinkModeActive}/>
-      </div>
+      <div className="panel-drag-handle bg-gray-100 p-1 mb-2 cursor-move flex items-center justify-between font-bold">
+  <div className="w-12" />
+  <div className="flex-1 flex justify-center">
+    <EditableFilename
+      id={id}
+      filename={filename}
+      setPanelData={setPanelData}
+      prefix="Data: "
+      editing={editing}
+      setEditing={setEditing}
+      filenameInput={filenameInput}
+      setFilenameInput={setFilenameInput}
+    />
+  </div>
+  <div className="flex items-center gap-1">
+    <DuplicateButton onClick={() => onDuplicate(id)} />
+    <LinkButton
+      onClick={() => onLinkClick(id)}
+      isLinked={isLinked}
+      isLinkModeActive={isLinkModeActive}
+    />
+    <RemoveButton onClick={() => onRemove(id)} />
+  </div>
+</div>
       <div className="p-2">
         {isTabular && (
           <>
@@ -878,6 +997,7 @@ const handleSaveWorkspace = () => {
   {panel.type === 'alignment' ? (
     <AlignmentPanel
       {...commonProps}
+      setPanelData={setPanelData}
       selectedId={selectedId}
       onSyncScroll={onSyncScroll}
       externalScrollLeft={scrollPositions[panel.i]}
@@ -887,6 +1007,7 @@ const handleSaveWorkspace = () => {
   ) : panel.type === 'tree' ? (
     <TreePanel
       {...commonProps}
+      setPanelData={setPanelData}
       highlightedSequenceId={highlightedSequenceId}
       onHoverTip={setHighlightedSequenceId}
     />
