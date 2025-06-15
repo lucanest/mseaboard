@@ -751,7 +751,7 @@ const handleSaveWorkspace = () => {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
-  a.download = 'workspace.json';
+  a.download = 'mseaview-workspace.json';
   a.click();
   URL.revokeObjectURL(url);
 };
