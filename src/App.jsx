@@ -255,7 +255,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [dims, setDims] = useState({ width: 0, height: 0 });
   const [hoveredCol, setHoveredCol] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
-  const [codonMode, setCodonMode] = useState(false);
+const [codonMode, setCodonModeState] = useState(data.codonMode || false);
   const [scrollTop, setScrollTop] = useState(0);
   // throttle highlight to ~60fps
   const throttledHighlight = useMemo(
@@ -270,7 +270,19 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
     }, 16),
     [onHighlight]
   );
- 
+    const setCodonMode = useCallback((fnOrValue) => {
+    setCodonModeState(prev => {
+      const next = typeof fnOrValue === 'function' ? fnOrValue(prev) : fnOrValue;
+      setPanelData(prevData => ({
+        ...prevData,
+        [id]: {
+          ...prevData[id],
+          codonMode: next
+        }
+      }));
+      return next;
+    });
+  }, [id, setPanelData]);
 
   // throttle scroll handler to once every 50ms
   const throttledOnScroll = useCallback(
@@ -285,6 +297,13 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
 
   const LABEL_WIDTH = 66;
   const CELL_SIZE = 24;
+
+   useEffect(() => {
+    if (data.codonMode !== codonMode) {
+      setCodonModeState(data.codonMode || false);
+    }
+    // eslint-disable-next-line
+  }, [data.codonMode]);
 
   useEffect(() => {
   setFilenameInput(filename);
