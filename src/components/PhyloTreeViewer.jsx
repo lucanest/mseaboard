@@ -189,7 +189,7 @@ const PhyloTreeViewer = ({
   const isLinkedHighlight = 
     highlightedSequenceId === d.data.name &&
     (linkedTo === highlightOrigin || id === highlightOrigin);
-  if (isLinkedHighlight) return 'red';
+  if (isLinkedHighlight) return '#cc0066';
   const val = d.data.nhx?.[colorField];
   return val ? colorMap[val] : '#555';
 })
@@ -215,13 +215,13 @@ g.append('g')
     const isLinkedHighlight = 
       highlightedSequenceId === d.data.name &&
       (linkedTo === highlightOrigin || id === highlightOrigin);
-    return isLinkedHighlight ? '16px' : '12px';
+    return isLinkedHighlight ? '20px' : '12px';
   })
   .style('fill', d => {
     const isLinkedHighlight = 
       highlightedSequenceId === d.data.name &&
       (linkedTo === highlightOrigin || id === highlightOrigin);
-    return isLinkedHighlight ? 'red' : '#333';
+    return isLinkedHighlight ? ' #cc0066' : '#333';
   })
   .on('mouseenter', (event, d) => onHoverTip?.(d.data.name))
   .on('mouseleave', () => onHoverTip?.(null));
