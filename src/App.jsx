@@ -254,14 +254,16 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [filenameInput, setFilenameInput] = useState(filename);
   const [dims, setDims] = useState({ width: 0, height: 0 });
   const [hoveredCol, setHoveredCol] = useState(null);
+  const [hoveredRow, setHoveredRow] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 const [codonMode, setCodonModeState] = useState(data.codonMode || false);
   const [scrollTop, setScrollTop] = useState(0);
   // throttle highlight to ~60fps
   const throttledHighlight = useMemo(
-    () => throttle((col, originId, clientX, clientY) => {
+    () => throttle((col,row, originId, clientX, clientY) => {
       // 1) visual hover
       setHoveredCol(col);
+      setHoveredRow(row);
       // 2) tooltip position
       const rect = containerRef.current.getBoundingClientRect();
       setTooltipPos({ x: clientX - rect.left, y: clientY - rect.top });
@@ -384,16 +386,17 @@ const [codonMode, setCodonModeState] = useState(data.codonMode || false);
           const { clientX, clientY } = e;
           // in codonMode send codonIndex, else raw columnIndex
           const idx = codonMode ? codonIndex : columnIndex;
-          throttledHighlight(idx, id, clientX, clientY);
+          throttledHighlight(idx, rowIndex, id, clientX, clientY);
         }}
         onMouseMove={e => {
           const { clientX, clientY } = e;
           const idx = codonMode ? codonIndex : columnIndex;
-          throttledHighlight(idx, id, clientX, clientY);
+          throttledHighlight(idx, rowIndex,id, clientX, clientY);
         }}
         onMouseLeave={() => {
           throttledHighlight.cancel();
           setHoveredCol(null);
+          setHoveredRow(null);
           onHighlight(null, id);
         }}
       >
@@ -450,23 +453,31 @@ const [codonMode, setCodonModeState] = useState(data.codonMode || false);
        />
       
 
-        {hoveredCol != null && id === highlightOrigin && (
-          <Tooltip x={tooltipPos.x} y={tooltipPos.y}>
-        {codonMode
-          ? `Codon ${hoveredCol + 1}`     // hoveredCol is codon index
-          : `Site ${hoveredCol + 1}`}
-          </Tooltip>
-        )}
+{hoveredCol != null && id === highlightOrigin && (
+<Tooltip x={tooltipPos.x} y={tooltipPos.y}>
+  <div className="flex flex-col items-center">
+    <span className="font-bold">
+      {codonMode
+        ? `Codon ${hoveredCol + 1}`
+        : `Site ${hoveredCol + 1}`}
+    </span>
+    {hoveredRow != null && msaData[hoveredRow] && (
+      <span className="text-gray-700 font-mono text-xs">{msaData[hoveredRow].id}</span>
+    )}
+  </div>
+</Tooltip>
+)}
 
-        {highlightedSite != null &&
-          linkedTo === highlightOrigin &&
-          id !== highlightOrigin && (
-            <Tooltip x={tooltipPos.x} y={tooltipPos.y}>
-              {codonMode
-                ? `Codon ${highlightedSite + 1}`  // highlightedSite is codon index
-                : `Site ${highlightedSite + 1}`}
-            </Tooltip>
-          )}
+{highlightedSite != null &&
+  linkedTo === highlightOrigin &&
+  id !== highlightOrigin && (
+    <Tooltip x={tooltipPos.x} y={tooltipPos.y}>
+  <span>
+    {codonMode ? 'Codon ' : 'Site '}
+    <span className="font-bold">{highlightedSite + 1}</span>
+  </span>
+    </Tooltip>
+  )}
 
         <div
           ref={gridContainerRef}
