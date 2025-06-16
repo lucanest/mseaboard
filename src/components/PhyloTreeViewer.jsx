@@ -198,28 +198,33 @@ const PhyloTreeViewer = ({
 .on('mouseenter', (event, d) => onHoverTip?.(d.data.name, id))
 .on('mouseleave', () => onHoverTip?.(null, null))
 
-    g.append('g')
-      .selectAll('text')
-      .data(root.descendants().filter(d => !d.children))
-      .join('text')
-      .attr('transform', d => `
-        rotate(${(d.x * 180 / Math.PI - 90)})
-        translate(${d.y},0)
-        rotate(${d.x >= Math.PI ? 180 : 0})
-      `)
-      .attr('dy', '0.31em')
-      .attr('x', d => d.x < Math.PI ? 8 : -8)
-      .attr('text-anchor', d => d.x < Math.PI ? 'start' : 'end')
-      .text(d => d.data.name)
-      .style('font-size', '12px')
-.style('fill', d => {
-  const isLinkedHighlight = 
-    highlightedSequenceId === d.data.name &&
-    (linkedTo === highlightOrigin || id === highlightOrigin);
-  return isLinkedHighlight ? 'red' : '#333';
-})
-      .on('mouseenter', (event, d) => onHoverTip?.(d.data.name))
-      .on('mouseleave', () => onHoverTip?.(null));
+g.append('g')
+  .selectAll('text')
+  .data(root.descendants().filter(d => !d.children))
+  .join('text')
+  .attr('transform', d => `
+    rotate(${(d.x * 180 / Math.PI - 90)})
+    translate(${d.y},0)
+    rotate(${d.x >= Math.PI ? 180 : 0})
+  `)
+  .attr('dy', '0.31em')
+  .attr('x', d => d.x < Math.PI ? 8 : -8)
+  .attr('text-anchor', d => d.x < Math.PI ? 'start' : 'end')
+  .text(d => d.data.name)
+  .style('font-size', d => {
+    const isLinkedHighlight = 
+      highlightedSequenceId === d.data.name &&
+      (linkedTo === highlightOrigin || id === highlightOrigin);
+    return isLinkedHighlight ? '16px' : '12px';
+  })
+  .style('fill', d => {
+    const isLinkedHighlight = 
+      highlightedSequenceId === d.data.name &&
+      (linkedTo === highlightOrigin || id === highlightOrigin);
+    return isLinkedHighlight ? 'red' : '#333';
+  })
+  .on('mouseenter', (event, d) => onHoverTip?.(d.data.name))
+  .on('mouseleave', () => onHoverTip?.(null));
 
     if (Object.keys(colorMap).length > 0) {
       const legend = svg.append('g')
