@@ -381,19 +381,30 @@ const [codonMode, setCodonModeState] = useState(data.codonMode || false);
       (codonMode
         ? codonIndex === highlightedSite
         : columnIndex === highlightedSite);
-
+  const handleMouseEnter = e => {
+    const { clientX, clientY } = e;
+    const idx = codonMode ? codonIndex : columnIndex;
+    throttledHighlight(idx, rowIndex, id, clientX, clientY);
+    if (linkedTo && setHighlightedSequenceId) {
+      setHighlightedSequenceId(msaData[rowIndex].id);
+    }
+  };
+  const handleMouseLeave = () => {
+    throttledHighlight.cancel();
+    setHoveredCol(null);
+    setHoveredRow(null);
+    onHighlight(null, id);
+    if (linkedTo && setHighlightedSequenceId) {
+      setHighlightedSequenceId(null);
+    }
+  };
     return (
       <div
         style={style}
         className={`flex items-center justify-center ${baseBg} ${
           isHoverHighlight || isLinkedHighlight ? 'alignment-highlight' : ''
         }`}
-        onMouseEnter={e => {
-          const { clientX, clientY } = e;
-          // in codonMode send codonIndex, else raw columnIndex
-          const idx = codonMode ? codonIndex : columnIndex;
-          throttledHighlight(idx, rowIndex, id, clientX, clientY);
-        }}
+        onMouseEnter={handleMouseEnter}
         onMouseMove={e => {
           const { clientX, clientY } = e;
           const idx = codonMode ? codonIndex : columnIndex;
