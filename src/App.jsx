@@ -84,6 +84,12 @@ function parseFasta(content) {
   return result;
 }
 
+function getLeafOrderFromNewick(newick) {
+  // Simple regex-based parser for leaf names in Newick
+  // Assumes leaf names do not contain parentheses, colons, commas, or semicolons
+  return (newick.match(/[\w\.\-\|]+(?=[,\)\:])/g) || []);
+}
+
 function EditableFilename({ 
   id, 
   filename, 
@@ -773,65 +779,107 @@ function App() {
   };
 
   const handleLinkClick = (id) => {
-    if (!linkMode) {
-      // no panel selected yet
-      if (panelLinks[id]) {
-        // currently linked: unlink both
-        const other = panelLinks[id];
+  if (!linkMode) {
+    // no panel selected yet
+    if (panelLinks[id]) {
+      // currently linked: unlink both
+      const other = panelLinks[id];
+      setPanelLinks(pl => {
+        const copy = { ...pl };
+        delete copy[id]; delete copy[other];
+        return copy;
+      });
+    } else {
+      // start linking
+      setLinkMode(id);
+    }
+  } else {
+    // linking in progress
+    if (linkMode === id) {
+      // cancelled
+      setLinkMode(null);
+    } else {
+      // link or unlink
+      const a = linkMode;
+      const b = id;
+      if (panelLinks[a] === b) {
+        // already linked: unlink
         setPanelLinks(pl => {
           const copy = { ...pl };
-          delete copy[id]; delete copy[other];
+          delete copy[a]; delete copy[b];
           return copy;
         });
       } else {
-        // start linking
-        setLinkMode(id);
-      }
-    } else {
-      // linking in progress
-      if (linkMode === id) {
-        // cancelled
-        setLinkMode(null);
-      } else {
-        // link or unlink
-        const a = linkMode;
-        const b = id;
-        if (panelLinks[a] === b) {
-          // already linked: unlink
-          setPanelLinks(pl => {
-            const copy = { ...pl };
-            delete copy[a]; delete copy[b];
-            return copy;
-          });
-        } else {
-          // create new link: first unlink any existing
-          setPanelLinks(pl => {
-  const copy = { ...pl };
-  // Unlink any existing partner of “a”
-  const oldA = copy[a];
-  if (oldA) {
-    delete copy[a];
-    delete copy[oldA];
-  }
-  // Unlink any existing partner of “b”
-  const oldB = copy[b];
-  if (oldB) {
-    delete copy[b];
-    delete copy[oldB];
-  }
-  // Create new link
-  copy[a] = b;
-  copy[b] = a;
-  return copy;
-});
+        // create new link: first unlink any existing
+        setPanelLinks(pl => {
+          const copy = { ...pl };
+          // Unlink any existing partner of “a”
+          const oldA = copy[a];
+          if (oldA) {
+            delete copy[a];
+            delete copy[oldA];
+          }
+          // Unlink any existing partner of “b”
+          const oldB = copy[b];
+          if (oldB) {
+            delete copy[b];
+            delete copy[oldB];
+          }
+          // Create new link
+          copy[a] = b;
+          copy[b] = a;
+          return copy;
+        });
+
+        // --- REORDER MSA if linking alignment <-> tree ---
+        const panelA = panels.find(p => p.i === a);
+        const panelB = panels.find(p => p.i === b);
+        if (panelA && panelB) {
+          let alignmentId = null, treeId = null;
+          if (panelA.type === 'alignment' && panelB.type === 'tree') {
+            alignmentId = a; treeId = b;
+          } else if (panelA.type === 'tree' && panelB.type === 'alignment') {
+            alignmentId = b; treeId = a;
+          }
+          if (alignmentId && treeId) {
+            const treeData = panelData[treeId];
+            const msaData = panelData[alignmentId];
+            if (treeData && msaData && Array.isArray(msaData.data)) {
+              const leafOrder = getLeafOrderFromNewick(treeData.data);
+              if (leafOrder.length) {
+                // Try to match MSA sequence IDs to tree leaf names
+                const msaSeqs = msaData.data;
+                // Map by id for fast lookup
+                const msaById = {};
+                msaSeqs.forEach(seq => {
+                  msaById[seq.id] = seq;
+                });
+                // Reorder, keeping only those present in tree
+                const reordered = leafOrder
+                  .map(id => msaById[id])
+                  .filter(Boolean);
+                // Optionally, append any MSA seqs not in tree at the end
+                const extraSeqs = msaSeqs.filter(seq => !leafOrder.includes(seq.id));
+                setPanelData(prev => ({
+                  ...prev,
+                  [alignmentId]: {
+                    ...prev[alignmentId],
+                    data: [...reordered, ...extraSeqs]
+                  }
+                }));
+              }
+            }
+          }
         }
-        setLinkMode(null);
+        // --- END reorder ---
       }
+      setLinkMode(null);
     }
-    // clear any existing highlights
-    setHighlightSite(null);
-    setHighlightOrigin(null);
-  };
+  }
+  // clear any existing highlights
+  setHighlightSite(null);
+  setHighlightOrigin(null);
+};
 
   const CELL_SIZE = 24;
 const handleHighlight = (site, originId) => {
