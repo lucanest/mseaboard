@@ -131,26 +131,36 @@ const PhyloTreeViewer = ({
       };
     };
 
-    const data = convertToD3Hierarchy(parsed);
-    const radius = Math.min(size.width, size.height) / 2 - 20;
-    const diameter = radius * 2;
-    const margin = 20;
+const data = convertToD3Hierarchy(parsed);
+const root = d3.hierarchy(data);
+const leafNames = root.leaves().map(d => d.data.name || '');
+const maxLabelLength = Math.max(...leafNames.map(name => name.length));
+const approxCharWidth = 4.05;
+const margin = maxLabelLength * approxCharWidth;
+const radius = Math.min(size.width, size.height) / 2 - margin;
+const diameter = radius * 2;
 
-    const svg = d3.select(container)
-      .append('svg')
-      .attr('viewBox', [
-        -radius - margin,
-        -radius - margin,
-        diameter + margin * 2,
-        diameter + margin * 2
-      ])
-      .attr('width', '100%')
-      .attr('height', '100%')
-      .style('font', '10px sans-serif');
+const svg = d3.select(container)
+  .append('svg')
+  .attr('viewBox', [
+    0,
+    0,
+    diameter + margin * 2,
+    diameter + margin * 2
+  ])
+  .attr('width', '100%')
+  .attr('height', '100%')
+  .style('font', '10px sans-serif');
 
-    const g = svg.append('g');
+// Legend in upper left
+const legend = svg.append('g')
+  .attr('transform', 'translate(20, 20)');
 
-    const root = d3.hierarchy(data);
+// Center the tree group
+const g = svg.append('g')
+  .attr('transform', `translate(${radius + margin},${radius + margin})`);
+
+
     d3.cluster().size([2 * Math.PI, radius - 50])(root);
 
     const colorField = 'Trait';
@@ -215,7 +225,7 @@ g.append('g')
     const isLinkedHighlight = 
       highlightedSequenceId === d.data.name &&
       (linkedTo === highlightOrigin || id === highlightOrigin);
-    return isLinkedHighlight ? '20px' : '12px';
+    return isLinkedHighlight ? '18px' : '12px';
   })
   .style('fill', d => {
     const isLinkedHighlight = 
@@ -223,12 +233,17 @@ g.append('g')
       (linkedTo === highlightOrigin || id === highlightOrigin);
     return isLinkedHighlight ? ' #cc0066' : '#333';
   })
+    .style('font-weight', d => {
+    const isLinkedHighlight = 
+      highlightedSequenceId === d.data.name &&
+      (linkedTo === highlightOrigin || id === highlightOrigin);
+    return isLinkedHighlight ? 'bold' : 'normal';
+  })
   .on('mouseenter', (event, d) => onHoverTip?.(d.data.name))
   .on('mouseleave', () => onHoverTip?.(null));
 
     if (Object.keys(colorMap).length > 0) {
-      const legend = svg.append('g')
-        .attr('transform', `translate(${-radius}, ${-radius})`);
+
 
       const items = Object.entries(colorMap);
 
