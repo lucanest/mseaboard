@@ -15,8 +15,12 @@ function isDiscrete(values) {
 
 
 
-function Histogram({ values, panelId, onHighlight, highlightedSite, highlightOrigin, linkedTo, height }) {
-  const data = values.map((value, index) => ({ site: index + 1, value }));
+function Histogram({ values, xValues, panelId, onHighlight, highlightedSite, highlightOrigin, linkedTo, height }) {
+  // Use xValues if provided, otherwise fallback to index
+  const data = values.map((value, index) => ({
+    site: xValues ? xValues[index] : index + 1,
+    value
+  }));
   const min = Math.min(...values), max = Math.max(...values);
   const unique = Array.from(new Set(values));
   const discrete = isDiscrete(values) && unique.length <= colorPalette.length;
@@ -28,6 +32,8 @@ function Histogram({ values, panelId, onHighlight, highlightedSite, highlightOri
     return `rgb(255,${Math.round(255 * (1 - t))},${Math.round(255 * (1 - t))})`;
   };
 
+  // Find the x label for the highlighted bar
+  const getXLabel = idx => (xValues ? xValues[idx] : idx + 1);
 
   const CustomTooltip = ({ active, payload, label }) => {
     if (active && payload && payload.length) {
@@ -61,7 +67,7 @@ function Histogram({ values, panelId, onHighlight, highlightedSite, highlightOri
     } else {
       setTooltipPos(null);
     }
-  }, [highlightedSite, values]);
+  }, [highlightedSite, values, xValues]);
 
   return (
     <>
@@ -79,28 +85,32 @@ function Histogram({ values, panelId, onHighlight, highlightedSite, highlightOri
         </div>
       )}
 
-<div
-  ref={chartRef}
-  style={{ position: 'relative', height }}
-  onMouseLeave={() => {
-    if (panelId === highlightOrigin) {
-      onHighlight(null, panelId);
-    }
-  }}
->
+      <div
+        ref={chartRef}
+        style={{ position: 'relative', height }}
+        onMouseLeave={() => {
+          if (panelId === highlightOrigin) {
+            onHighlight(null, panelId);
+          }
+        }}
+      >
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={data} margin={{ bottom: 30 }}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="site"
-              label={{ value: 'Index', position: 'insideBottom', offset: 10 }}
+              label={{
+                value: "Index",
+                position: "insideBottom",
+                offset: 10
+              }}
               height={50}
               interval={Math.max(0, Math.floor(Math.sqrt(values.length)) - 1)}
             />
             <YAxis label={{ value: 'Value', angle: -90, position: 'insideLeft' }} />
             {panelId === highlightOrigin && (
-  <Tooltip content={<CustomTooltip />} />
-)}
+              <Tooltip content={<CustomTooltip />} />
+            )}
             <Bar dataKey="value" isAnimationActive={false}>
               {data.map((entry, index) => {
                 const isCurrentLinkedHighlight =
@@ -113,10 +123,10 @@ function Histogram({ values, panelId, onHighlight, highlightedSite, highlightOri
                     fill={getColor(entry.value)}
                     onMouseEnter={() => onHighlight(index, panelId)}
                     onMouseLeave={() => {
-  if (highlightedSite !== null && panelId === highlightOrigin) {
-    onHighlight(null, panelId);
-  }
-}}
+                      if (highlightedSite !== null && panelId === highlightOrigin) {
+                        onHighlight(null, panelId);
+                      }
+                    }}
                     className={isCurrentLinkedHighlight ? 'histogram-highlight' : ''}
                   />
                 );
@@ -137,7 +147,7 @@ function Histogram({ values, panelId, onHighlight, highlightedSite, highlightOri
             }}
             className="bg-white p-2 border border-gray-300 rounded shadow-md text-sm"
           >
-            <p className="font-medium">{`${highlightedSite+1}`}</p>
+            <p className="font-medium">{`${getXLabel(highlightedSite)}`}</p>
             <p className="text-blue-600">{`value : ${values[highlightedSite]}`}</p>
           </div>
         )}
@@ -145,6 +155,5 @@ function Histogram({ values, panelId, onHighlight, highlightedSite, highlightOri
     </>
   );
 }
-
 
 export default Histogram;

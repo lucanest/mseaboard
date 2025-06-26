@@ -401,9 +401,13 @@ const [codonMode, setCodonModeState] = useState(data.codonMode || false);
     return (
       <div
         style={style}
-        className={`flex items-center justify-center ${baseBg} ${
-          isHoverHighlight || isLinkedHighlight ? 'alignment-highlight' : ''
-        }`}
+className={`flex items-center justify-center ${baseBg} ${
+  isHoverHighlight
+    ? 'alignment-highlight'
+    : isLinkedHighlight && hoveredCol == null
+      ? 'alignment-highlight'
+      : ''
+}`}
         onMouseEnter={handleMouseEnter}
         onMouseMove={e => {
           const { clientX, clientY } = e;
@@ -631,24 +635,50 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
   const [editing, setEditing] = useState(false);
   const [filenameInput, setFilenameInput] = useState(filename);
   const isTabular = !Array.isArray(data.data);
-  const [selectedCol, setSelectedCol] = useState(
-    // Try to restore from data.selectedCol, fallback to first numeric col
-    isTabular
-      ? (data.selectedCol ||
-         data.data.headers.find(h => typeof data.data.rows[0][h] === 'number'))
-      : null
-  );
+const [selectedCol, setSelectedCol] = useState(
+  isTabular
+    ? (data.selectedCol ||
+       data.data.headers.find(h => typeof data.data.rows[0][h] === 'number'))
+    : null
+);
+
+const [selectedXCol, setSelectedXCol] = useState(
+  isTabular
+    ? (data.selectedXCol ||
+       data.data.headers.find(h => typeof data.data.rows[0][h] !== 'number'))
+    : null
+);
+
+useEffect(() => {
+  // When data.selectedCol or data.selectedXCol changes (e.g. after workspace load), update state
+  if (isTabular) {
+    if (data.selectedCol && data.selectedCol !== selectedCol) {
+      setSelectedCol(data.selectedCol);
+    }
+    if (data.selectedXCol && data.selectedXCol !== selectedXCol) {
+      setSelectedXCol(data.selectedXCol);
+    }
+  }
+  // eslint-disable-next-line
+}, [data.selectedCol, data.selectedXCol]);
+
   const numericCols = isTabular
     ? data.data.headers.filter(h =>
         data.data.rows.every(row => typeof row[h] === 'number')
       )
     : [];
+
+  const allCols = isTabular ? data.data.headers : [];
   const valuesToPlot = isTabular && selectedCol
     ? data.data.rows.map(row => row[selectedCol])
     : !isTabular
       ? data.data
       : [];
-
+const xValues = isTabular && selectedXCol
+  ? data.data.rows.map(row => row[selectedXCol])
+  : isTabular
+    ? data.data.rows.map((_, i) => i + 1)
+    : data.xValues || data.data.map((_, i) => i + 1);
   const chartContainerRef = useRef(null);
   const [height, setHeight] = useState(300); // default height
   useEffect(() => {
@@ -666,37 +696,58 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
   }, []);
   // pass highlight props into Histogram
   return (
-    <PanelContainer
-  id={id}
-  linkedTo={linkedTo}
-  hoveredPanelId={hoveredPanelId}
-  setHoveredPanelId={setHoveredPanelId}
-  onDoubleClick={() => onReupload(id)}
->
-        <PanelHeader
-        id={id}
-        prefix="Data: "
-        filename={filename}
-        setPanelData={setPanelData}
-        editing={editing}
-        setEditing={setEditing}
-        filenameInput={filenameInput}
-        setFilenameInput={setFilenameInput}
-        onDuplicate={onDuplicate}
-        onLinkClick={onLinkClick}
-        isLinkModeActive={isLinkModeActive}
-        isLinked={isLinked}
-        onRemove={onRemove}
-      />
-      <div className="p-2">
-        {isTabular && (
-          <>
-            <label className="mr-2">Select column:</label>
+  <PanelContainer
+    id={id}
+    linkedTo={linkedTo}
+    hoveredPanelId={hoveredPanelId}
+    setHoveredPanelId={setHoveredPanelId}
+    onDoubleClick={() => onReupload(id)}
+  >
+    <PanelHeader
+      id={id}
+      prefix="Data: "
+      filename={filename}
+      setPanelData={setPanelData}
+      editing={editing}
+      setEditing={setEditing}
+      filenameInput={filenameInput}
+      setFilenameInput={setFilenameInput}
+      onDuplicate={onDuplicate}
+      onLinkClick={onLinkClick}
+      isLinkModeActive={isLinkModeActive}
+      isLinked={isLinked}
+      onRemove={onRemove}
+    />
+    <div className="p-2">
+      {isTabular && (
+        <div className="flex items-center gap-4">
+          <div>
+            <label className="mr-2">X:</label>
+            <select
+              value={selectedXCol}
+              onChange={e => {
+                setSelectedXCol(e.target.value);
+                setPanelData(prev => ({
+                  ...prev,
+                  [id]: {
+                    ...prev[id],
+                    selectedXCol: e.target.value
+                  }
+                }));
+              }}
+              className="border rounded-xl p-1"
+            >
+              {allCols.map(col => (
+                <option key={col} value={col}>{col}</option>
+              ))}
+            </select>
+          </div>
+                    <div>
+            <label className="mr-2">Y:</label>
             <select
               value={selectedCol}
-                   onChange={e => {
+              onChange={e => {
                 setSelectedCol(e.target.value);
-                // Persist selectedCol in panelData
                 setPanelData(prev => ({
                   ...prev,
                   [id]: {
@@ -711,22 +762,24 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
                 <option key={col} value={col}>{col}</option>
               ))}
             </select>
-          </>
-        )}
-      </div>
-      <div ref={chartContainerRef} className="flex flex-col h-full px-2 pb-2 overflow-hidden">
-  <Histogram
-    values={valuesToPlot}
-    panelId={id}
-    onHighlight={onHighlight}
-    highlightedSite={highlightedSite}
-    highlightOrigin={highlightOrigin}
-    linkedTo={linkedTo}
-    height={height}
-  />
-</div>
+          </div>
+        </div>
+      )}
+    </div>
+    <div ref={chartContainerRef} className="flex flex-col h-full px-2 pb-2 overflow-hidden">
+      <Histogram
+        values={valuesToPlot}
+        xValues={xValues}
+        panelId={id}
+        onHighlight={onHighlight}
+        highlightedSite={highlightedSite}
+        highlightOrigin={highlightOrigin}
+        linkedTo={linkedTo}
+        height={height}
+      />
+    </div>
   </PanelContainer>
-  );
+);
 });
 
 
@@ -904,19 +957,53 @@ const handleHighlight = (site, originId) => {
   const targetPanel = panels.find(p => p.i === targetId);
   if (!sourcePanel || !targetPanel) return;
 
-  // If both source and target are alignments, scroll target to the same column
-  if (sourcePanel.type === 'alignment' && targetPanel.type === 'alignment') {
-    setScrollPositions(prev => ({
-      ...prev,
-      [targetId]: site * CELL_SIZE
-    }));
+  // Alignment → Histogram
+  if (sourcePanel.type === 'alignment' && targetPanel.type === 'histogram') {
+    const targetData = panelData[targetId];
+    if (targetData && !Array.isArray(targetData.data)) {
+      const xCol = targetData.selectedXCol ||
+        (targetData.data.headers.find(h => typeof targetData.data.rows[0][h] !== 'number'));
+      if (xCol) {
+        // Find the bar index whose x value matches the alignment column
+        const xArr = targetData.data.rows.map(row => row[xCol]);
+        let barIdx = xArr.findIndex(x => x === site);
+        if (barIdx === -1) barIdx = null;
+        setHighlightSite(barIdx);
+        setHighlightOrigin(originId);
+      }
+    }
   }
-  // Keep your existing histogram→alignment behavior
+  // Histogram → Alignment
   else if (sourcePanel.type === 'histogram' && targetPanel.type === 'alignment') {
+    const sourceData = panelData[originId];
+    let scrollToSite = site;
+    let highlightCol = site;
+    if (sourceData && !Array.isArray(sourceData.data)) {
+      const xCol = sourceData.selectedXCol ||
+        (sourceData.data.headers.find(h => typeof sourceData.data.rows[0][h] !== 'number'));
+      if (xCol) {
+        const xVal = sourceData.data.rows[site]?.[xCol];
+        if (typeof xVal === 'number') {
+          scrollToSite = xVal;
+          highlightCol = scrollToSite;
+        }
+      }
+    }
+    setScrollPositions(prev => ({
+      ...prev,
+      [targetId]: scrollToSite * CELL_SIZE
+    }));
+    setHighlightSite(highlightCol);
+    setHighlightOrigin(originId);
+  }
+  // Alignment → Alignment
+  else if (sourcePanel.type === 'alignment' && targetPanel.type === 'alignment') {
     setScrollPositions(prev => ({
       ...prev,
       [targetId]: site * CELL_SIZE
     }));
+    setHighlightSite(site);
+    setHighlightOrigin(originId);
   }
 };
 
@@ -968,9 +1055,12 @@ const handleHighlight = (site, originId) => {
   panelPayload = { data: { headers, rows }, filename };
   }
       else {
-        const values = text.trim().split(/\s+/).map(Number).filter(n => !isNaN(n));
-        panelPayload = { data: values, filename };
-      }
+  // Split by line, not just whitespace, to preserve line numbers
+  const lines = text.trim().split(/\r?\n/);
+  const values = lines.map(line => Number(line.trim())).filter(n => !isNaN(n));
+  // Use line numbers (1-based) as xValues
+  panelPayload = { data: values, filename, xValues: values.map((_, i) => i + 1) };
+}
     }
 
     // Update or add panel data
