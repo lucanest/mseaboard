@@ -1133,7 +1133,7 @@ const handleHighlight = (site, originId) => {
       });
       const layoutWithoutFooter = layout.filter(l => l.i !== '__footer');
       const maxY = layoutWithoutFooter.reduce((max, l) => Math.max(max, l.y + l.h), 0);
-      const newPanelLayout = { i: id, x: (layoutWithoutFooter.length * 4) % 12, y: maxY, w: 4, h: 20, minW: 3, minH: 5 };
+      const newPanelLayout = { i: id, x: (layoutWithoutFooter.length * 4) % 12, y: maxY, w: 4, h: 20, minW: 1, minH: 5 };
       setLayout([...layoutWithoutFooter, newPanelLayout, { i: '__footer', x: 0, y: maxY + 1, w: 12, h: 2, static: true }]);
     }
 
@@ -1230,7 +1230,7 @@ const handleSaveWorkspace = () => {
     const maxY = layoutWithoutFooter.reduce((max, l) => Math.max(max, l.y + l.h), 0);
     setLayout([
       ...layoutWithoutFooter,
-      { i: id, x: (layoutWithoutFooter.length * 4) % 12, y: maxY, w: 4, h: 10, minW: 3, minH: 5 },
+      { i: id, x: (layoutWithoutFooter.length * 4) % 12, y: maxY, w: 4, h: 10, minW: 1, minH: 5 },
       { i: '__footer', x: 0, y: maxY + 1, w: 12, h: 2, static: true }
     ]);
     setPanelData(prev => ({
