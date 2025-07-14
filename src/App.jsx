@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import throttle from 'lodash.throttle'
+import ReactMarkdown from 'react-markdown';
 import { LinkIcon, DocumentDuplicateIcon,PencilSquareIcon,XMarkIcon, Bars3Icon  } from '@heroicons/react/24/outline';
 import { FixedSizeGrid as Grid } from 'react-window';
 import GridLayout from 'react-grid-layout';
@@ -626,6 +627,61 @@ const TreePanel = React.memo(function TreePanel({
   );
 });
 
+const NotepadPanel = React.memo(function NotepadPanel({
+  id, data, onRemove, onReupload, onDuplicate,
+  onLinkClick, isLinkModeActive, isLinked, hoveredPanelId,
+  setHoveredPanelId, setPanelData
+}) {
+  const [editing, setEditing] = useState(false);
+  const [filenameInput, setFilenameInput] = useState(data.filename || "Notes");
+  const [text, setText] = useState(data.text || "");
+
+  useEffect(() => {
+    setText(data.text || "");
+    setFilenameInput(data.filename || "Notes");
+  }, [data.text, data.filename]);
+
+  return (
+    <PanelContainer
+      id={id}
+      hoveredPanelId={hoveredPanelId}
+      setHoveredPanelId={setHoveredPanelId}
+      onDoubleClick={() => setEditing(true)}
+    >
+      <PanelHeader
+        id={id}
+        prefix="Notes: "
+        filename={filenameInput}
+        setPanelData={setPanelData}
+        editing={editing}
+        setEditing={setEditing}
+        filenameInput={filenameInput}
+        setFilenameInput={setFilenameInput}
+        onDuplicate={onDuplicate}
+        onLinkClick={onLinkClick}
+        isLinkModeActive={isLinkModeActive}
+        isLinked={isLinked}
+        onRemove={onRemove}
+      />
+      <div className="flex-1 p-2">
+        <textarea
+          className="w-full h-full border rounded-xl p-2 resize-none"
+          value={text}
+          onChange={e => {
+            setText(e.target.value);
+            setPanelData(prev => ({
+              ...prev,
+              [id]: { ...prev[id], text: e.target.value }
+            }));
+          }}
+          placeholder="Write your notes here..."
+          style={{ minHeight: 120 }}
+        />
+      </div>
+    </PanelContainer>
+  );
+});
+
 const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, onReupload, onDuplicate,
   onLinkClick, isLinkModeActive, isLinked, linkedTo,
   highlightedSite, highlightOrigin, onHighlight, hoveredPanelId,
@@ -1163,6 +1219,30 @@ const handleSaveWorkspace = () => {
 >
   Load Workspace
 </button>
+<button
+  onClick={() => {
+    const id = `notepad-${Date.now()}`;
+    setPanels(prev => [
+      ...prev.filter(p => p.i !== '__footer'),
+      { i: id, type: 'notepad' },
+      { i: '__footer', type: 'footer' }
+    ]);
+    const layoutWithoutFooter = layout.filter(l => l.i !== '__footer');
+    const maxY = layoutWithoutFooter.reduce((max, l) => Math.max(max, l.y + l.h), 0);
+    setLayout([
+      ...layoutWithoutFooter,
+      { i: id, x: (layoutWithoutFooter.length * 4) % 12, y: maxY, w: 4, h: 10, minW: 3, minH: 5 },
+      { i: '__footer', x: 0, y: maxY + 1, w: 12, h: 2, static: true }
+    ]);
+    setPanelData(prev => ({
+      ...prev,
+      [id]: { filename: "Notes", text: "" }
+    }));
+  }}
+  className="w-40 h-20 bg-yellow-100 text-black px-4 py-2 rounded-xl hover:bg-yellow-200 shadow-lg hover:shadow-xl"
+>
+  New Notepad
+</button>
 <input
   ref={fileInputRefWorkspace}
   type="file"
@@ -1267,21 +1347,26 @@ const handleSaveWorkspace = () => {
       highlightedSequenceId={highlightedSequenceId}
       setHighlightedSequenceId={setHighlightedSequenceId}
     />
-  ) : panel.type === 'tree' ? (
-    <TreePanel
-      {...commonProps}
-      setPanelData={setPanelData}
-      highlightedSequenceId={highlightedSequenceId}
-      onHoverTip={setHighlightedSequenceId}
-    />
-  ) : (
-    <HistogramPanel
-      {...commonProps}
-      setPanelData={setPanelData}
-    />
-  )}
-</div>
-  );
+) : panel.type === 'tree' ? (
+      <TreePanel
+        {...commonProps}
+        setPanelData={setPanelData}
+        highlightedSequenceId={highlightedSequenceId}
+        onHoverTip={setHighlightedSequenceId}
+      />
+    ) : panel.type === 'histogram' ? (
+      <HistogramPanel
+        {...commonProps}
+        setPanelData={setPanelData}
+      />
+    ) : panel.type === 'notepad' ? (
+      <NotepadPanel
+        {...commonProps}
+        setPanelData={setPanelData}
+      />
+    ) : null}
+  </div>
+);
 })}
           </GridLayout>
         </div>
