@@ -5,7 +5,7 @@ import { FixedSizeGrid as Grid } from 'react-window';
 import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
-
+import ReactDOM from 'react-dom';
 import PhyloTreeViewer from './components/PhyloTreeViewer.jsx';
 import Histogram from './components/Histogram.jsx';
 
@@ -212,13 +212,14 @@ function CodonToggleButton({ onClick, isActive }) {
 }
 
 function Tooltip({ x, y, children }) {
-  return (
+  return ReactDOM.createPortal(
     <div
-      className="fixed px-1 py-0.5 text-xs bg-gray-200 rounded-xl pointer-events-none z-50"
-      style={{ top: y+24, left: x+14}}
+      className="fixed px-1 py-0.5 text-xs bg-gray-200 rounded-xl pointer-events-none z-[9999]" // z-index much higher
+      style={{ top: y + 24, left: x + 14 }}
     >
       {children}
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -649,7 +650,7 @@ const NotepadPanel = React.memo(function NotepadPanel({
     >
       <PanelHeader
         id={id}
-        prefix="Notes: "
+        prefix="-"
         filename={filenameInput}
         setPanelData={setPanelData}
         editing={editing}
