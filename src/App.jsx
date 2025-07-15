@@ -731,17 +731,17 @@ const [selectedXCol, setSelectedXCol] = useState(
 );
 
 useEffect(() => {
-  // When data.selectedCol or data.selectedXCol changes (e.g. after workspace load), update state
   if (isTabular) {
-    if (data.selectedCol && data.selectedCol !== selectedCol) {
-      setSelectedCol(data.selectedCol);
-    }
-    if (data.selectedXCol && data.selectedXCol !== selectedXCol) {
-      setSelectedXCol(data.selectedXCol);
-    }
+    setSelectedCol(
+      data.selectedCol ||
+      data.data.headers.find(h => typeof data.data.rows[0][h] === 'number')
+    );
+    setSelectedXCol(
+      data.selectedXCol ||
+      data.data.headers.find(h => typeof data.data.rows[0][h] !== 'number')
+    );
   }
-  // eslint-disable-next-line
-}, [data.selectedCol, data.selectedXCol]);
+}, [isTabular, data.selectedCol, data.selectedXCol, data.data]);
 
   const numericCols = isTabular
     ? data.data.headers.filter(h =>
