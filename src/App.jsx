@@ -232,7 +232,12 @@ function PanelContainer({ id, linkedTo, hoveredPanelId, setHoveredPanelId, child
         ${linkedTo && (hoveredPanelId === id || hoveredPanelId === linkedTo) ? 'shadow-blue-400/50' : ''}
       `}
       onMouseEnter={() => setHoveredPanelId(id)}
-      onMouseLeave={() => setHoveredPanelId(null)}
+      onMouseLeave={() => {
+        setHoveredPanelId(null);
+        if (typeof window.clearAlignmentHighlight === 'function') {
+          window.clearAlignmentHighlight(id);
+        }
+      }}
       onDoubleClick={onDoubleClick}
     >
       {children}
@@ -317,7 +322,27 @@ const [codonMode, setCodonModeState] = useState(data.codonMode || false);
   useEffect(() => {
   setFilenameInput(filename);
 }, [filename]);
-
+useEffect(() => {
+  if (hoveredPanelId !== id && hoveredPanelId !== linkedTo) {
+    setHoveredCol(null);
+    setHoveredRow(null);
+    if (id === highlightOrigin) {
+      onHighlight(null, id);
+    }
+  }
+}, [hoveredPanelId, id, linkedTo, highlightOrigin, onHighlight]);
+useEffect(() => {
+  window.clearAlignmentHighlight = (panelId) => {
+    if (panelId === id) {
+      setHoveredCol(null);
+      setHoveredRow(null);
+      onHighlight(null, id);
+    }
+  };
+  return () => {
+    if (window.clearAlignmentHighlight) delete window.clearAlignmentHighlight;
+  };
+}, [id, onHighlight]);
   useEffect(() => {
     if (!gridContainerRef.current) return;
     const ro = new ResizeObserver(entries => {
@@ -475,7 +500,7 @@ className={`flex items-center justify-center ${baseBg} ${
        />
       
 
-{hoveredCol != null && id === highlightOrigin && (
+{hoveredCol != null && (hoveredPanelId === id || hoveredPanelId === linkedTo) && id === highlightOrigin && (
 <Tooltip x={tooltipPos.x} y={tooltipPos.y}>
   <div className="flex flex-col items-center">
     <span className="font-bold">
