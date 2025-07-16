@@ -270,7 +270,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 const [codonMode, setCodonModeState] = useState(data.codonMode || false);
   const [scrollTop, setScrollTop] = useState(0);
-  // throttle highlight to ~60fps
+  // throttle highlight
   const throttledHighlight = useMemo(
     () => throttle((col,row, originId, clientX, clientY) => {
       // 1) visual hover
@@ -281,7 +281,7 @@ const [codonMode, setCodonModeState] = useState(data.codonMode || false);
       setTooltipPos({ x: clientX - rect.left, y: clientY - rect.top });
       // 3) notify parent
       onHighlight(col, originId);
-    }, 16),
+    }, 100),
     [onHighlight]
   );
     const setCodonMode = useCallback((fnOrValue) => {
@@ -305,7 +305,7 @@ const [codonMode, setCodonModeState] = useState(data.codonMode || false);
       if (linkedTo != null && scrollLeft != null) {
         onSyncScroll(scrollLeft, id);
       }
-    }, 50),
+    }, 150),
     [onSyncScroll, linkedTo, id]
   );
 
@@ -585,6 +585,8 @@ const sequenceLabels = useMemo(() => {
             rowHeight={CELL_SIZE}
             width={Math.max(dims.width - LABEL_WIDTH, 0)}
             onScroll={throttledOnScroll}
+            overscanRowCount={2}
+            overscanColumnCount={2}
           >
             {Cell}
           </Grid>
