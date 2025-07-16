@@ -353,11 +353,19 @@ useEffect(() => {
     });
   }, 100); // adjust 100ms to taste
 
-  const ro = new ResizeObserver(entries => {
+let resizeRAF = null;
+const ro = new ResizeObserver(entries => {
+  if (resizeRAF != null) return;
+  resizeRAF = requestAnimationFrame(() => {
+    let width, height;
     for (let { contentRect } of entries) {
-      handleResize(contentRect.width, contentRect.height);
+      width = contentRect.width;
+      height = contentRect.height;
     }
+    handleResize(width, height);
+    resizeRAF = null;
   });
+});
 
   ro.observe(gridContainerRef.current);
 
