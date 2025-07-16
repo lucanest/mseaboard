@@ -879,7 +879,7 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-  const onSyncScroll = (scrollLeft, originId) => {
+const onSyncScroll = useCallback((scrollLeft, originId) => {
     const targetId = panelLinks[originId];
     if (targetId) {
       setScrollPositions(prev => ({
@@ -887,9 +887,9 @@ function App() {
         [targetId]: scrollLeft
       }));
     }
-  };
+  },[panelLinks]);
 
-  const duplicatePanel = (id) => {
+const duplicatePanel = useCallback((id) => {
   const panel = panels.find(p => p.i === id);
   const data = panelData[id];
   if (!panel || !data) return;
@@ -913,9 +913,9 @@ function App() {
     return [...withoutFooter, newLayout, footer];
   });
   setPanelData(prev => ({ ...prev, [newId]: JSON.parse(JSON.stringify(data)) }));
-  };
+  }, [panels, panelData, layout]);
 
-  const handleLinkClick = (id) => {
+const handleLinkClick = useCallback((id) => {
   if (!linkMode) {
     // no panel selected yet
     if (panelLinks[id]) {
@@ -1016,10 +1016,10 @@ function App() {
   // clear any existing highlights
   setHighlightSite(null);
   setHighlightOrigin(null);
-};
+}, [linkMode, panelLinks, panels, panelData, highlightSite, highlightOrigin]);
 
-  const CELL_SIZE = 24;
-const handleHighlight = (site, originId) => {
+const CELL_SIZE = 24;
+const handleHighlight = useCallback((site, originId) => {
   setHighlightSite(site);
   setHighlightOrigin(originId);
 
@@ -1078,14 +1078,14 @@ const handleHighlight = (site, originId) => {
     setHighlightSite(site);
     setHighlightOrigin(originId);
   }
-};
+}, [panelLinks, panels, panelData, highlightOrigin]);
 
   // Trigger upload or reupload
-  const triggerUpload = (type, panelId = null) => {
+const triggerUpload = useCallback((type, panelId = null) => {
     pendingTypeRef.current = type;
     pendingPanelRef.current = panelId;
     if (fileInputRef.current) fileInputRef.current.click();
-  };
+  }, [panelData, layout]);
 
   const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -1161,7 +1161,7 @@ const handleHighlight = (site, originId) => {
     if (fileInputRef.current) fileInputRef.current.value = null;
   };
 
-const removePanel = id => {
+const removePanel = useCallback((id) => {
   setPanels(p => p.filter(p => p.i !== id));
   setPanelData(d => { const c={...d}; delete c[id]; return c; });
   setLayout(l => l.filter(e => e.i !== id));
@@ -1181,7 +1181,7 @@ const removePanel = id => {
     setHighlightOrigin(null);
     setHighlightSite(null);
   }
-};
+}, [panelData, highlightOrigin]);
 
   const handleLoadWorkspace = async (e) => {
   const file = e.target.files[0];
