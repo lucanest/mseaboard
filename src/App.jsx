@@ -416,14 +416,11 @@ useEffect(() => {
     }
   };
   const handleMouseLeave = () => {
-    throttledHighlight.cancel();
-    setHoveredCol(null);
-    setHoveredRow(null);
-    onHighlight(null, id);
-    if (linkedTo && setHighlightedSequenceId) {
-      setHighlightedSequenceId(null);
-    }
-  };
+          throttledHighlight.cancel();
+          setHoveredCol(null);
+          setHoveredRow(null);
+          onHighlight(null, id);
+        }
     return (
       <div
         style={style}
@@ -440,12 +437,7 @@ className={`flex items-center justify-center ${baseBg} ${
           const idx = codonMode ? codonIndex : columnIndex;
           throttledHighlight(idx, rowIndex,id, clientX, clientY);
         }}
-        onMouseLeave={() => {
-          throttledHighlight.cancel();
-          setHoveredCol(null);
-          setHoveredRow(null);
-          onHighlight(null, id);
-        }}
+        onMouseLeave={handleMouseLeave}
       >
         {char}
       </div>
