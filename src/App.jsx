@@ -735,23 +735,34 @@ useEffect(() => {
   }
 }, [isTabular, data.selectedCol, data.selectedXCol, data.data]);
 
-  const numericCols = isTabular
-    ? data.data.headers.filter(h =>
-        data.data.rows.every(row => typeof row[h] === 'number')
-      )
-    : [];
+const numericCols = useMemo(() => {
+  if (!isTabular) return [];
+  return data.data.headers.filter(h =>
+    data.data.rows.every(row => typeof row[h] === 'number')
+  );
+}, [isTabular, data]);
 
-  const allCols = isTabular ? data.data.headers : [];
-  const valuesToPlot = isTabular && selectedCol
-    ? data.data.rows.map(row => row[selectedCol])
-    : !isTabular
-      ? data.data
-      : [];
-const xValues = isTabular && selectedXCol
-  ? data.data.rows.map(row => row[selectedXCol])
-  : isTabular
-    ? data.data.rows.map((_, i) => i + 1)
-    : data.xValues || data.data.map((_, i) => i + 1);
+const allCols = useMemo(() => {
+  return isTabular ? data.data.headers : [];
+}, [isTabular, data]);
+const valuesToPlot = useMemo(() => {
+  if (isTabular && selectedCol) {
+    return data.data.rows.map(row => row[selectedCol]);
+  }
+  if (!isTabular) {
+    return data.data;
+  }
+  return [];
+}, [isTabular, selectedCol, data]);
+const xValues = useMemo(() => {
+  if (isTabular && selectedXCol) {
+    return data.data.rows.map(row => row[selectedXCol]);
+  }
+  if (isTabular) {
+    return data.data.rows.map((_, i) => i + 1);
+  }
+  return data.xValues || data.data.map((_, i) => i + 1);
+}, [isTabular, selectedXCol, data]);
   const chartContainerRef = useRef(null);
   const [height, setHeight] = useState(300); // default height
   useEffect(() => {
