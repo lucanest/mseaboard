@@ -443,7 +443,13 @@ className={`flex items-center justify-center ${baseBg} ${
       </div>
     );
   }, [msaData, hoveredCol, highlightedSite, highlightOrigin, linkedTo, id, onHighlight, codonMode]);
-
+const sequenceLabels = useMemo(() => {
+  return msaData.map((seq, index) => {
+    const rawId = seq.id.replace(/\s+/g, ' ').trim();
+    const shortId = rawId.length > 10 ? rawId.slice(0, 8) + '..' : rawId;
+    return { index, rawId, shortId, id: seq.id };
+  });
+}, [msaData]);
   useEffect(() => {
     return () => {
       throttledHighlight.cancel();
@@ -539,40 +545,34 @@ className={`flex items-center justify-center ${baseBg} ${
                 right: 0
               }}
             >
-              {msaData.map((seq, index) => {
-                const rawId = seq.id.replace(/\s+/g, ' ').trim();
-                const shortId = rawId.length > 10 ? rawId.slice(0, 8) + '..' : rawId;
-                const isLinkedNameHighlight =
-                  linkedTo &&
-                  highlightedSequenceId === seq.id &&
-                  (linkedTo === highlightOrigin || id === highlightOrigin);
+              {sequenceLabels.map(({ index, rawId, shortId, id }) => {
+  const isLinkedNameHighlight =
+    linkedTo &&
+    highlightedSequenceId === id &&
+    (linkedTo === highlightOrigin || id === highlightOrigin);
 
-                return (
-                  <div
-                    key={index}
-                    style={{
-                      height: CELL_SIZE,
-                      lineHeight: `${CELL_SIZE}px`
-                    }}
-                    className={`flex items-center pr-2 pl-2 text-right font-bold truncate ${
-                      isLinkedNameHighlight ? 'bg-yellow-100' : ''
-                    }`}
-                    title={rawId}
-onMouseEnter={() => {
-  if (linkedTo) {
-    setHighlightedSequenceId(seq.id);
-  }
-}}
-onMouseLeave={() => {
-  if (linkedTo) {
-    setHighlightedSequenceId(null);
-  }
-}}
-                  >
-                    {shortId}
-                  </div>
-                );
-              })}
+  return (
+    <div
+      key={index}
+      style={{
+        height: CELL_SIZE,
+        lineHeight: `${CELL_SIZE}px`
+      }}
+      className={`flex items-center pr-2 pl-2 text-right font-bold truncate ${
+        isLinkedNameHighlight ? 'bg-yellow-100' : ''
+      }`}
+      title={rawId}
+      onMouseEnter={() => {
+        if (linkedTo) setHighlightedSequenceId(id);
+      }}
+      onMouseLeave={() => {
+        if (linkedTo) setHighlightedSequenceId(null);
+      }}
+    >
+      {shortId}
+    </div>
+  );
+})}
             </div>
           </div>
 
