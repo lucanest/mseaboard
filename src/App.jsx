@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import throttle from 'lodash.throttle'
+import debounce from 'lodash.debounce';
 import { LinkIcon, DocumentDuplicateIcon,PencilSquareIcon,XMarkIcon, Bars3Icon  } from '@heroicons/react/24/outline';
 import { FixedSizeGrid as Grid } from 'react-window';
 import GridLayout from 'react-grid-layout';
@@ -306,7 +307,7 @@ const [codonMode, setCodonModeState] = useState(data.codonMode || false);
       setTooltipPos({ x: clientX - rect.left, y: clientY - rect.top });
       // 3) notify parent
       onHighlight(col, originId);
-    }, 100),
+    }, 150),
     [onHighlight]
   );
     const setCodonMode = useCallback((fnOrValue) => {
@@ -371,12 +372,13 @@ useEffect(() => {
   useEffect(() => {
   if (!gridContainerRef.current) return;
 
-  const handleResize = throttle((width, height) => {
-    setDims(prev => {
-      if (prev.width === width && prev.height === height) return prev;
-      return { width, height };
-    });
-  }, 100); // adjust 100ms to taste
+
+const handleResize = debounce((width, height) => {
+  setDims(prev => {
+    if (prev.width === width && prev.height === height) return prev;
+    return { width, height };
+  });
+}, 200); // Debounce at 200ms
 
 let resizeRAF = null;
 const ro = new ResizeObserver(entries => {
