@@ -121,19 +121,23 @@ const PhyloTreeViewer = ({
       return { name: cleanName, nhx: nhxData };
     };
 
-    const convertToD3Hierarchy = (node) => {
-      const { name, nhx } = extractNhxData(node.name);
-      return {
-        name: name,
-        nhx: nhx,
-        length: node.length,
-        children: node.children ? node.children.map(convertToD3Hierarchy) : undefined
-      };
-    };
+const convertToD3Hierarchy = (node) => {
+  if (!node) return { name: '', nhx: {}, length: 0 };
+  const { name, nhx } = extractNhxData(node.name ?? '');
+  let children = Array.isArray(node.children)
+    ? node.children.map(convertToD3Hierarchy).filter(Boolean)
+    : [];
+  return {
+    name: name ?? '',
+    nhx: nhx ?? {},
+    length: node.length ?? 0,
+    ...(children.length > 0 ? { children } : {})
+  };
+};
 
 const data = convertToD3Hierarchy(parsed);
 const root = d3.hierarchy(data);
-const leafNames = root.leaves().map(d => d.data.name || '');
+const leafNames = root.leaves().map(d => (d.data && d.data.name) ? d.data.name : '');
 const maxLabelLength = Math.max(...leafNames.map(name => name.length));
 const approxCharWidth = 4.05;
 const margin = maxLabelLength * approxCharWidth;
@@ -197,20 +201,20 @@ const g = svg.append('g')
       .attr('r', 4)
 .attr('fill', d => {
   const isLinkedHighlight = 
-    highlightedSequenceId === d.data.name &&
+d.data && highlightedSequenceId === d.data.name &&
     (linkedTo === highlightOrigin || id === highlightOrigin);
   if (isLinkedHighlight) return '#cc0066';
-  const val = d.data.nhx?.[colorField];
+const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
   return val ? colorMap[val] : '#555';
 })
       .attr('stroke', '#fff')
       .attr('stroke-width', 1)
-.on('mouseenter', (event, d) => onHoverTip?.(d.data.name, id))
+.on('mouseenter', (event, d) => onHoverTip?.(d.data && d.data.name ? d.data.name : '', id))
 .on('mouseleave', () => onHoverTip?.(null, null))
 
 g.append('g')
   .selectAll('text')
-  .data(root.descendants().filter(d => !d.children))
+.data(root.descendants().filter(d => !d.children && d.data && typeof d.data.name !== 'undefined'))
   .join('text')
   .attr('transform', d => `
     rotate(${(d.x * 180 / Math.PI - 90)})
@@ -220,10 +224,10 @@ g.append('g')
   .attr('dy', '0.31em')
   .attr('x', d => d.x < Math.PI ? 8 : -8)
   .attr('text-anchor', d => d.x < Math.PI ? 'start' : 'end')
-  .text(d => d.data.name)
+.text(d => (d.data && typeof d.data.name !== 'undefined') ? d.data.name : '')
   .style('font-size', d => {
-    const isLinkedHighlight = 
-      highlightedSequenceId === d.data.name &&
+const isLinkedHighlight = 
+      d.data && highlightedSequenceId === d.data.name &&
       (linkedTo === highlightOrigin || id === highlightOrigin);
     return isLinkedHighlight ? '18px' : '12px';
   })
@@ -239,8 +243,8 @@ g.append('g')
       (linkedTo === highlightOrigin || id === highlightOrigin);
     return isLinkedHighlight ? 'bold' : 'normal';
   })
-  .on('mouseenter', (event, d) => onHoverTip?.(d.data.name))
-  .on('mouseleave', () => onHoverTip?.(null));
+.on('mouseenter', (event, d) => onHoverTip?.(d.data && d.data.name ? d.data.name : ''))
+.on('mouseleave', () => onHoverTip?.(null));
 
     if (Object.keys(colorMap).length > 0) {
 
