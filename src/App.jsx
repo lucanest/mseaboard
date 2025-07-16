@@ -1214,7 +1214,37 @@ const handleSaveWorkspace = () => {
   a.click();
   URL.revokeObjectURL(url);
 };
-
+const makeCommonProps = useCallback((panel) => {
+  return {
+    id: panel.i,
+    data: panelData[panel.i],
+    onRemove: removePanel,
+    onReupload: id => triggerUpload(panel.type, id),
+    onDuplicate: duplicatePanel,
+    onLinkClick: handleLinkClick,
+    isLinkModeActive: linkMode === panel.i,
+    isLinked: !!panelLinks[panel.i],
+    linkedTo: panelLinks[panel.i] || null,
+    highlightedSite: highlightSite,
+    highlightOrigin: highlightOrigin,
+    onHighlight: handleHighlight,
+    hoveredPanelId,
+    setHoveredPanelId
+  };
+}, [
+  removePanel,
+  triggerUpload,
+  duplicatePanel,
+  handleLinkClick,
+  linkMode,
+  panelLinks,
+  highlightSite,
+  highlightOrigin,
+  handleHighlight,
+  hoveredPanelId,
+  setHoveredPanelId,
+  panelData
+]);
   return (
     <div className="h-screen w-screen flex flex-col overflow-hidden bg-white text-black">
       <div className="p-4 flex justify-between items-center">
@@ -1336,22 +1366,7 @@ const handleSaveWorkspace = () => {
   const data = panelData[panel.i];
   if (!data) return null;
 
-  const commonProps = {
-    id: panel.i,
-    data,
-    onRemove: removePanel,
-    onReupload: id => triggerUpload(panel.type, id),
-    onDuplicate: duplicatePanel,
-    onLinkClick: handleLinkClick,
-    isLinkModeActive: linkMode === panel.i,
-    isLinked: !!panelLinks[panel.i],
-    linkedTo: panelLinks[panel.i] || null,
-    highlightedSite: highlightSite,
-    highlightOrigin: highlightOrigin,
-    onHighlight: handleHighlight,
-    hoveredPanelId,                    
-    setHoveredPanelId      
-  };
+const commonProps = makeCommonProps(panel);
 
   return (
 <div key={panel.i}>
