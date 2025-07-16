@@ -1,6 +1,6 @@
 
 /* Histogram.jsx */
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useRef, useEffect, useState, useMemo, useCallback} from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
 } from 'recharts';
@@ -16,36 +16,47 @@ function isDiscrete(values) {
 
 
 function Histogram({ values, xValues, panelId, onHighlight, highlightedSite, highlightOrigin, linkedTo, height }) {
-  // Use xValues if provided, otherwise fallback to index
-  const data = values.map((value, index) => ({
+// Use xValues if provided, otherwise fallback to index
+const data = useMemo(() => {
+  return values.map((value, index) => ({
     site: xValues ? xValues[index] : index + 1,
     value
   }));
-  const min = Math.min(...values), max = Math.max(...values);
-  const unique = Array.from(new Set(values));
-  const discrete = isDiscrete(values) && unique.length <= colorPalette.length;
-  const cmap = discrete ? Object.fromEntries(unique.map((v, i) => [v, colorPalette[i]])) : null;
+}, [values, xValues]);
+const [min, max] = useMemo(() => {
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  return [min, max];
+}, [values]);
+const unique = useMemo(() => Array.from(new Set(values)), [values]);
+const discrete = useMemo(() => isDiscrete(values) && unique.length <= colorPalette.length, [unique]);
+const cmap = useMemo(() => {
+  return discrete ? Object.fromEntries(unique.map((v, i) => [v, colorPalette[i]])) : null;
+}, [discrete, unique]);
 
-  const getColor = v => {
-    if (discrete) return cmap[v];
-    const t = Math.sqrt((v - min) / (max - min || 1));
-    return `rgb(255,${Math.round(255 * (1 - t))},${Math.round(255 * (1 - t))})`;
-  };
+const getColor = useCallback((v) => {
+  if (discrete) return cmap[v];
+  const t = Math.sqrt((v - min) / (max - min || 1));
+  return `rgb(255,${Math.round(255 * (1 - t))},${Math.round(255 * (1 - t))})`;
+}, [discrete, cmap, min, max]);
 
   // Find the x label for the highlighted bar
-  const getXLabel = idx => (xValues ? xValues[idx] : idx + 1);
+const getXLabel = useCallback(
+  (idx) => (xValues ? xValues[idx] : idx + 1),
+  [xValues]
+);
 
-  const CustomTooltip = ({ active, payload, label }) => {
-    if (active && payload && payload.length) {
-      return (
-        <div className="bg-white p-2 border border-gray-300 rounded shadow-md text-sm">
-          <p className="font-medium">{`${label}`}</p>
-          <p className="text-blue-600">{`value : ${payload[0].value}`}</p>
-        </div>
-      );
-    }
-    return null;
-  };
+const CustomTooltip = useCallback(({ active, payload, label }) => {
+  if (active && payload && payload.length) {
+    return (
+      <div className="bg-white p-2 border border-gray-300 rounded shadow-md text-sm">
+        <p className="font-medium">{`${label}`}</p>
+        <p className="text-blue-600">{`value : ${payload[0].value}`}</p>
+      </div>
+    );
+  }
+  return null;
+}, []);
 
   // Tooltip position state
   const chartRef = useRef(null);
@@ -69,6 +80,28 @@ function Histogram({ values, xValues, panelId, onHighlight, highlightedSite, hig
     }
   }, [highlightedSite, values, xValues]);
 
+const barCells = useMemo(() => {
+  return data.map((entry, index) => {
+    const isCurrentLinkedHighlight =
+      highlightedSite === index &&
+      linkedTo === highlightOrigin &&
+      panelId !== highlightOrigin;
+
+    return (
+      <Cell
+        key={`cell-${index}`}
+        fill={getColor(entry.value)}
+        onMouseEnter={() => onHighlight(index, panelId)}
+        onMouseLeave={() => {
+          if (highlightedSite !== null && panelId === highlightOrigin) {
+            onHighlight(null, panelId);
+          }
+        }}
+        className={isCurrentLinkedHighlight ? 'histogram-highlight' : ''}
+      />
+    );
+  });
+}, [data, getColor, highlightedSite, linkedTo, highlightOrigin, panelId, onHighlight]);
   return (
     <>
       {discrete && (
@@ -111,27 +144,9 @@ function Histogram({ values, xValues, panelId, onHighlight, highlightedSite, hig
             {panelId === highlightOrigin && (
               <Tooltip content={<CustomTooltip />} />
             )}
-            <Bar dataKey="value" isAnimationActive={false}>
-              {data.map((entry, index) => {
-                const isCurrentLinkedHighlight =
-                  highlightedSite === index &&
-                  linkedTo === highlightOrigin &&
-                  panelId !== highlightOrigin;
-                return (
-                  <Cell
-                    key={`cell-${index}`}
-                    fill={getColor(entry.value)}
-                    onMouseEnter={() => onHighlight(index, panelId)}
-                    onMouseLeave={() => {
-                      if (highlightedSite !== null && panelId === highlightOrigin) {
-                        onHighlight(null, panelId);
-                      }
-                    }}
-                    className={isCurrentLinkedHighlight ? 'histogram-highlight' : ''}
-                  />
-                );
-              })}
-            </Bar>
+<Bar dataKey="value" isAnimationActive={false}>
+  {barCells}
+</Bar>
           </BarChart>
         </ResponsiveContainer>
 
@@ -156,4 +171,4 @@ function Histogram({ values, xValues, panelId, onHighlight, highlightedSite, hig
   );
 }
 
-export default Histogram;
+export default React.memo(Histogram);
