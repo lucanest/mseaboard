@@ -298,7 +298,7 @@ const [codonMode, setCodonModeState] = useState(data.codonMode || false);
     });
   }, [id, setPanelData]);
 
-  // throttle scroll handler to once every 50ms
+  // throttle scroll handler to once every 150ms
   const throttledOnScroll = useCallback(
     throttle(({ scrollTop, scrollLeft }) => {
       setScrollTop(scrollTop);
@@ -344,20 +344,28 @@ useEffect(() => {
   };
 }, [id, onHighlight]);
   useEffect(() => {
-    if (!gridContainerRef.current) return;
-    const ro = new ResizeObserver(entries => {
-      for (let { contentRect } of entries) {
-        setDims({
-          width: contentRect.width,
-          height: contentRect.height
-        });
-      }
+  if (!gridContainerRef.current) return;
+
+  const handleResize = throttle((width, height) => {
+    setDims(prev => {
+      if (prev.width === width && prev.height === height) return prev;
+      return { width, height };
     });
-    ro.observe(gridContainerRef.current);
-    const { width, height } = gridContainerRef.current.getBoundingClientRect();
-    setDims({ width, height });
-    return () => ro.disconnect();
-  }, []);
+  }, 100); // adjust 100ms to taste
+
+  const ro = new ResizeObserver(entries => {
+    for (let { contentRect } of entries) {
+      handleResize(contentRect.width, contentRect.height);
+    }
+  });
+
+  ro.observe(gridContainerRef.current);
+
+  return () => {
+    ro.disconnect();
+    handleResize.cancel();
+  };
+}, []);
 
   useEffect(() => {
     if (!gridRef.current || typeof externalScrollLeft !== 'number') return;
