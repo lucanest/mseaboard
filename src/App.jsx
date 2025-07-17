@@ -604,11 +604,9 @@ const sequenceLabels = useMemo(() => {
                 right: 0
               }}
             >
-              {sequenceLabels.map(({ index, rawId, shortId, id }) => {
+              {sequenceLabels.map(({ index, rawId, shortId, id: seqId}) => {
   const isLinkedNameHighlight =
-    linkedTo &&
-    highlightedSequenceId === id &&
-    (linkedTo === highlightOrigin || id === highlightOrigin);
+      highlightedSequenceId === seqId && hoveredPanelId === id
 
   return (
     <div
