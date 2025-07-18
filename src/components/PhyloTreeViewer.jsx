@@ -204,12 +204,21 @@ const g = svg.append('g')
 d.data && highlightedSequenceId === d.data.name &&
     (linkedTo === highlightOrigin || id === highlightOrigin);
   
-  if (isLinkedHighlight) return '#cc0066';
 const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
-  return val ? colorMap[val] : '#555';
-})
-      .attr('stroke', '#fff')
-      .attr('stroke-width', 1)
+    return val ? colorMap[val] : '#555';
+  })
+  .attr('stroke', d => {
+    const isLinkedHighlight =
+      d.data && highlightedSequenceId === d.data.name &&
+      (linkedTo === highlightOrigin || id === highlightOrigin);
+    return isLinkedHighlight ? '#cc0066' : '#fff';
+  })
+  .attr('stroke-width', d => {
+    const isLinkedHighlight =
+      d.data && highlightedSequenceId === d.data.name &&
+      (linkedTo === highlightOrigin || id === highlightOrigin);
+    return isLinkedHighlight ? 2 : 1;
+  })
 .on('mouseenter', (event, d) => {
   const nodeName = event.data?.name;
   const isLeaf = event.height ==0;
