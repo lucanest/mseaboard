@@ -606,7 +606,7 @@ const sequenceLabels = useMemo(() => {
             >
               {sequenceLabels.map(({ index, rawId, shortId, id: seqId}) => {
   const isLinkedNameHighlight =
-      highlightedSequenceId === seqId && hoveredPanelId === id
+      highlightedSequenceId === seqId && (hoveredPanelId === id || hoveredPanelId === linkedTo);
 
   return (
     <div
