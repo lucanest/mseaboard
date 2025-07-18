@@ -203,13 +203,31 @@ const g = svg.append('g')
   const isLinkedHighlight = 
 d.data && highlightedSequenceId === d.data.name &&
     (linkedTo === highlightOrigin || id === highlightOrigin);
+  
   if (isLinkedHighlight) return '#cc0066';
 const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
   return val ? colorMap[val] : '#555';
 })
       .attr('stroke', '#fff')
       .attr('stroke-width', 1)
-.on('mouseenter', (event, d) => onHoverTip?.(d.data && d.data.name ? d.data.name : '', id))
+.on('mouseenter', (event, d) => {
+  const nodeName = event.data?.name;
+  const isLeaf = event.height ==0;
+/*   console.log('Leaf node hover:', {
+    id,
+    event,
+    nodeName,
+    d,
+    isLeaf,
+  });
+*/ 
+  if (isLeaf) {
+  onHoverTip?.(nodeName || '', id);
+  }
+  else {
+    onHoverTip?.(null, null);
+  }
+})
 .on('mouseleave', () => onHoverTip?.(null, null))
 
 g.append('g')
@@ -243,7 +261,10 @@ const isLinkedHighlight =
       (linkedTo === highlightOrigin || id === highlightOrigin);
     return isLinkedHighlight ? 'bold' : 'normal';
   })
-.on('mouseenter', (event, d) => onHoverTip?.(d.data && d.data.name ? d.data.name : ''))
+.on('mouseenter', (event, d) => {
+  const nodeName = event.data?.name;
+  onHoverTip?.(nodeName || '', id);
+})
 .on('mouseleave', () => onHoverTip?.(null));
 
     if (Object.keys(colorMap).length > 0) {
