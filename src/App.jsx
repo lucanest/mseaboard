@@ -367,6 +367,18 @@ useEffect(() => {
     if (window.clearAlignmentHighlight) delete window.clearAlignmentHighlight;
   };
 }, [id, onHighlight]);
+
+useEffect(() => {
+  if (hoveredPanelId !== id) {
+    setHoveredCol(null);
+    setHoveredRow(null);
+    setHighlightedSequenceId(null);
+    if (id === highlightOrigin) {
+      onHighlight(null, id);
+    }
+  }
+}, [hoveredPanelId, id, highlightOrigin, onHighlight]);
+
   useEffect(() => {
   if (!gridContainerRef.current) return;
 
