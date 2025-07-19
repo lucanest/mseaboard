@@ -111,8 +111,7 @@ function parseFasta(content) {
 }
 
 function getLeafOrderFromNewick(newick) {
-  // Simple regex-based parser for leaf names in Newick
-  // Assumes leaf names do not contain parentheses, colons, commas, or semicolons
+  // Simple regex to parse leaf names (assuming they do not contain parentheses, colons, commas, or semicolons)
   return (newick.match(/[\w\.\-\|]+(?=[,\)\:])/g) || []);
 }
 
@@ -296,16 +295,16 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
 const [codonMode, setCodonModeState] = useState(data.codonMode || false);
   const [scrollTop, setScrollTop] = useState(0);
-  // throttle highlight
+  // throttle highlight to once every 150ms
   const throttledHighlight = useMemo(
     () => throttle((col,row, originId, clientX, clientY) => {
-      // 1) visual hover
+      // visual hover
       setHoveredCol(col);
       setHoveredRow(row);
-      // 2) tooltip position
+      // tooltip position
       const rect = containerRef.current.getBoundingClientRect();
       setTooltipPos({ x: clientX - rect.left, y: clientY - rect.top });
-      // 3) notify parent
+      // notify parent
       onHighlight(col, originId);
     }, 150),
     [onHighlight]
@@ -342,7 +341,6 @@ const [codonMode, setCodonModeState] = useState(data.codonMode || false);
     if (data.codonMode !== codonMode) {
       setCodonModeState(data.codonMode || false);
     }
-    // eslint-disable-next-line
   }, [data.codonMode]);
 
   useEffect(() => {
@@ -429,13 +427,6 @@ return () => {
   const rowCount = msaData.length;
   const colCount = msaData[0]?.sequence.length || 0;
 
-  const onScroll = ({ scrollTop, scrollLeft }) => {
-    setScrollTop(scrollTop);
-    if (linkedTo != null && scrollLeft != null) {
-      onSyncScroll(scrollLeft, id);
-    }
-  };
-
  const Cell = useCallback(
    ({ columnIndex, rowIndex, style }) => {
      const char = msaData[rowIndex].sequence[columnIndex];
@@ -480,6 +471,7 @@ return () => {
        setHoveredRow(null);
        onHighlight(null, id);
      }, [throttledHighlight, setHoveredCol, setHoveredRow, onHighlight, id]);
+
  
      return (
        <MSACell
@@ -1038,7 +1030,7 @@ const handleLinkClick = useCallback((id) => {
           return copy;
         });
 
-        // --- REORDER MSA if linking alignment <-> tree ---
+        // Reorder MSA rows to match tree leaf order if the two are linked
         const panelA = panels.find(p => p.i === a);
         const panelB = panels.find(p => p.i === b);
         if (panelA && panelB) {
@@ -1065,7 +1057,7 @@ const handleLinkClick = useCallback((id) => {
                 const reordered = leafOrder
                   .map(id => msaById[id])
                   .filter(Boolean);
-                // Optionally, append any MSA seqs not in tree at the end
+                // Append any MSA seqs not in tree at the end
                 const extraSeqs = msaSeqs.filter(seq => !leafOrder.includes(seq.id));
                 setPanelData(prev => ({
                   ...prev,
@@ -1078,7 +1070,6 @@ const handleLinkClick = useCallback((id) => {
             }
           }
         }
-        // --- END reorder ---
       }
       setLinkMode(null);
     }
@@ -1088,7 +1079,6 @@ const handleLinkClick = useCallback((id) => {
   setHighlightOrigin(null);
 }, [linkMode, panelLinks, panels, panelData, highlightSite, highlightOrigin]);
 
-const CELL_SIZE = 24;
 const handleHighlight = useCallback((site, originId) => {
   setHighlightSite(site);
   setHighlightOrigin(originId);
@@ -1100,7 +1090,7 @@ const handleHighlight = useCallback((site, originId) => {
   const targetPanel = panels.find(p => p.i === targetId);
   if (!sourcePanel || !targetPanel) return;
 
-  // Alignment → Histogram
+  // Alignment -> Histogram
   if (sourcePanel.type === 'alignment' && targetPanel.type === 'histogram') {
     const targetData = panelData[targetId];
     if (targetData && !Array.isArray(targetData.data)) {
@@ -1116,7 +1106,7 @@ const handleHighlight = useCallback((site, originId) => {
       }
     }
   }
-  // Histogram → Alignment
+  // Histogram -> Alignment
   else if (sourcePanel.type === 'histogram' && targetPanel.type === 'alignment') {
     const sourceData = panelData[originId];
     let scrollToSite = site;
@@ -1139,7 +1129,7 @@ const handleHighlight = useCallback((site, originId) => {
     setHighlightSite(highlightCol);
     setHighlightOrigin(originId);
   }
-  // Alignment → Alignment
+  // Alignment -> Alignment
   else if (sourcePanel.type === 'alignment' && targetPanel.type === 'alignment') {
     setScrollPositions(prev => ({
       ...prev,
@@ -1198,7 +1188,7 @@ const triggerUpload = useCallback((type, panelId = null) => {
   panelPayload = { data: { headers, rows }, filename };
   }
       else {
-  // Split by line, not just whitespace, to preserve line numbers
+  // Split by line to preserve line numbers
   const lines = text.trim().split(/\r?\n/);
   const values = lines.map(line => Number(line.trim())).filter(n => !isNaN(n));
   // Use line numbers (1-based) as xValues
