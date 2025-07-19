@@ -1394,10 +1394,10 @@ const makeCommonProps = useCallback((panel) => {
             </svg>
   </a>
 
-  <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 
-                  bg-gray-700 text-white text-xs px-2 py-1 rounded-md
-                  opacity-0 group-hover:opacity-80 transition-opacity duration-300 pointer-events-none whitespace-nowrap">
-    GitHub
+  <div className="absolute top-full mb-2 left-1/2 -translate-x-1/2 translate-y-12
+                  bg-blue-200 text-black text-xs px-1 py-1 rounded-md
+                  opacity-0 group-hover:opacity-80 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-50">
+    GitHub: <br /> - Read <br /> &nbsp; docs <br />  - Run <br /> &nbsp; locally <br /> - Report <br /> &nbsp; issues <br /> - Request <br /> &nbsp; features <br /> - Help to <br /> &nbsp; improve
   </div>
 </div>
           <input ref={fileInputRef} type="file" accept=".fasta,.nwk,.nhx,.txt,.tsv,.csv,.fas" onChange={handleFileUpload} style={{ display: 'none' }} />
