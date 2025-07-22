@@ -1,4 +1,3 @@
-
 /* Histogram.jsx */
 import React, { useRef, useEffect, useState, useMemo, useCallback} from 'react';
 import {
@@ -12,8 +11,6 @@ const colorPalette = [
 function isDiscrete(values) {
   return values.every(v => Number.isInteger(v));
 }
-
-
 
 function Histogram({ values, xValues, panelId, onHighlight, highlightedSite, highlightOrigin, linkedTo, height, syncId }) {
 // console.log("Histogram", panelId, "syncId =", syncId);
@@ -41,7 +38,7 @@ const getColor = useCallback((v) => {
   return `rgb(255,${Math.round(255 * (1 - t))},${Math.round(255 * (1 - t))})`;
 }, [discrete, cmap, min, max]);
 
-  // Find the x label for the highlighted bar
+// Find the x label for the highlighted bar
 const getXLabel = useCallback(
   (idx) => (xValues ? xValues[idx] : idx + 1),
   [xValues]
@@ -52,12 +49,12 @@ const CustomTooltip = useCallback(({ active, payload, label}) => {
     setIsRechartsTooltipActive(active);
     if (active && payload && payload.length) {
 const hoveredSite = payload[0].payload.site;
-      // Find the index of the hovered site in your data array
+      // Find the index of the hovered site in the data array
       const hoveredIndex = data.findIndex(d => d.site === hoveredSite);
       if (hoveredIndex !== -1) {
         onHighlight(hoveredIndex, panelId); // Set highlighted site for linked panels
       }
-      console.log('Hovered site:', hoveredSite);
+      // console.log('Hovered site:', hoveredSite);
     }
   }, [active, payload]);
   if (active && payload && payload.length) {
