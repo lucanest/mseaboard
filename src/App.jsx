@@ -428,12 +428,15 @@ return () => {
     // if our desired scroll position would put column N fully outside the
     // current [currentScrollLeft…currentScrollLeft+viewportWidth] window,
     // then actually scroll — otherwise do nothing.
-    const colStart = externalScrollLeft;
-    const colEnd   = externalScrollLeft + CELL_SIZE;
 
-    if (colStart < currentScrollLeft || colEnd > currentScrollLeft + viewportWidth) {
-          gridRef.current.scrollTo({ scrollLeft: codonMode ? externalScrollLeft * 3 : externalScrollLeft });
-    }
+const isCodon = codonMode;
+const codonWidth = isCodon ? 3 : 1;
+const colStart = isCodon ? externalScrollLeft * codonWidth : externalScrollLeft;
+const colEnd   = colStart + codonWidth;
+
+if (colStart < currentScrollLeft || colEnd > currentScrollLeft + viewportWidth) {
+  gridRef.current.scrollTo({ scrollLeft: colStart });
+}
   }, [externalScrollLeft, dims.width]);
 
   const rowCount = msaData.length;
