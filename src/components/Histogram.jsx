@@ -15,8 +15,9 @@ function isDiscrete(values) {
 
 
 
-function Histogram({ values, xValues, panelId, onHighlight, highlightedSite, highlightOrigin, linkedTo, height }) {
-// Use xValues if provided, otherwise fallback to index
+function Histogram({ values, xValues, panelId, onHighlight, highlightedSite, highlightOrigin, linkedTo, height, syncId }) {
+// console.log("Histogram", panelId, "syncId =", syncId);
+  // Use xValues if provided, otherwise fallback to index
 const data = useMemo(() => {
   return values.map((value, index) => ({
     site: xValues ? xValues[index] : index + 1,
@@ -33,7 +34,7 @@ const discrete = useMemo(() => isDiscrete(values) && unique.length <= colorPalet
 const cmap = useMemo(() => {
   return discrete ? Object.fromEntries(unique.map((v, i) => [v, colorPalette[i]])) : null;
 }, [discrete, unique]);
-
+const [isRechartsTooltipActive, setIsRechartsTooltipActive] = useState(false);
 const getColor = useCallback((v) => {
   if (discrete) return cmap[v];
   const t = Math.sqrt((v - min) / (max - min || 1));
@@ -47,6 +48,9 @@ const getXLabel = useCallback(
 );
 
 const CustomTooltip = useCallback(({ active, payload, label }) => {
+  useEffect(() => {
+    setIsRechartsTooltipActive(active);
+  }, [active]);
   if (active && payload && payload.length) {
     return (
       <div className="bg-white p-2 border border-gray-300 rounded shadow-md text-sm">
@@ -128,7 +132,7 @@ const barCells = useMemo(() => {
         }}
       >
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ bottom: 30 }}>
+          <BarChart data={data} margin={{ bottom: 30 } } syncId={syncId}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="site"
@@ -141,16 +145,15 @@ const barCells = useMemo(() => {
               interval={Math.max(0, Math.floor(Math.sqrt(values.length)) - 1)}
             />
             <YAxis label={{ value: 'Value', angle: -90, position: 'insideLeft' }} />
-            {panelId === highlightOrigin && (
-              <Tooltip content={<CustomTooltip />} />
-            )}
+<Tooltip content={<CustomTooltip />} />
 <Bar dataKey="value" isAnimationActive={false}>
   {barCells}
 </Bar>
           </BarChart>
         </ResponsiveContainer>
 
-        {highlightedSite !== null && linkedTo === highlightOrigin && panelId !== highlightOrigin && tooltipPos && (
+        {highlightedSite !== null && linkedTo === highlightOrigin && panelId !== highlightOrigin && tooltipPos &&
+  !isRechartsTooltipActive && (
           <div
             style={{
               position: 'absolute',

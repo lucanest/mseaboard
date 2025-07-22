@@ -10,6 +10,9 @@ import ReactDOM from 'react-dom';
 import PhyloTreeViewer from './components/PhyloTreeViewer.jsx';
 import Histogram from './components/Histogram.jsx';
 
+const LABEL_WIDTH = 66;
+const CELL_SIZE = 24;
+
 const residueColors = {
   A: 'bg-green-200', C: 'bg-yellow-200', D: 'bg-red-200', E: 'bg-red-200',
   F: 'bg-purple-200', G: 'bg-gray-200', H: 'bg-pink-200', I: 'bg-blue-200',
@@ -333,9 +336,6 @@ const [codonMode, setCodonModeState] = useState(data.codonMode || false);
     }, 150),
     [onSyncScroll, linkedTo, id]
   );
-
-  const LABEL_WIDTH = 66;
-  const CELL_SIZE = 24;
 
    useEffect(() => {
     if (data.codonMode !== codonMode) {
@@ -765,7 +765,7 @@ const NotepadPanel = React.memo(function NotepadPanel({
 const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, onReupload, onDuplicate,
   onLinkClick, isLinkModeActive, isLinked, linkedTo,
   highlightedSite, highlightOrigin, onHighlight, hoveredPanelId,
-  setHoveredPanelId, setPanelData
+  setHoveredPanelId, setPanelData, syncId
 }) {
   const { filename } = data;
   const [editing, setEditing] = useState(false);
@@ -923,6 +923,7 @@ const xValues = useMemo(() => {
         highlightOrigin={highlightOrigin}
         linkedTo={linkedTo}
         height={height}
+        syncId={syncId}
       />
     </div>
   </PanelContainer>
@@ -1439,6 +1440,16 @@ const makeCommonProps = useCallback((panel) => {
   if (!data) return null;
 
 const commonProps = makeCommonProps(panel);
+let syncId;
+  if (panel.type === 'histogram') {
+    const otherId = panelLinks[panel.i];                         // see if they're linked
+    const otherPanel = panels.find(p => p.i === otherId);
+    if (otherId && otherPanel?.type === 'histogram') {
+      // use a stable string (sort the two IDs so it's the same both ways)
+      const [a, b] = [panel.i, otherId].sort();
+      syncId = `hist-sync-${a}-${b}`;
+    }
+  }
 
   return (
 <div key={panel.i}>
@@ -1462,6 +1473,7 @@ const commonProps = makeCommonProps(panel);
       <HistogramPanel
         {...commonProps}
         setPanelData={setPanelData}
+        syncId={syncId}
       />
     ) : panel.type === 'notepad' ? (
       <NotepadPanel
