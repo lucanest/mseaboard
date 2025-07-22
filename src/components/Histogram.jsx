@@ -95,16 +95,16 @@ const hoveredSite = payload[0].payload.site;
 
 const barCells = useMemo(() => {
   return data.map((entry, index) => {
-    const isCurrentLinkedHighlight =
-      highlightedSite === index &&
-      linkedTo === highlightOrigin &&
-      panelId !== highlightOrigin;
+const isCurrentLinkedHighlight =
+  highlightedSite === index &&
+  (linkedTo === highlightOrigin || panelId === highlightOrigin);
 
     return (
       <Cell
         key={`cell-${index}`}
         fill={getColor(entry.value)}
-        className={isCurrentLinkedHighlight ? 'histogram-highlight' : ''}
+        stroke={isCurrentLinkedHighlight ? 'black' : undefined}
+        strokeWidth={isCurrentLinkedHighlight ? 2 : 0}
       />
     );
   });
