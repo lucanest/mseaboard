@@ -146,7 +146,7 @@ const barCells = useMemo(() => {
             />
             <YAxis label={{ value: 'Value', angle: -90, position: 'insideLeft' }} />
 <Tooltip content={<CustomTooltip />} />
-<Bar dataKey="value" isAnimationActive={false}>
+<Bar dataKey="value" isAnimationActive={false} minPointSize={1}>
   {barCells}
 </Bar>
           </BarChart>
