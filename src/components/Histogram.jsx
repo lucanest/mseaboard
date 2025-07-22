@@ -47,10 +47,19 @@ const getXLabel = useCallback(
   [xValues]
 );
 
-const CustomTooltip = useCallback(({ active, payload, label }) => {
+const CustomTooltip = useCallback(({ active, payload, label}) => {
   useEffect(() => {
     setIsRechartsTooltipActive(active);
-  }, [active]);
+    if (active && payload && payload.length) {
+const hoveredSite = payload[0].payload.site;
+      // Find the index of the hovered site in your data array
+      const hoveredIndex = data.findIndex(d => d.site === hoveredSite);
+      if (hoveredIndex !== -1) {
+        onHighlight(hoveredIndex, panelId); // Set highlighted site for linked panels
+      }
+      console.log('Hovered site:', hoveredSite);
+    }
+  }, [active, payload]);
   if (active && payload && payload.length) {
     return (
       <div className="bg-white p-2 border border-gray-300 rounded shadow-md text-sm">
@@ -60,7 +69,7 @@ const CustomTooltip = useCallback(({ active, payload, label }) => {
     );
   }
   return null;
-}, []);
+}, [data, onHighlight, panelId]);
 
   // Tooltip position state
   const chartRef = useRef(null);
@@ -95,12 +104,6 @@ const barCells = useMemo(() => {
       <Cell
         key={`cell-${index}`}
         fill={getColor(entry.value)}
-        onMouseEnter={() => onHighlight(index, panelId)}
-        onMouseLeave={() => {
-          if (highlightedSite !== null && panelId === highlightOrigin) {
-            onHighlight(null, panelId);
-          }
-        }}
         className={isCurrentLinkedHighlight ? 'histogram-highlight' : ''}
       />
     );
