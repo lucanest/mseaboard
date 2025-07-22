@@ -11,6 +11,7 @@ const PhyloTreeViewer = ({
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [debugInfo, setDebugInfo] = useState('');
 
+  
   const parseNewick = (newickString) => {
     let pos = 0;
     const parseNode = () => {
@@ -47,13 +48,16 @@ const PhyloTreeViewer = ({
       }
       node.name = name.trim();
 
-      if (pos < newickString.length && newickString[pos] === ':') {
-        pos++;
-        let lengthStr = '';
-        while (pos < newickString.length && /[\d.eE+-]/.test(newickString[pos])) {
-          lengthStr += newickString[pos++];
-        }
-        node.length = parseFloat(lengthStr) || 0;
+if (pos < newickString.length && newickString[pos] === ':') {
+  pos++;
+  let lengthStr = '';
+  while (pos < newickString.length && /[\d.eE+-]/.test(newickString[pos])) {
+    lengthStr += newickString[pos++];
+  }
+  const length = parseFloat(lengthStr) || 0;
+
+  // Set the length to the node we just parsed
+  node.length = length;
 
         while (
           pos < newickString.length &&
@@ -74,6 +78,8 @@ const PhyloTreeViewer = ({
     return parseNode();
   };
 
+
+  
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -144,6 +150,20 @@ const margin = maxLabelLength * approxCharWidth;
 const radius = Math.min(size.width, size.height) / 2 - margin;
 const diameter = radius * 2;
 
+const tooltip = d3.select(container).select(".tooltip").empty()
+  ? d3.select(container)
+      .append("div")
+      .attr("class", "tooltip")
+      .style("position", "absolute")
+      .style("background", "rgba(0,0,0,0.3)")
+      .style("color", "#fff")
+      .style("padding", "4px 8px")
+      .style("border-radius", "28px")
+      .style("pointer-events", "none")
+      .style("font-size", "12px")
+      .style("display", "none")
+  : d3.select(container).select(".tooltip");
+
 const svg = d3.select(container)
   .append('svg')
   .attr('viewBox', [
@@ -179,16 +199,47 @@ const g = svg.append('g')
       }
     });
 
-    g.append('g')
-      .selectAll('path')
-      .data(root.links())
-      .join('path')
-      .attr('fill', 'none')
-      .attr('stroke', '#ccc')
-      .attr('stroke-width', 1)
-      .attr('d', d3.linkRadial()
-        .angle(d => d.x)
-        .radius(d => d.y));
+const links = root.links();  // Each is { source, target }
+
+g.append('g')
+  .selectAll('path.invisible-hover')
+  .data(links)
+  .join('path')
+  .attr('class', 'invisible-hover')       
+  .attr('fill', 'none')
+  .attr('stroke', 'transparent')
+  .attr('stroke-width', 13)
+  .attr('d', d3.linkRadial()
+    .angle(d => d.x)
+    .radius(d => d.y))
+  .on('mouseover', function (event, index) {
+  const link = links[index];
+  const length = link?.target?.data?.length;
+
+  tooltip
+    .style("display", "block")
+    .html(`Branch length: ${length !== undefined ? d3.format(".4f")(length) : 'N/A'}`);
+})
+  .on('mousemove', function (event) {
+    tooltip
+      .style("bottom", `10px`)
+      .style("right", `10px`);
+  })
+  .on('mouseout', function () {
+    tooltip.style("display", "none");
+  });
+
+  g.append('g')
+  .selectAll('path.branch')
+  .data(links)
+  .join('path')
+  .attr('class', 'branch')
+  .attr('fill', 'none')
+  .attr('stroke', '#ccc')
+  .attr('stroke-width', 2)
+  .attr('d', d3.linkRadial()
+    .angle(d => d.x)
+    .radius(d => d.y));
 
     g.append('g')
       .selectAll('circle')
