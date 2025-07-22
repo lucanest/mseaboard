@@ -5,7 +5,7 @@ const PhyloTreeViewer = ({
   id,
   newick: newickStr, isNhx = false,
   highlightedSequenceId, onHoverTip,
-  linkedTo, highlightOrigin
+  linkedTo, highlightOrigin, radial= true
 }) => {
   const containerRef = useRef();
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -145,6 +145,7 @@ const data = convertToD3Hierarchy(parsed);
 const root = d3.hierarchy(data);
 const leafNames = root.leaves().map(d => (d.data && d.data.name) ? d.data.name : '');
 const maxLabelLength = Math.max(...leafNames.map(name => name.length));
+// console.log(`Max label length: ${maxLabelLength} characters.`);
 const approxCharWidth = 4.05;
 const margin = maxLabelLength * approxCharWidth;
 const radius = Math.min(size.width, size.height) / 2 - margin;
@@ -166,14 +167,11 @@ const tooltip = d3.select(container).select(".tooltip").empty()
 
 const svg = d3.select(container)
   .append('svg')
-  .attr('viewBox', [
-    0,
-    0,
-    diameter + margin * 2,
-    diameter + margin * 2
-  ])
   .attr('width', '100%')
   .attr('height', '100%')
+  .attr('viewBox', radial
+    ? [0, 0, diameter + margin * 2, diameter + margin * 2]
+    : [0, 0, size.width, size.height])
   .style('font', '10px sans-serif');
 
 // Legend in upper left
@@ -182,10 +180,16 @@ const legend = svg.append('g')
 
 // Center the tree group
 const g = svg.append('g')
-  .attr('transform', `translate(${radius + margin},${radius + margin})`);
+  .attr('transform', radial
+    ? `translate(${radius + margin},${radius + margin})`
+    : `translate(${margin},0)`);
 
 
-    d3.cluster().size([2 * Math.PI, radius - 50])(root);
+    if (radial) {
+  d3.cluster().size([2 * Math.PI, radius - 50])(root);
+} else {
+  d3.cluster().size([size.height, size.width - margin * 5])(root);
+}
 
     const colorField = 'Trait';
     const colorMap = {};
@@ -209,9 +213,9 @@ g.append('g')
   .attr('fill', 'none')
   .attr('stroke', 'transparent')
   .attr('stroke-width', 13)
-  .attr('d', d3.linkRadial()
-    .angle(d => d.x)
-    .radius(d => d.y))
+.attr('d', radial
+  ? d3.linkRadial().angle(d => d.x).radius(d => d.y)
+  : d3.linkHorizontal().x(d => d.y).y(d => d.x))
   .on('mouseover', function (event, index) {
   const link = links[index];
   const length = link?.target?.data?.length;
@@ -237,18 +241,19 @@ g.append('g')
   .attr('fill', 'none')
   .attr('stroke', '#ccc')
   .attr('stroke-width', 2)
-  .attr('d', d3.linkRadial()
-    .angle(d => d.x)
-    .radius(d => d.y));
+.attr('d', radial
+  ? d3.linkRadial().angle(d => d.x).radius(d => d.y)
+  : d3.linkHorizontal().x(d => d.y).y(d => d.x));
 
     g.append('g')
       .selectAll('circle')
       .data(root.descendants())
       .join('circle')
-      .attr('transform', d => `
-        rotate(${(d.x * 180 / Math.PI - 90)})
-        translate(${d.y},0)
-      `)
+.attr('transform', d => radial
+  ? `rotate(${(d.x * 180 / Math.PI - 90)}) translate(${d.y},0)`
+  : null)
+.attr('cx', d => radial ? null : d.y)
+.attr('cy', d => radial ? null : d.x)
       .attr('r', 4)
 .attr('fill', d => {
   const isLinkedHighlight = 
@@ -294,14 +299,12 @@ g.append('g')
   .selectAll('text')
 .data(root.descendants().filter(d => !d.children && d.data && typeof d.data.name !== 'undefined'))
   .join('text')
-  .attr('transform', d => `
-    rotate(${(d.x * 180 / Math.PI - 90)})
-    translate(${d.y},0)
-    rotate(${d.x >= Math.PI ? 180 : 0})
-  `)
-  .attr('dy', '0.31em')
-  .attr('x', d => d.x < Math.PI ? 8 : -8)
-  .attr('text-anchor', d => d.x < Math.PI ? 'start' : 'end')
+.attr('transform', d => radial
+  ? `rotate(${(d.x * 180 / Math.PI - 90)}) translate(${d.y},0) rotate(${d.x >= Math.PI ? 180 : 0})`
+  : null)
+.attr('x', d => radial ? (d.x < Math.PI ? 8 : -8) : d.y + 8)
+.attr('y', d => radial ? null : d.x)
+.attr('text-anchor', d => radial ? (d.x < Math.PI ? 'start' : 'end') : 'start')
 .text(d => (d.data && typeof d.data.name !== 'undefined') ? d.data.name : '')
   .style('font-size', d => {
 const isLinkedHighlight = 
