@@ -10,6 +10,7 @@ const PhyloTreeViewer = ({
   const containerRef = useRef();
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [debugInfo, setDebugInfo] = useState('');
+  const [highlightedNode, setHighlightedNode] = useState('');
 
   
   const parseNewick = (newickString) => {
@@ -152,7 +153,6 @@ const maxMargin = radial ? 140 : 50;
 const margin = Math.max(minMargin, Math.min(maxMargin, maxLabelLength * approxCharWidth));
 const radius = Math.min(size.width, size.height) / 2 - margin;
 const diameter = radius * 2;
-
 const tooltip = d3.select(container).select(".tooltip").empty()
   ? d3.select(container)
       .append("div")
@@ -275,11 +275,7 @@ g.append('g')
 .attr('cx', d => radial ? null : d.y)
 .attr('cy', d => radial ? null : d.x)
       .attr('r', 4)
-.attr('fill', d => {
-const isLinkedHighlight = 
-d.data && highlightedSequenceId === d.data.name &&
-    (linkedTo === highlightOrigin || id === highlightOrigin);
-  
+.attr('fill', d => {  
 const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
     return val ? colorMap[val] : '#555';
   })
@@ -287,33 +283,40 @@ const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
     const isLinkedHighlight =
       d.data && highlightedSequenceId === d.data.name &&
       (linkedTo === highlightOrigin || id === highlightOrigin);
-    return isLinkedHighlight ? '#cc0066' : '#fff';
+    const isHighlight = highlightedNode === d.data.name || isLinkedHighlight;
+    return isHighlight ? '#cc0066' : '#fff';
   })
   .attr('stroke-width', d => {
     const isLinkedHighlight =
       d.data && highlightedSequenceId === d.data.name &&
       (linkedTo === highlightOrigin || id === highlightOrigin);
-    return isLinkedHighlight ? 2 : 1;
+    const isHighlight = highlightedNode === d.data.name || isLinkedHighlight;
+    return isHighlight ? 2 : 1;
   })
 .on('mouseenter', (event, d) => {
   const nodeName = event.data?.name;
   const isLeaf = event.height ==0;
-/*   console.log('Leaf node hover:', {
-    id,
-    event,
-    nodeName,
-    d,
-    isLeaf,
-  });
-*/ 
+
+
   if (isLeaf) {
   onHoverTip?.(nodeName || '', id);
+  setHighlightedNode(nodeName || null);
   }
   else {
     onHoverTip?.(null, null);
+  setHighlightedNode(null);
   }
+  /* console.log('Hover tip:', {
+    nodeName,
+    id,
+    linkedTo,
+    highlightedNode,
+    highlightOrigin});*/
 })
-.on('mouseleave', () => onHoverTip?.(null, null))
+.on('mouseleave', () => {
+  onHoverTip?.(null, null);
+  setHighlightedNode(null)
+  });
 
 g.append('g')
   .selectAll('text')
@@ -329,27 +332,35 @@ g.append('g')
 .text(d => (d.data && typeof d.data.name !== 'undefined') ? d.data.name : '')
   .style('font-size', d => {
 const isLinkedHighlight = 
-      d.data && highlightedSequenceId === d.data.name &&
+      d.data && highlightedSequenceId === d.data.name && 
       (linkedTo === highlightOrigin || id === highlightOrigin);
-    return isLinkedHighlight ? '16px' : '12px';
+const isHighlight = highlightedNode === d.data.name || isLinkedHighlight;
+    return isHighlight ? '16px' : '12px';
   })
   .style('fill', d => {
     const isLinkedHighlight = 
       highlightedSequenceId === d.data.name &&
       (linkedTo === highlightOrigin || id === highlightOrigin);
-    return isLinkedHighlight ? ' #cc0066' : '#333';
+    const isHighlight = highlightedNode === d.data.name || isLinkedHighlight;
+    return isHighlight ? ' #cc0066' : '#333';
   })
     .style('font-weight', d => {
     const isLinkedHighlight = 
       highlightedSequenceId === d.data.name &&
       (linkedTo === highlightOrigin || id === highlightOrigin);
-    return isLinkedHighlight ? 'bold' : 'normal';
+    const isHighlight = highlightedNode === d.data.name || isLinkedHighlight;
+    return isHighlight ? 'bold' : 'normal';
   })
 .on('mouseenter', (event, d) => {
   const nodeName = event.data?.name;
   onHoverTip?.(nodeName || '', id);
+  setHighlightedNode(nodeName || '');
 })
-.on('mouseleave', () => onHoverTip?.(null));
+.on('mouseleave', () => {
+  onHoverTip?.(null);
+  setHighlightedNode(null);
+});
+
 
     if (Object.keys(colorMap).length > 0) {
 
