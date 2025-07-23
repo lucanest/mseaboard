@@ -56,8 +56,6 @@ if (pos < newickString.length && newickString[pos] === ':') {
     lengthStr += newickString[pos++];
   }
   const length = parseFloat(lengthStr) || 0;
-
-  // Set the length to the node we just parsed
   node.length = length;
 
         while (
@@ -111,6 +109,14 @@ if (pos < newickString.length && newickString[pos] === ':') {
       return;
     }
 
+    const getHighlightState = (d) => {
+    const isLinkedHighlight =
+      d.data && highlightedSequenceId === d.data.name &&
+      (linkedTo === highlightOrigin || id === highlightOrigin);
+    const isHighlight = highlightedNode === d.data.name || isLinkedHighlight;
+    return { isLinkedHighlight, isHighlight };
+  };
+
     const extractNhxData = (nameWithNhx) => {
       if (!nameWithNhx || !isNhx) return { name: nameWithNhx || '', nhx: {} };
       const nhxMatch = nameWithNhx.match(/\[&&NHX:([^\]]+)\]/);
@@ -146,7 +152,6 @@ const data = convertToD3Hierarchy(parsed);
 const root = d3.hierarchy(data);
 const leafNames = root.leaves().map(d => (d.data && d.data.name) ? d.data.name : '');
 const maxLabelLength = Math.max(...leafNames.map(name => name.length));
-// console.log(`Max label length: ${maxLabelLength} characters.`);
 const approxCharWidth = 4;
 const minMargin = 10;
 const maxMargin = radial ? 140 : 50;
@@ -194,6 +199,7 @@ const g = svg.append('g')
   d3.cluster().size([size.height, size.width - margin * 5])(root);
 }
 
+// Equally space leaves 
  if (radial) {
     const leaves = root.leaves();
     const angleStep = (2 * Math.PI) / leaves.length;
@@ -201,15 +207,12 @@ const g = svg.append('g')
       leaf.x = i * angleStep;
     });
   } else {
-    // For rectangular trees, equally space leaves along the y-axis
     const leaves = root.leaves();
     const yStep = size.height / (leaves.length + 1);
     leaves.forEach((leaf, i) => {
       leaf.x = (i + 1) * yStep;
     });
   }
-
-
 
     const colorField = 'Trait';
     const colorMap = {};
@@ -280,17 +283,11 @@ const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
     return val ? colorMap[val] : '#555';
   })
   .attr('stroke', d => {
-    const isLinkedHighlight =
-      d.data && highlightedSequenceId === d.data.name &&
-      (linkedTo === highlightOrigin || id === highlightOrigin);
-    const isHighlight = highlightedNode === d.data.name || isLinkedHighlight;
+    const { isHighlight } = getHighlightState(d);
     return isHighlight ? '#cc0066' : '#fff';
   })
   .attr('stroke-width', d => {
-    const isLinkedHighlight =
-      d.data && highlightedSequenceId === d.data.name &&
-      (linkedTo === highlightOrigin || id === highlightOrigin);
-    const isHighlight = highlightedNode === d.data.name || isLinkedHighlight;
+    const { isHighlight } = getHighlightState(d);
     return isHighlight ? 2 : 1;
   })
 .on('mouseenter', (event, d) => {
@@ -331,24 +328,15 @@ g.append('g')
 .attr('dy', radial ? '0.35em' : '0.35em')
 .text(d => (d.data && typeof d.data.name !== 'undefined') ? d.data.name : '')
   .style('font-size', d => {
-const isLinkedHighlight = 
-      d.data && highlightedSequenceId === d.data.name && 
-      (linkedTo === highlightOrigin || id === highlightOrigin);
-const isHighlight = highlightedNode === d.data.name || isLinkedHighlight;
+    const { isHighlight } = getHighlightState(d);
     return isHighlight ? '16px' : '12px';
   })
   .style('fill', d => {
-    const isLinkedHighlight = 
-      highlightedSequenceId === d.data.name &&
-      (linkedTo === highlightOrigin || id === highlightOrigin);
-    const isHighlight = highlightedNode === d.data.name || isLinkedHighlight;
+    const { isHighlight } = getHighlightState(d);
     return isHighlight ? ' #cc0066' : '#333';
   })
     .style('font-weight', d => {
-    const isLinkedHighlight = 
-      highlightedSequenceId === d.data.name &&
-      (linkedTo === highlightOrigin || id === highlightOrigin);
-    const isHighlight = highlightedNode === d.data.name || isLinkedHighlight;
+    const { isHighlight } = getHighlightState(d);
     return isHighlight ? 'bold' : 'normal';
   })
 .on('mouseenter', (event, d) => {
