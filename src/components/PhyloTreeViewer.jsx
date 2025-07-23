@@ -10,7 +10,7 @@ const PhyloTreeViewer = ({
   const containerRef = useRef();
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [debugInfo, setDebugInfo] = useState('');
-  const [highlightedNode, setHighlightedNode] = useState('');
+  const [highlightedNode, setHighlightedNode] = useState(null);
 
   
   const parseNewick = (newickString) => {
