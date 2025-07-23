@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import throttle from 'lodash.throttle'
 import debounce from 'lodash.debounce';
-import { LinkIcon, DocumentDuplicateIcon,PencilSquareIcon,XMarkIcon, Bars3Icon  } from '@heroicons/react/24/outline';
+import { LinkIcon, DocumentDuplicateIcon,PencilSquareIcon,XMarkIcon, Bars3Icon, EyeIcon } from '@heroicons/react/24/outline';
 import { FixedSizeGrid as Grid } from 'react-window';
 import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
@@ -218,6 +218,24 @@ function LinkButton({ onClick, isLinked, isLinkModeActive }) {
           />
         </span>
       </button>
+  );
+}
+
+function RadialToggleButton({ onClick, isActive }) {
+  return (
+    <button
+      onClick={onClick}
+      className="p-0.5"
+      title="Switch tree view"
+    >
+      <span className={`inline-flex items-center justify-center w-6 h-6 rounded
+      ${isActive ? 'bg-gray-200' : 'bg-gray-200'}
+        border border-gray-400 hover:bg-purple-300`}>
+        <span className="text-xs font-bold text-purple-800 leading-none">
+          <EyeIcon className="w-5 h-5" />
+        </span>
+      </span>
+    </button>
   );
 }
 
@@ -669,10 +687,32 @@ const TreePanel = React.memo(function TreePanel({
   const { data: newick, filename, isNhx } = data;
   const [editing, setEditing] = useState(false);
   const [filenameInput, setFilenameInput] = useState(filename);
+  const [RadialMode, setRadialMode] = useState(data.RadialMode ?? true);
 
   useEffect(() => {
   setFilenameInput(filename);
 }, [filename]);
+
+  useEffect(() => {
+    if (data.RadialMode !== RadialMode) {
+      setRadialMode(data.RadialMode ?? true);
+    }
+  }, [data.RadialMode]);
+
+  const handleRadialToggle = useCallback(() => {
+    setRadialMode(prev => {
+      const next = !prev;
+      setPanelData(pd => ({
+        ...pd,
+        [id]: {
+          ...pd[id],
+          RadialMode: next
+        }
+      }));
+      return next;
+    });
+  }, [id, setPanelData]);
+
   return (
     <PanelContainer
   id={id}
@@ -693,6 +733,12 @@ const TreePanel = React.memo(function TreePanel({
         onDuplicate={onDuplicate}
         onLinkClick={onLinkClick}
         isLinkModeActive={isLinkModeActive}
+        extraButtons={[
+           <RadialToggleButton
+             onClick={handleRadialToggle}
+             isActive={RadialMode}
+           />
+         ]}
         isLinked={isLinked}
         onRemove={onRemove}
       />
@@ -704,6 +750,7 @@ const TreePanel = React.memo(function TreePanel({
           onHoverTip={onHoverTip}
           linkedTo={linkedTo}
           highlightOrigin={highlightOrigin}
+          radial={RadialMode}
         />
       </div>
     </PanelContainer>

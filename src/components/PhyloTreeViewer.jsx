@@ -5,7 +5,7 @@ const PhyloTreeViewer = ({
   id,
   newick: newickStr, isNhx = false,
   highlightedSequenceId, onHoverTip,
-  linkedTo, highlightOrigin, radial= true
+  linkedTo, highlightOrigin, radial= false
 }) => {
   const containerRef = useRef();
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -146,8 +146,10 @@ const root = d3.hierarchy(data);
 const leafNames = root.leaves().map(d => (d.data && d.data.name) ? d.data.name : '');
 const maxLabelLength = Math.max(...leafNames.map(name => name.length));
 // console.log(`Max label length: ${maxLabelLength} characters.`);
-const approxCharWidth = 4.05;
-const margin = maxLabelLength * approxCharWidth;
+const approxCharWidth = 4;
+const minMargin = 10;
+const maxMargin = radial ? 140 : 50;
+const margin = Math.max(minMargin, Math.min(maxMargin, maxLabelLength * approxCharWidth));
 const radius = Math.min(size.width, size.height) / 2 - margin;
 const diameter = radius * 2;
 
@@ -165,13 +167,14 @@ const tooltip = d3.select(container).select(".tooltip").empty()
       .style("display", "none")
   : d3.select(container).select(".tooltip");
 
+
 const svg = d3.select(container)
   .append('svg')
   .attr('width', '100%')
   .attr('height', '100%')
   .attr('viewBox', radial
     ? [0, 0, diameter + margin * 2, diameter + margin * 2]
-    : [0, 0, size.width, size.height])
+    : [0, 0, size.width, size.height+20])
   .style('font', '10px sans-serif');
 
 // Legend in upper left
@@ -182,7 +185,7 @@ const legend = svg.append('g')
 const g = svg.append('g')
   .attr('transform', radial
     ? `translate(${radius + margin},${radius + margin})`
-    : `translate(${margin},0)`);
+    : `translate(${margin},10)`);
 
 
     if (radial) {
@@ -227,7 +230,7 @@ g.append('g')
   .on('mousemove', function (event) {
     tooltip
       .style("bottom", `10px`)
-      .style("right", `10px`);
+      .style("left", `10px`);
   })
   .on('mouseout', function () {
     tooltip.style("display", "none");
@@ -310,7 +313,7 @@ g.append('g')
 const isLinkedHighlight = 
       d.data && highlightedSequenceId === d.data.name &&
       (linkedTo === highlightOrigin || id === highlightOrigin);
-    return isLinkedHighlight ? '18px' : '12px';
+    return isLinkedHighlight ? '16px' : '12px';
   })
   .style('fill', d => {
     const isLinkedHighlight = 
