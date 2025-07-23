@@ -230,7 +230,7 @@ function RadialToggleButton({ onClick, isActive }) {
     >
       <span className={`inline-flex items-center justify-center w-6 h-6 rounded
       ${isActive ? 'bg-gray-200' : 'bg-gray-200'}
-        border border-gray-400 hover:bg-purple-300`}>
+        border border-gray-400 hover:bg-orange-300`}>
         <span className="text-xs font-bold text-purple-800 leading-none">
           <EyeIcon className="w-5 h-5" />
         </span>
@@ -684,34 +684,23 @@ const TreePanel = React.memo(function TreePanel({
   onLinkClick, isLinkModeActive, isLinked,hoveredPanelId,
   setHoveredPanelId, setPanelData
 }) {
-  const { data: newick, filename, isNhx } = data;
+  const { data: newick, filename, isNhx,RadialMode=true } = data;
   const [editing, setEditing] = useState(false);
   const [filenameInput, setFilenameInput] = useState(filename);
-  const [RadialMode, setRadialMode] = useState(data.RadialMode ?? true);
 
   useEffect(() => {
   setFilenameInput(filename);
 }, [filename]);
 
-  useEffect(() => {
-    if (data.RadialMode !== RadialMode) {
-      setRadialMode(data.RadialMode ?? true);
-    }
-  }, [data.RadialMode]);
-
   const handleRadialToggle = useCallback(() => {
-    setRadialMode(prev => {
-      const next = !prev;
-      setPanelData(pd => ({
-        ...pd,
-        [id]: {
-          ...pd[id],
-          RadialMode: next
-        }
-      }));
-      return next;
-    });
-  }, [id, setPanelData]);
+    setPanelData(pd => ({
+      ...pd,
+      [id]: {
+        ...pd[id],
+        RadialMode: !RadialMode
+      }
+    }));
+  }, [id, setPanelData, RadialMode]);
 
   return (
     <PanelContainer
