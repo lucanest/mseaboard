@@ -394,6 +394,10 @@ const isHighlight = highlightedNode === d.data.name || isLinkedHighlight;
       ref={containerRef}
       className="w-full h-full"
       style={{ overflow: 'hidden' }}
+      onMouseLeave={() => {
+        onHoverTip?.(null, null);
+        setHighlightedNode(null);
+      }}
     />
   );
 };
