@@ -188,11 +188,28 @@ const g = svg.append('g')
     : `translate(${margin},10)`);
 
 
-    if (radial) {
+  if (radial) {
   d3.cluster().size([2 * Math.PI, radius - 50])(root);
 } else {
   d3.cluster().size([size.height, size.width - margin * 5])(root);
 }
+
+ if (radial) {
+    const leaves = root.leaves();
+    const angleStep = (2 * Math.PI) / leaves.length;
+    leaves.forEach((leaf, i) => {
+      leaf.x = i * angleStep;
+    });
+  } else {
+    // For rectangular trees, equally space leaves along the y-axis
+    const leaves = root.leaves();
+    const yStep = size.height / (leaves.length + 1);
+    leaves.forEach((leaf, i) => {
+      leaf.x = (i + 1) * yStep;
+    });
+  }
+
+
 
     const colorField = 'Trait';
     const colorMap = {};
@@ -259,7 +276,7 @@ g.append('g')
 .attr('cy', d => radial ? null : d.x)
       .attr('r', 4)
 .attr('fill', d => {
-  const isLinkedHighlight = 
+const isLinkedHighlight = 
 d.data && highlightedSequenceId === d.data.name &&
     (linkedTo === highlightOrigin || id === highlightOrigin);
   
@@ -305,9 +322,10 @@ g.append('g')
 .attr('transform', d => radial
   ? `rotate(${(d.x * 180 / Math.PI - 90)}) translate(${d.y},0) rotate(${d.x >= Math.PI ? 180 : 0})`
   : null)
-.attr('x', d => radial ? (d.x < Math.PI ? 8 : -8) : d.y + 8)
+.attr('x', d => radial ? (d.x < Math.PI ? 6 : -6) : d.y + 6)
 .attr('y', d => radial ? null : d.x)
 .attr('text-anchor', d => radial ? (d.x < Math.PI ? 'start' : 'end') : 'start')
+.attr('dy', radial ? '0.35em' : '0.35em')
 .text(d => (d.data && typeof d.data.name !== 'undefined') ? d.data.name : '')
   .style('font-size', d => {
 const isLinkedHighlight = 
