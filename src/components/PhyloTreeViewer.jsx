@@ -293,7 +293,13 @@ const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
 .on('mouseenter', (event, d) => {
   const nodeName = event.data?.name;
   const isLeaf = event.height ==0;
+  const Trait = event.data?.nhx?.[colorField] || '';
 
+  tooltip
+    .style("display", "block")
+    .html(`Trait: ${Trait || 'N/A'}`)
+  
+  
 
   if (isLeaf) {
   onHoverTip?.(nodeName || '', id);
@@ -310,7 +316,13 @@ const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
     highlightedNode,
     highlightOrigin});*/
 })
+.on('mousemove', function (event) {
+  tooltip
+    .style("bottom", `10px`)
+    .style("left", `10px`);
+})
 .on('mouseleave', () => {
+  tooltip.style("display", "none");
   onHoverTip?.(null, null);
   setHighlightedNode(null)
   });
