@@ -32,10 +32,8 @@ const residueColors = {
      <div
        style={style}
        className={`flex items-center justify-center  ${baseBg} ${
-         isHoverHighlight
-           ? 'alignment-highlight'
-           : isLinkedHighlight && !isHoverHighlight
-           ? 'alignment-highlight'
+      isHoverHighlight || isLinkedHighlight
+          ? 'alignment-highlight'
           : isPersistentHighlight
           ? 'permanent-alignment-highlight'
           : ''
