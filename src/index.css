@@ -34,6 +34,18 @@ html, body {
   border-radius: 0.25rem;
 }
 
+.permanent-alignment-highlight {
+  position: relative;
+  z-index: 1;
+}
+.permanent-alignment-highlight::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  box-shadow: 0 0 0 2px #ab1829;
+  border-radius: 0.25rem;
+}
+
 /* Histogram panel highlight */
 .histogram-highlight {
   outline: 2px solid #000000;

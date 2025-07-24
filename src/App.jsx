@@ -25,22 +25,25 @@ const residueColors = {
  const MSACell = React.memo(function MSACell({
    columnIndex, rowIndex, style,
    char, isHoverHighlight, isLinkedHighlight,
-   onMouseEnter, onMouseMove, onMouseLeave
+   onMouseEnter, onMouseMove, onMouseLeave,onClick, isPersistentHighlight
  }) {
    const baseBg = residueColors[char?.toUpperCase()] || 'bg-white';
    return (
      <div
        style={style}
-       className={`flex items-center justify-center ${baseBg} ${
+       className={`flex items-center justify-center  ${baseBg} ${
          isHoverHighlight
            ? 'alignment-highlight'
            : isLinkedHighlight && !isHoverHighlight
            ? 'alignment-highlight'
-           : ''
+          : isPersistentHighlight
+          ? 'permanent-alignment-highlight'
+          : ''
        }`}
        onMouseEnter={onMouseEnter}
        onMouseMove={onMouseMove}
        onMouseLeave={onMouseLeave}
+       onClick={onClick}
      >
        {char}
      </div>
@@ -337,7 +340,8 @@ const [codonMode, setCodonModeState] = useState(data.codonMode || false);
         ...prevData,
         [id]: {
           ...prevData[id],
-          codonMode: next
+          codonMode: next,
+          highlightedSites: [] // clear highlights when switching modes
         }
       }));
       return next;
@@ -464,6 +468,9 @@ if (colStart < currentScrollLeft || colEnd > currentScrollLeft + viewportWidth) 
    ({ columnIndex, rowIndex, style }) => {
      const char = msaData[rowIndex].sequence[columnIndex];
      const codonIndex = Math.floor(columnIndex / 3);
+     const idx = codonMode ? codonIndex : columnIndex;
+    const persistentHighlights = data.highlightedSites || [];
+    const isPersistentHighlight = persistentHighlights.includes(idx); 
      const isHoverHighlight = codonMode
        ? hoveredCol != null && hoveredCol === codonIndex
        : hoveredCol === columnIndex;
@@ -472,7 +479,23 @@ if (colStart < currentScrollLeft || colEnd > currentScrollLeft + viewportWidth) 
        highlightedSite != null &&
        (linkedTo === highlightOrigin || id === highlightOrigin) &&
        (codonMode ? codonIndex === highlightedSite : columnIndex === highlightedSite);
- 
+    const handleClick = useCallback(() => {
+  setPanelData(prev => {
+    const prevHighlights = prev[id]?.highlightedSites || [];
+    const isHighlighted = prevHighlights.includes(idx);
+    const updatedHighlights = isHighlighted
+      ? prevHighlights.filter(i => i !== idx)
+      : [...prevHighlights, idx];
+
+    return {
+      ...prev,
+      [id]: {
+        ...prev[id],
+        highlightedSites: updatedHighlights
+      }
+    };
+  });
+}, [id, idx, setPanelData]);
      // Memoized handlers
      const handleMouseEnter = useCallback(
        (e) => {
@@ -518,6 +541,8 @@ if (colStart < currentScrollLeft || colEnd > currentScrollLeft + viewportWidth) 
          onMouseEnter={handleMouseEnter}
          onMouseMove={handleMouseMove}
          onMouseLeave={handleMouseLeave}
+                 onClick={handleClick}
+        isPersistentHighlight={isPersistentHighlight}
        />
      );
    },
