@@ -150,8 +150,7 @@ const convertToD3Hierarchy = (node) => {
 
 const data = convertToD3Hierarchy(parsed);
 const root = d3.hierarchy(data);
-const leafNames = root.leaves().map(d => (d.data && d.data.name) ? d.data.name : '');
-const maxLabelLength = Math.max(...leafNames.map(name => name.length));
+const maxLabelLength = d3.max(root.leaves(), d => (d.data.name || '').length);
 const approxCharWidth = 4;
 const minMargin = 10;
 const maxMargin = radial ? 140 : 50;
@@ -171,6 +170,31 @@ const tooltip = d3.select(container).select(".tooltip").empty()
       .style("font-size", "12px")
       .style("display", "none")
   : d3.select(container).select(".tooltip");
+
+//  Count field frequencies and values
+const nhxFieldStats = {};
+
+root.each(d => {
+  if (d.data.nhx && typeof d.data.nhx === 'object') {
+    Object.entries(d.data.nhx).forEach(([key, val]) => {
+      if (!nhxFieldStats[key]) {
+        nhxFieldStats[key] = new Set();
+      }
+      nhxFieldStats[key].add(val);
+    });
+  }
+});
+
+//  Pick the best key for coloring
+let colorField = null;
+let maxDistinct = 0;
+
+for (const [key, valueSet] of Object.entries(nhxFieldStats)) {
+  if (valueSet.size > maxDistinct && valueSet.size > 1) {
+    maxDistinct = valueSet.size;
+    colorField = key;
+  }
+}
 
 
 const svg = d3.select(container)
@@ -214,7 +238,6 @@ const g = svg.append('g')
     });
   }
 
-    const colorField = 'Trait';
     const colorMap = {};
     let colorIndex = 0;
     const colorScale = d3.schemeCategory10;
@@ -294,10 +317,16 @@ const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
   const nodeName = event.data?.name;
   const isLeaf = event.height ==0;
   const Trait = event.data?.nhx?.[colorField] || '';
+  const nhxData = event.data?.nhx || {};
+
+  const nhxString = Object.entries(nhxData)
+    .map(([key, val]) => `<div><strong>${key}</strong>: ${val}</div>`)
+    .join('') || '<div>No NHX data</div>';
+
 
   tooltip
     .style("display", "block")
-    .html(`Trait: ${Trait || 'N/A'}`)
+    .html(`${nhxString}`);
   
   
 
@@ -381,7 +410,7 @@ g.append('g')
         .join('text')
         .attr('x', 20)
         .attr('y', (_, i) => i * 20 + 12)
-        .text(d => `Trait: ${d[0]}`)
+        .text(d => `${colorField}: ${d[0]}`)
         .style('font-size', '12px')
         .style('fill', '#333');
     }
