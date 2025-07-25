@@ -35,7 +35,7 @@ const residueColors = {
       isHoverHighlight || isLinkedHighlight
           ? 'alignment-highlight'
           : isPersistentHighlight
-          ? 'permanent-alignment-highlight'
+          ? 'persistent-alignment-highlight'
           : ''
        }`}
        onMouseEnter={onMouseEnter}

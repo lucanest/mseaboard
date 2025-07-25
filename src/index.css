@@ -34,11 +34,11 @@ html, body {
   border-radius: 0.25rem;
 }
 
-.permanent-alignment-highlight {
+.persistent-alignment-highlight {
   position: relative;
   z-index: 1;
 }
-.permanent-alignment-highlight::after {
+.persistent-alignment-highlight::after {
   content: "";
   position: absolute;
   inset: 0;
