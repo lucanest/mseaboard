@@ -12,7 +12,8 @@ function isDiscrete(values) {
   return values.every(v => Number.isInteger(v));
 }
 
-function Histogram({ values, xValues, panelId, onHighlight, highlightedSite, highlightOrigin, linkedTo, height, syncId }) {
+function Histogram({ values, xValues, panelId, onHighlight, highlightedSite, highlightOrigin, linkedTo, height, syncId,  setPanelData,
+  highlightedSites}) {
 // console.log("Histogram", panelId, "syncId =", syncId);
   // Use xValues if provided, otherwise fallback to index
 const data = useMemo(() => {
@@ -95,17 +96,34 @@ const barCells = useMemo(() => {
 const isCurrentLinkedHighlight =
   highlightedSite === index &&
   (linkedTo === highlightOrigin || panelId === highlightOrigin);
-
+const isPersistentHighlight = highlightedSites.includes(index); 
     return (
       <Cell
         key={`cell-${index}`}
         fill={getColor(entry.value)}
-        stroke={isCurrentLinkedHighlight ? 'black' : undefined}
-        strokeWidth={isCurrentLinkedHighlight ? 2 : 0}
+stroke={isCurrentLinkedHighlight ? 'black' : (isPersistentHighlight ? 'purple' : undefined)}
+strokeWidth={isCurrentLinkedHighlight || isPersistentHighlight ? 2 : 0}
+onClick={() => {
+    setPanelData(prev => {
+      const current = prev[panelId] || {};
+      const currentHighlightedSites = current.highlightedSites || [];
+      const isAlready = currentHighlightedSites.includes(index);
+      const  newhighlightedSites = isAlready
+        ? currentHighlightedSites.filter(i => i !== index)
+        : [...currentHighlightedSites, index];
+      return {
+        ...prev,
+        [panelId]: {
+          ...current,
+          highlightedSites: newhighlightedSites
+        }
+      };
+    });
+  }}
       />
     );
   });
-}, [data, getColor, highlightedSite, linkedTo, highlightOrigin, panelId, onHighlight]);
+}, [data, getColor, highlightedSite, linkedTo, highlightOrigin, panelId, onHighlight,highlightedSites, setPanelData]);
   return (
     <>
       {discrete && (

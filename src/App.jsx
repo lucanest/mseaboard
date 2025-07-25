@@ -827,7 +827,7 @@ const NotepadPanel = React.memo(function NotepadPanel({
 const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, onReupload, onDuplicate,
   onLinkClick, isLinkModeActive, isLinked, linkedTo,
   highlightedSite, highlightOrigin, onHighlight, hoveredPanelId,
-  setHoveredPanelId, setPanelData, syncId
+  setHoveredPanelId, setPanelData, syncId,
 }) {
   const { filename } = data;
   const [editing, setEditing] = useState(false);
@@ -983,6 +983,8 @@ const xValues = useMemo(() => {
         onHighlight={onHighlight}
         highlightedSite={highlightedSite}
         highlightOrigin={highlightOrigin}
+        setPanelData={setPanelData}
+        highlightedSites={data?.highlightedSites || []}
         linkedTo={linkedTo}
         height={height}
         syncId={syncId}
