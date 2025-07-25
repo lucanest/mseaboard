@@ -5,7 +5,8 @@ const PhyloTreeViewer = ({
   id,
   newick: newickStr, isNhx = false,
   highlightedSequenceId, onHoverTip,
-  linkedTo, highlightOrigin, radial= false
+  linkedTo, highlightOrigin, radial= false, setPanelData,
+  highlightedNodes = []
 }) => {
   const containerRef = useRef();
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -114,7 +115,8 @@ if (pos < newickString.length && newickString[pos] === ':') {
       d.data && highlightedSequenceId === d.data.name &&
       (linkedTo === highlightOrigin || id === highlightOrigin);
     const isHighlight = highlightedNode === d.data.name || isLinkedHighlight;
-    return { isLinkedHighlight, isHighlight };
+    const isPersistentHighlight = highlightedNodes.includes(d.data.name);
+    return { isLinkedHighlight, isHighlight, isPersistentHighlight };
   };
 
     const extractNhxData = (nameWithNhx) => {
@@ -306,12 +308,12 @@ const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
     return val ? colorMap[val] : '#555';
   })
   .attr('stroke', d => {
-    const { isHighlight } = getHighlightState(d);
-    return isHighlight ? '#cc0066' : '#fff';
+    const { isHighlight, isLinkedHighlight, isPersistentHighlight } = getHighlightState(d);
+    return isHighlight ? '#cc0066' : (isPersistentHighlight ? "#13b507" : '#fff');
   })
   .attr('stroke-width', d => {
-    const { isHighlight } = getHighlightState(d);
-    return isHighlight ? 2 : 1;
+    const { isHighlight, isLinkedHighlight, isPersistentHighlight } = getHighlightState(d);
+    return isHighlight || isPersistentHighlight ? 2 : 1;
   })
 .on('mouseenter', (event, d) => {
   const nodeName = event.data?.name;
@@ -354,7 +356,30 @@ const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
   tooltip.style("display", "none");
   onHoverTip?.(null, null);
   setHighlightedNode(null)
+  })
+.on('click', (event, d) => {
+
+  const name = event.data?.name;
+  const isLeaf = event.height === 0;
+  if (!isLeaf || !name) return;
+
+  setPanelData(prev => {
+    const current = prev[id] || {};
+    const prevHighlights = current.highlightedNodes || [];
+    const already = prevHighlights.includes(name);
+    const updated = already
+      ? prevHighlights.filter(n => n !== name)
+      : [...prevHighlights, name];
+    return {
+      ...prev,
+      [id]: {
+        ...current,
+        highlightedNodes: updated
+      }
+    };
   });
+})
+
 
 g.append('g')
   .selectAll('text')
@@ -369,16 +394,16 @@ g.append('g')
 .attr('dy', radial ? '0.35em' : '0.35em')
 .text(d => (d.data && typeof d.data.name !== 'undefined') ? d.data.name : '')
   .style('font-size', d => {
-    const { isHighlight } = getHighlightState(d);
-    return isHighlight ? '16px' : '12px';
+    const { isHighlight, isLinkedHighlight, isPersistentHighlight } = getHighlightState(d);
+    return isHighlight || isPersistentHighlight ? '16px' : '12px';
   })
   .style('fill', d => {
-    const { isHighlight } = getHighlightState(d);
-    return isHighlight ? ' #cc0066' : '#333';
+    const { isHighlight, isLinkedHighlight, isPersistentHighlight } = getHighlightState(d);
+    return isHighlight ? '#cc0066' : (isPersistentHighlight ? "#13b507" : '#333');
   })
     .style('font-weight', d => {
-    const { isHighlight } = getHighlightState(d);
-    return isHighlight ? 'bold' : 'normal';
+    const { isHighlight, isLinkedHighlight, isPersistentHighlight } = getHighlightState(d);
+    return isHighlight || isPersistentHighlight ? 'bold' : 'normal';
   })
 .on('mouseenter', (event, d) => {
   const nodeName = event.data?.name;
@@ -388,7 +413,29 @@ g.append('g')
 .on('mouseleave', () => {
   onHoverTip?.(null);
   setHighlightedNode(null);
-});
+})
+.on('click', (event, d) => {
+
+  const name = event.data?.name;
+  const isLeaf = event.height === 0;
+  if (!isLeaf || !name) return;
+
+  setPanelData(prev => {
+    const current = prev[id] || {};
+    const prevHighlights = current.highlightedNodes || [];
+    const already = prevHighlights.includes(name);
+    const updated = already
+      ? prevHighlights.filter(n => n !== name)
+      : [...prevHighlights, name];
+    return {
+      ...prev,
+      [id]: {
+        ...current,
+        highlightedNodes: updated
+      }
+    };
+  });
+})
 
 
     if (Object.keys(colorMap).length > 0) {
@@ -416,7 +463,7 @@ g.append('g')
     }
 
     setDebugInfo(`Tree rendered successfully. Found ${Object.keys(colorMap).length} different ${colorField} values.`);
-  }, [newickStr, isNhx, size, highlightedSequenceId, linkedTo, highlightOrigin, onHoverTip]);
+  }, [newickStr, isNhx, size, highlightedSequenceId, linkedTo, highlightOrigin, onHoverTip,highlightedNodes]);
 
   return (
     <div

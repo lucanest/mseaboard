@@ -763,6 +763,9 @@ const TreePanel = React.memo(function TreePanel({
           linkedTo={linkedTo}
           highlightOrigin={highlightOrigin}
           radial={RadialMode}
+          id={id}
+         setPanelData={setPanelData}
+         highlightedNodes={data.highlightedNodes || []}
         />
       </div>
     </PanelContainer>
