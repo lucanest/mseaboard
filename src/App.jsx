@@ -1,11 +1,12 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import throttle from 'lodash.throttle'
 import debounce from 'lodash.debounce';
-import { LinkIcon, DocumentDuplicateIcon,PencilSquareIcon,XMarkIcon, Bars3Icon, EyeIcon } from '@heroicons/react/24/outline';
+import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton, CodonToggleButton} from './components/Buttons.jsx';
 import { FixedSizeGrid as Grid } from 'react-window';
 import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
+import { PencilSquareIcon } from '@heroicons/react/24/outline';
 import ReactDOM from 'react-dom';
 import PhyloTreeViewer from './components/PhyloTreeViewer.jsx';
 import Histogram from './components/Histogram.jsx';
@@ -22,9 +23,8 @@ const residueColors = {
   '-': 'bg-white'
 };
 
- const MSACell = React.memo(function MSACell({
-   columnIndex, rowIndex, style,
-   char, isHoverHighlight, isLinkedHighlight,
+const MSACell = React.memo(function MSACell({
+   style, char, isHoverHighlight, isLinkedHighlight,
    onMouseEnter, onMouseMove, onMouseLeave,onClick, isPersistentHighlight
  }) {
    const baseBg = residueColors[char?.toUpperCase()] || 'bg-white';
@@ -46,7 +46,7 @@ const residueColors = {
        {char}
      </div>
    );
- });
+});
 
 function PanelHeader({
   id,
@@ -171,92 +171,6 @@ function EditableFilename({
 }
 
 
-function DuplicateButton({ onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="p-0.5"
-      title="Duplicate panel"
-    >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-blue-300">
-        <DocumentDuplicateIcon className="w-5 h-5 text-gray-700" />
-      </span>
-    </button>
-  );
-}
-
-function RemoveButton({ onClick }) {
-  return (
-    <button
-      onClick={onClick}
-      className="p-0.5"
-      title="Remove panel">
-<span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-red-300">
-        <XMarkIcon className="w-5 h-5 text-gray-700" />
-      </span>
-    </button>
-  );
-}
-
-function LinkButton({ onClick, isLinked, isLinkModeActive }) {
-  return (
-  <button
-        onClick={onClick}
-        className="p-0.5"
-        title={isLinked ? 'Unlink panels' : 'Link panel'}>
-        <span className={`inline-flex items-center justify-center w-6 h-6 rounded hover:bg-yellow-300
-        ${isLinkModeActive ? 'bg-blue-200' :
-        isLinked         ? 'bg-green-200' :
-                           'bg-gray-200'}
-        border border-gray-400`}>
-          <LinkIcon
-          className={`
-            w-5 h-5
-            ${isLinkModeActive ? 'text-blue-700' :
-              isLinked         ? 'text-green-700' :
-                                'text-gray-500'}`}
-            aria-hidden="true"
-          />
-        </span>
-      </button>
-  );
-}
-
-function RadialToggleButton({ onClick, isActive }) {
-  return (
-    <button
-      onClick={onClick}
-      className="p-0.5"
-      title="Switch tree view"
-    >
-      <span className={`inline-flex items-center justify-center w-6 h-6 rounded
-      ${isActive ? 'bg-gray-200' : 'bg-gray-200'}
-        border border-gray-400 hover:bg-orange-300`}>
-        <span className="text-xs font-bold text-purple-800 leading-none">
-          <EyeIcon className="w-5 h-5" />
-        </span>
-      </span>
-    </button>
-  );
-}
-
-function CodonToggleButton({ onClick, isActive }) {
-  return (
-    <button
-      onClick={onClick}
-      className="p-0.5"
-      title="Toggle codon view"
-    >
-      <span className={`inline-flex items-center justify-center w-6 h-6 rounded
-        ${isActive ? 'bg-purple-200' : 'bg-gray-200'}
-        border border-gray-400 hover:bg-purple-300`}>
-        <span className="text-xs font-bold text-purple-800 leading-none">
-          <Bars3Icon className="w-5 h-5" />
-        </span>
-      </span>
-    </button>
-  );
-}
 
 function Tooltip({ x, y, children }) {
   return ReactDOM.createPortal(
@@ -293,7 +207,6 @@ function PanelContainer({ id, linkedTo, hoveredPanelId, setHoveredPanelId, child
 }
 
 
-
 const AlignmentPanel = React.memo(function AlignmentPanel({
   id,
   data,
@@ -315,7 +228,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [hoveredCol, setHoveredCol] = useState(null);
   const [hoveredRow, setHoveredRow] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
-const [codonMode, setCodonModeState] = useState(data.codonMode || false);
+  const [codonMode, setCodonModeState] = useState(data.codonMode || false);
   const [scrollTop, setScrollTop] = useState(0);
   // throttle highlight to once every 150ms
   const throttledHighlight = useMemo(
@@ -700,6 +613,7 @@ const sequenceLabels = useMemo(() => {
     </PanelContainer>
   );
 });
+
 const TreePanel = React.memo(function TreePanel({
   id, data, onRemove, onReupload, onDuplicate,
   highlightedSequenceId, onHoverTip,
@@ -773,7 +687,7 @@ const TreePanel = React.memo(function TreePanel({
 });
 
 const NotepadPanel = React.memo(function NotepadPanel({
-  id, data, onRemove, onReupload, onDuplicate,
+  id, data, onRemove, onDuplicate,
   onLinkClick, isLinkModeActive, isLinked, hoveredPanelId,
   setHoveredPanelId, setPanelData
 }) {
@@ -906,7 +820,6 @@ const xValues = useMemo(() => {
     ro.observe(chartContainerRef.current);
     return () => ro.disconnect();
   }, []);
-  // pass highlight props into Histogram
   return (
   <PanelContainer
     id={id}
@@ -1039,12 +952,11 @@ const duplicatePanel = useCallback((id) => {
   const newId = `${panel.type}-${Date.now()}`;
   const newPanel = { ...panel, i: newId };
 
-  // Copy panel layout
   const originalLayout = layout.find(l => l.i === id);
   const newLayout = {
     ...originalLayout,
     i: newId,
-    x: (originalLayout.x + 1) % 12, // offset to prevent overlap
+    x: (originalLayout.x + 1) % 12,
     y: originalLayout.y + 1
   };
 
@@ -1227,16 +1139,16 @@ const triggerUpload = useCallback((type, panelId = null) => {
     if (fileInputRef.current) fileInputRef.current.click();
   }, [panelData, layout]);
 
-  const handleFileUpload = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
+const handleFileUpload = async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
 
-    const type = pendingTypeRef.current;
-    const isReupload = Boolean(pendingPanelRef.current);
-    const id = isReupload ? pendingPanelRef.current : `${type}-${Date.now()}`;
-    const filename = file.name;
+  const type = pendingTypeRef.current;
+  const isReupload = Boolean(pendingPanelRef.current);
+  const id = isReupload ? pendingPanelRef.current : `${type}-${Date.now()}`;
+  const filename = file.name;
 
-    let panelPayload;
+  let panelPayload;
   if (type === 'alignment') {
     const text = await file.text();
     const parsed = parseFasta(text);
@@ -1299,7 +1211,7 @@ const triggerUpload = useCallback((type, panelId = null) => {
     pendingTypeRef.current = null;
     pendingPanelRef.current = null;
     if (fileInputRef.current) fileInputRef.current.value = null;
-  };
+};
 
 const removePanel = useCallback((id) => {
   setPanels(p => p.filter(p => p.i !== id));
@@ -1509,7 +1421,7 @@ const makeCommonProps = useCallback((panel) => {
 const commonProps = makeCommonProps(panel);
 let syncId;
   if (panel.type === 'histogram') {
-    const otherId = panelLinks[panel.i];                         // see if they're linked
+    const otherId = panelLinks[panel.i];  // see if they're linked
     const otherPanel = panels.find(p => p.i === otherId);
     if (otherId && otherPanel?.type === 'histogram') {
       // use a stable string (sort the two IDs so it's the same both ways)
