@@ -5,8 +5,8 @@ import {
 } from 'recharts';
 
 const colorPalette = [
-  '#c1dcc7', '#4daf4a', '#377eb8', '#984ea3', '#ff7f00',
-  '#ffff33', '#a65628', '#f781bf', '#999999', '#66c2a5'
+  '#BFDBFE', '#99F6E4', '#FECACA', '#DCFCE7', '#D8B4FE',
+  '#BBF7D0', '#E5E7EB', '#f781bf', '#FEF08A', '#FBCFE8'
 ];
 function isDiscrete(values) {
   return values.every(v => Number.isInteger(v));
@@ -36,7 +36,19 @@ const [isRechartsTooltipActive, setIsRechartsTooltipActive] = useState(false);
 const getColor = useCallback((v) => {
   if (discrete) return cmap[v];
   const t = Math.sqrt((v - min) / (max - min || 1));
-  return `rgb(255,${Math.round(255 * (1 - t))},${Math.round(255 * (1 - t))})`;
+  
+  
+  // Convert #60A5FA to RGB: R=96, G=165, B=250
+  const baseR = 96;
+  const baseG = 165;
+  const baseB = 250;
+  
+  // Create gradient from your custom color to white
+  const r = baseR + Math.round((255 - baseR) * (1-t));
+  const g = baseG + Math.round((255 - baseG) * (1-t));
+  const b = baseB + Math.round((255 - baseB) * (1-t));
+  
+  return `rgb(${r},${g},${b})`;
 }, [discrete, cmap, min, max]);
 
 // Find the x label for the highlighted bar
@@ -101,7 +113,7 @@ const isPersistentHighlight = highlightedSites.includes(index);
       <Cell
         key={`cell-${index}`}
         fill={getColor(entry.value)}
-stroke={isCurrentLinkedHighlight ? 'black' : (isPersistentHighlight ? 'purple' : undefined)}
+stroke={isCurrentLinkedHighlight ? 'black' : (isPersistentHighlight ? '#cc0066' : undefined)}
 strokeWidth={isCurrentLinkedHighlight || isPersistentHighlight ? 2 : 0}
 onClick={() => {
     setPanelData(prev => {

@@ -309,7 +309,7 @@ const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
   })
   .attr('stroke', d => {
     const { isHighlight, isLinkedHighlight, isPersistentHighlight } = getHighlightState(d);
-    return isHighlight ? '#cc0066' : (isPersistentHighlight ? "#13b507" : '#fff');
+    return isHighlight ? '#333' : (isPersistentHighlight ? "#cc0066" : '#fff');
   })
   .attr('stroke-width', d => {
     const { isHighlight, isLinkedHighlight, isPersistentHighlight } = getHighlightState(d);
@@ -399,7 +399,7 @@ g.append('g')
   })
   .style('fill', d => {
     const { isHighlight, isLinkedHighlight, isPersistentHighlight } = getHighlightState(d);
-    return isHighlight ? '#cc0066' : (isPersistentHighlight ? "#13b507" : '#333');
+    return isHighlight ? '#333' : (isPersistentHighlight ? "#cc0066" : '#333');
   })
     .style('font-weight', d => {
     const { isHighlight, isLinkedHighlight, isPersistentHighlight } = getHighlightState(d);
