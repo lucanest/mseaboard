@@ -9,6 +9,7 @@ import 'react-resizable/css/styles.css';
 import { PencilSquareIcon } from '@heroicons/react/24/outline';
 import ReactDOM from 'react-dom';
 import PhyloTreeViewer from './components/PhyloTreeViewer.jsx';
+import PhylipHeatmap from "./components/Heatmap";
 import Histogram from './components/Histogram.jsx';
 
 const LABEL_WIDTH = 66;
@@ -22,6 +23,68 @@ const residueColors = {
   T: 'bg-green-100', V: 'bg-blue-100', W: 'bg-purple-300', Y: 'bg-purple-100',
   '-': 'bg-white'
 };
+
+function parsePhylipDistanceMatrix(text) {
+  const lines = text.trim().split(/\r?\n/).filter(x => x.trim());
+  if (!lines.length) throw new Error("Empty PHYLIP file");
+
+  // First line: number of taxa
+  const n = parseInt(lines[0]);
+  if (isNaN(n) || n < 1) throw new Error('Invalid PHYLIP matrix: bad header');
+
+  // Guess format:
+  // - If each data row has n numbers after the label => square
+  // - If row i has i numbers after the label => lower-triangular
+  // - Otherwise, error
+
+  const labels = [];
+  let matrix = Array.from({ length: n }, () => Array(n).fill(0));
+  let format = null; // "square" or "lower"
+
+  // Inspect first two rows to guess format
+  function extractNums(line) {
+    // Label in first 10 chars, rest is numbers
+    return line.slice(10).trim().split(/\s+/).filter(Boolean);
+  }
+
+  if (lines.length - 1 < n) throw new Error('File too short for PHYLIP format');
+
+  const firstNums = extractNums(lines[1]);
+  if (firstNums.length === n) {
+    format = "square";
+  } else if (firstNums.length === 1) {
+    format = "lower";
+  } else {
+    throw new Error("Unrecognized PHYLIP matrix format");
+  }
+
+  // Parse
+  if (format === "square") {
+    for (let i = 0; i < n; ++i) {
+      const line = lines[i + 1];
+      const label = line.slice(0, 10).trim();
+      labels.push(label);
+      const nums = extractNums(line).map(Number);
+      if (nums.length !== n) throw new Error(`Row ${i+1} does not have ${n} values`);
+      matrix[i] = nums;
+    }
+  } else if (format === "lower") {
+    // Lower triangular: fill only lower triangle, then mirror to upper triangle
+    for (let i = 0; i < n; ++i) {
+      const line = lines[i + 1];
+      const label = line.slice(0, 10).trim();
+      labels.push(label);
+      const nums = extractNums(line).map(Number);
+      if (nums.length !== i + 1) throw new Error(`Row ${i+1} does not have ${i+1} values`);
+      for (let j = 0; j <= i; ++j) {
+        matrix[i][j] = nums[j];
+        matrix[j][i] = nums[j]; // Fill symmetric
+      }
+    }
+  }
+
+  return { labels, matrix };
+}
 
 const MSACell = React.memo(function MSACell({
    style, char, isHoverHighlight, isLinkedHighlight,
@@ -206,6 +269,90 @@ function PanelContainer({ id, linkedTo, hoveredPanelId, setHoveredPanelId, child
   );
 }
 
+const HeatmapPanel = React.memo(function HeatmapPanel({
+  id, data, onRemove, onDuplicate, onLinkClick, isLinkModeActive, isLinked,
+  hoveredPanelId, setHoveredPanelId, setPanelData, onReupload,
+}) {
+  const { labels, matrix, filename } = data || {};
+  const containerRef = useRef();
+  const [dims, setDims] = useState({ width: 400, height: 300 });
+
+  // Watch for panel resize
+  useEffect(() => {
+    if (!containerRef.current) return;
+    const obs = new window.ResizeObserver(entries => {
+      for (let entry of entries) {
+        setDims({
+          width: entry.contentRect.width,
+          height: entry.contentRect.height,
+        });
+      }
+    });
+    obs.observe(containerRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  if (!labels || !matrix) {
+    return (
+      <PanelContainer id={id} hoveredPanelId={hoveredPanelId} setHoveredPanelId={setHoveredPanelId}>
+        <PanelHeader {...{id, filename, setPanelData, onDuplicate, onLinkClick, isLinkModeActive, isLinked, onRemove, editing:false, setEditing:()=>{}, filenameInput:filename, setFilenameInput:()=>{} }}/>
+        <div className="flex-1 flex items-center justify-center text-gray-400">No data</div>
+      </PanelContainer>
+    );
+  }
+
+  const n = labels.length;
+  // Compute grid cell sizes
+  const labelSpace = 45; // px reserved for row/col labels
+  const gridWidth = Math.max(dims.width - labelSpace, 40);
+  const gridHeight = Math.max(dims.height - labelSpace, 40);
+  const cellWidth = gridWidth / n;
+  const cellHeight = gridHeight / n;
+
+  // Color scale
+  const values = matrix.flat();
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  function valueToColor(val, i, j) {
+    if (i === j) return "#00e3ff"; // cyan diagonal
+    if (max === min) return "#eee";
+    const t = (val - min) / (max - min);
+    // orange (high) to teal (low)
+    const r = Math.round(255 * t);
+    const g = Math.round(160 - 90 * t);
+    const b = Math.round(100 + 155 * (1-t));
+    return `rgb(${r},${g},${b})`;
+  }
+return (
+  <PanelContainer
+    id={id}
+    hoveredPanelId={hoveredPanelId}
+    setHoveredPanelId={setHoveredPanelId}
+    onDoubleClick={() => onReupload(id)}
+  >
+ <PanelHeader
+        id={id}
+        prefix="Distance: "
+        filename={filename}
+        setPanelData={setPanelData}
+        onDuplicate={onDuplicate}
+        onLinkClick={onLinkClick}
+        isLinkModeActive={isLinkModeActive}
+        isLinked={isLinked}
+        onRemove={onRemove}
+        editing={false}
+        setEditing={()=>{}}
+        filenameInput={filename}
+        setFilenameInput={()=>{}}
+      />
+    {labels && matrix ? (
+      <PhylipHeatmap labels={labels} matrix={matrix} />
+    ) : (
+      <div className="flex-1 flex items-center justify-center text-gray-400">No data</div>
+    )}
+  </PanelContainer>
+);
+});
 
 const AlignmentPanel = React.memo(function AlignmentPanel({
   id,
@@ -1186,7 +1333,11 @@ const handleFileUpload = async (e) => {
   // Use line numbers (1-based) as xValues
   panelPayload = { data: values, filename, xValues: values.map((_, i) => i + 1) };
 }
-    }
+  } else if (type === 'heatmap') {
+  const text = await file.text();
+  const parsed = parsePhylipDistanceMatrix(text);
+  panelPayload = { ...parsed, filename };
+}
 
     // Update or add panel data
     setPanelData(prev => ({ ...prev, [id]: panelPayload }));
@@ -1358,6 +1509,12 @@ const makeCommonProps = useCallback((panel) => {
           <button onClick={() => triggerUpload('histogram')} className="w-40 h-20 bg-orange-200 text-black px-4 py-2 rounded-xl hover:bg-orange-300 shadow-lg hover:shadow-xl">
             Upload data (.txt/.tsv/.csv)
           </button>
+          <button
+  onClick={() => triggerUpload('heatmap')}
+  className="w-40 h-20 bg-red-200 text-black px-4 py-2 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl"
+>
+  Upload Distance (.phy)
+</button>
           <div className="relative group">
   <a
     href="https://github.com/lucanest/mseaview"
@@ -1382,7 +1539,7 @@ const makeCommonProps = useCallback((panel) => {
     GitHub: <br /> - Read <br /> &nbsp; docs <br />  - Run <br /> &nbsp; locally <br /> - Report <br /> &nbsp; issues <br /> - Request <br /> &nbsp; features <br /> - Help to <br /> &nbsp; improve
   </div>
 </div>
-          <input ref={fileInputRef} type="file" accept=".fasta,.nwk,.nhx,.txt,.tsv,.csv,.fas" onChange={handleFileUpload} style={{ display: 'none' }} />
+          <input ref={fileInputRef} type="file" accept=".fasta,.nwk,.nhx,.txt,.tsv,.csv,.fas,.phy,.phylip,.dist" onChange={handleFileUpload} style={{ display: 'none' }} />
         </div>
       </div>
 
@@ -1459,7 +1616,13 @@ let syncId;
         {...commonProps}
         setPanelData={setPanelData}
       />
-    ) : null}
+    ) : panel.type === 'heatmap' ? (
+      <HeatmapPanel
+      {...commonProps}
+      setPanelData={setPanelData}
+    />
+    )
+     : null}
   </div>
 );
 })}
