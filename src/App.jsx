@@ -1220,6 +1220,55 @@ const handleLinkClick = useCallback((id) => {
               }
             }
           }
+          let heatmapId = null;
+          if (panelA.type === 'heatmap' && panelB.type === 'tree') {
+            heatmapId = a; treeId = b;
+          } else if (panelA.type === 'tree' && panelB.type === 'heatmap') {
+            heatmapId = b; treeId = a;
+          }
+          // If heatmap and tree are linked, reorder heatmap rows/columns
+          // to match tree leaf order
+                  if (heatmapId && treeId) {
+            const treeData = panelData[treeId];
+            const heatmapData = panelData[heatmapId];
+            if (treeData && heatmapData && heatmapData.labels && heatmapData.matrix) {
+              const leafOrder = getLeafOrderFromNewick(treeData.data);
+              if (leafOrder.length) {
+                // Create mapping from old label to new index
+                const labelToIndex = {};
+                heatmapData.labels.forEach((label, idx) => {
+                  labelToIndex[label] = idx;
+                });
+                
+                // Build new order based on tree leaf order
+                const newOrder = leafOrder
+                  .map(label => labelToIndex[label])
+                  .filter(idx => idx !== undefined);
+                
+                // Add any labels not in tree at the end
+                const extraIndices = heatmapData.labels
+                  .map((_, idx) => idx)
+                  .filter(idx => !newOrder.includes(idx));
+                const finalOrder = [...newOrder, ...extraIndices];
+                
+                // Reorder labels and matrix
+                const newLabels = finalOrder.map(idx => heatmapData.labels[idx]);
+                const newMatrix = finalOrder.map(i => 
+                  finalOrder.map(j => heatmapData.matrix[i][j])
+                );
+                
+                setPanelData(prev => ({
+                  ...prev,
+                  [heatmapId]: {
+                    ...prev[heatmapId],
+                    labels: newLabels,
+                    matrix: newMatrix
+                  }
+                }));
+              }
+            }
+          }
+        
         }
       }
       setLinkMode(null);
