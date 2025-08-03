@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import throttle from 'lodash.throttle'
 import debounce from 'lodash.debounce';
-import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton, CodonToggleButton} from './components/Buttons.jsx';
+import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton, CodonToggleButton, TranslateButton} from './components/Buttons.jsx';
 import { FixedSizeGrid as Grid } from 'react-window';
 import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
@@ -23,6 +23,41 @@ const residueColors = {
   T: 'bg-green-100', V: 'bg-blue-100', W: 'bg-purple-300', Y: 'bg-purple-100',
   '-': 'bg-white'
 };
+
+const codonTable = {
+  'TTT': 'F', 'TTC': 'F', 'TTA': 'L', 'TTG': 'L',
+  'TCT': 'S', 'TCC': 'S', 'TCA': 'S', 'TCG': 'S',
+  'TAT': 'Y', 'TAC': 'Y', 'TAA': '*', 'TAG': '*',
+  'TGT': 'C', 'TGC': 'C', 'TGA': '*', 'TGG': 'W',
+
+  'CTT': 'L', 'CTC': 'L', 'CTA': 'L', 'CTG': 'L',
+  'CCT': 'P', 'CCC': 'P', 'CCA': 'P', 'CCG': 'P',
+  'CAT': 'H', 'CAC': 'H', 'CAA': 'Q', 'CAG': 'Q',
+  'CGT': 'R', 'CGC': 'R', 'CGA': 'R', 'CGG': 'R',
+
+  'ATT': 'I', 'ATC': 'I', 'ATA': 'I', 'ATG': 'M',
+  'ACT': 'T', 'ACC': 'T', 'ACA': 'T', 'ACG': 'T',
+  'AAT': 'N', 'AAC': 'N', 'AAA': 'K', 'AAG': 'K',
+  'AGT': 'S', 'AGC': 'S', 'AGA': 'R', 'AGG': 'R',
+
+  'GTT': 'V', 'GTC': 'V', 'GTA': 'V', 'GTG': 'V',
+  'GCT': 'A', 'GCC': 'A', 'GCA': 'A', 'GCG': 'A',
+  'GAT': 'D', 'GAC': 'D', 'GAA': 'E', 'GAG': 'E',
+  'GGT': 'G', 'GGC': 'G', 'GGA': 'G', 'GGG': 'G',
+  '---' : '-'
+};
+
+function translateNucToAmino(msa) {
+  // msa: [{id, sequence}]
+  return msa.map(seq => {
+    let aaSeq = '';
+    for (let i = 0; i < seq.sequence.length - 2; i += 3) {
+      const codon = seq.sequence.slice(i, i + 3).toUpperCase();
+      aaSeq += codonTable[codon] || 'X'; // 'X' for unknown/invalid
+    }
+    return { ...seq, sequence: aaSeq };
+  });
+}
 
 function parsePhylipDistanceMatrix(text) {
   const lines = text.trim().split(/\r?\n/).filter(x => x.trim());
@@ -368,7 +403,7 @@ return (
 const AlignmentPanel = React.memo(function AlignmentPanel({
   id,
   data,
-  onRemove, onReupload, onDuplicate,
+  onRemove, onReupload, onDuplicate, onDuplicateTranslate,
   onLinkClick, isLinkModeActive, isLinked, linkedTo,
   highlightedSite, highlightOrigin, onHighlight,
   onSyncScroll, externalScrollLeft,
@@ -402,7 +437,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
     }, 150),
     [onHighlight]
   );
-    const setCodonMode = useCallback((fnOrValue) => {
+  const setCodonMode = useCallback((fnOrValue) => {
     setCodonModeState(prev => {
       const next = typeof fnOrValue === 'function' ? fnOrValue(prev) : fnOrValue;
       setPanelData(prevData => ({
@@ -662,12 +697,13 @@ const sequenceLabels = useMemo(() => {
          setEditing={setEditing}
          filenameInput={filenameInput}
          setFilenameInput={setFilenameInput}
-         extraButtons={[
-           <CodonToggleButton
-             onClick={() => setCodonMode(m => !m)}
-             isActive={codonMode}
-           />
-         ]}
+          extraButtons={[
+            <CodonToggleButton
+              onClick={() => setCodonMode(m => !m)}
+              isActive={codonMode}
+            />,
+            <TranslateButton onClick={() => onDuplicateTranslate(id)} />
+          ]}
          onDuplicate={onDuplicate}
          onLinkClick={onLinkClick}
          isLinkModeActive={isLinkModeActive}
@@ -1127,6 +1163,42 @@ const duplicatePanel = useCallback((id) => {
   });
   setPanelData(prev => ({ ...prev, [newId]: JSON.parse(JSON.stringify(data)) }));
   }, [panels, panelData, layout]);
+
+const handleDuplicateTranslate = useCallback((id) => {
+  const panel = panels.find(p => p.i === id);
+  const data = panelData[id];
+  if (!panel || !data) return;
+
+  // ---- translation ----
+  const translatedMsa = translateNucToAmino(data.data)
+
+  const newId = `alignment-aa-${Date.now()}`;
+  const newPanel = { ...panel, i: newId };
+
+  const originalLayout = layout.find(l => l.i === id);
+  const newLayout = {
+    ...originalLayout,
+    i: newId,
+    x: (originalLayout.x + 1) % 12,
+    y: originalLayout.y + 1
+  };
+
+  setPanels(prev => [...prev.filter(p => p.i !== '__footer'), newPanel, { i: '__footer', type: 'footer' }]);
+  setLayout(prev => {
+    const withoutFooter = prev.filter(l => l.i !== '__footer');
+    const footer = prev.find(l => l.i === '__footer');
+    return [...withoutFooter, newLayout, footer];
+  });
+  setPanelData(prev => ({
+    ...prev,
+    [newId]: {
+      ...data,
+      data: translatedMsa,
+      filename: (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'alignment') + '_protein.fasta',
+      codonMode: false
+    }
+  }));
+}, [panels, panelData, layout, setPanels, setLayout, setPanelData]);
 
 const handleLinkClick = useCallback((id) => {
   if (!linkMode) {
@@ -1690,6 +1762,7 @@ let syncId;
       externalScrollLeft={scrollPositions[panel.i]}
       highlightedSequenceId={highlightedSequenceId}
       setHighlightedSequenceId={setHighlightedSequenceId}
+      onDuplicateTranslate={handleDuplicateTranslate} 
     />
 ) : panel.type === 'tree' ? (
       <TreePanel

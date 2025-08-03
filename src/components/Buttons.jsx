@@ -1,5 +1,5 @@
 import React from 'react';
-import { LinkIcon, DocumentDuplicateIcon, XMarkIcon, Bars3Icon, EyeIcon } from '@heroicons/react/24/outline';
+import { LinkIcon, DocumentDuplicateIcon, XMarkIcon, Bars3Icon, EyeIcon, LanguageIcon } from '@heroicons/react/24/outline';
 
 export function DuplicateButton({ onClick }) {
   return (
@@ -83,6 +83,21 @@ export function CodonToggleButton({ onClick, isActive }) {
         <span className="text-xs font-bold text-purple-800 leading-none">
           <Bars3Icon className="w-5 h-5" />
         </span>
+      </span>
+    </button>
+  );
+}
+
+export function TranslateButton({ onClick }) {
+  return (
+    <button
+      type="button"
+      className="p-0.5"
+      onClick={onClick}
+      title="Duplicate and translate to protein"
+    >
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-orange-300">
+          <LanguageIcon className="w-5 h-5" />
       </span>
     </button>
   );
