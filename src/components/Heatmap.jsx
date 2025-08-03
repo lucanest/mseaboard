@@ -2,7 +2,6 @@
 import React, { useRef, useEffect, useState } from "react";
 
 function valueToColor(val, min, max, i, j) {
-  if (i === j) return "#ffff00"; // bright yellow diagonal
   if (max === min) return "#eee";
   const t = (val - min) / (max - min);
   
