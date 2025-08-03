@@ -1593,20 +1593,20 @@ const makeCommonProps = useCallback((panel) => {
   onChange={handleLoadWorkspace}
   style={{ display: 'none' }}
 />
-          <button onClick={() => triggerUpload('alignment')} className="w-40 h-20 bg-green-200 text-black px-4 py-2 rounded-xl hover:bg-green-300 shadow-lg hover:shadow-xl">
+          <button onClick={() => triggerUpload('alignment')} className="w-40 h-20 bg-green-200 text-black px-4 py-2 rounded-xl hover:bg-green-300 shadow-lg hover:shadow-xl leading-tight">
             Upload MSA (.fasta/.fas)
           </button>
-          <button onClick={() => triggerUpload('tree')} className="w-40 h-20 bg-blue-200 text-black px-4 py-2 rounded-xl hover:bg-blue-300 shadow-lg hover:shadow-xl">
+          <button onClick={() => triggerUpload('tree')} className="w-40 h-20 bg-blue-200 text-black px-4 py-2 rounded-xl hover:bg-blue-300 shadow-lg hover:shadow-xl leading-tight">
             Upload Tree (.nwk/.nhx)
           </button>
-          <button onClick={() => triggerUpload('histogram')} className="w-40 h-20 bg-orange-200 text-black px-4 py-2 rounded-xl hover:bg-orange-300 shadow-lg hover:shadow-xl">
-            Upload data (.txt/.tsv/.csv)
+          <button onClick={() => triggerUpload('histogram')} className="w-40 h-20 bg-orange-200 text-black px-4 py-2 rounded-xl hover:bg-orange-300 shadow-lg hover:shadow-xl leading-tight">
+            Upload Data (.txt/.tsv/.csv)
           </button>
           <button
   onClick={() => triggerUpload('heatmap')}
-  className="w-40 h-20 bg-red-200 text-black px-4 py-2 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl"
+  className="w-40 h-20 bg-red-200 text-black px-4 py-2 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl leading-tight"
 >
-  Upload Distance matrix (.phy/.phylip/.dist)
+  Upload Distance Matrix (.phy/.phylip/.dist)
 </button>
           <div className="relative group">
   <a
