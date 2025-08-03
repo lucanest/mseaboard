@@ -1,15 +1,16 @@
 /* Heatmap.jsx */
 import React, { useRef, useEffect, useState } from "react";
 
-// Simple blue-orange color mapping
 function valueToColor(val, min, max, i, j) {
-  if (i === j) return "#00e3ff"; // cyan diagonal
+  if (i === j) return "#ffff00"; // bright yellow diagonal
   if (max === min) return "#eee";
   const t = (val - min) / (max - min);
-  // orange (high) to teal (low)
-  const r = Math.round(255 * t);
-  const g = Math.round(160 - 90 * t);
-  const b = Math.round(100 + 155 * (1 - t));
+  
+  // Yellow to purple gradient
+  const r = Math.round(255 - 195 * t);    // 255 to 60 (bright yellow to dark purple)
+  const g = Math.round(255 - 255 * t);    // 255 to 0 (bright yellow to dark purple)
+  const b = Math.round(0 + 160 * t);      // 0 to 160 (yellow to purple)
+  
   return `rgb(${r},${g},${b})`;
 }
 
@@ -188,7 +189,7 @@ export default function PhylipHeatmap({ labels, matrix, onHighlight, id }) {
                       : "#fff",
                   border:
                     hoverCell?.row === i && hoverCell?.col === j
-                      ? "2px solid #ff0"
+                      ? "2px solid #c00660"
                       : "1px solid rgba(220,220,220,0.5)",
                   transition: "border 0.2s, transform 0.2s",
                   transform:
