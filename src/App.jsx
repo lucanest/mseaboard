@@ -333,7 +333,7 @@ return (
   >
  <PanelHeader
         id={id}
-        prefix="Distance: "
+        prefix="Distance matrix: "
         filename={filename}
         setPanelData={setPanelData}
         onDuplicate={onDuplicate}
@@ -1250,7 +1250,6 @@ const handleHighlight = useCallback((site, originId) => {
         [targetId]: {
           ...prev[targetId],
           linkedHighlights: [],
-          highlightedNodes: [],
         }
       }));
     }
@@ -1268,7 +1267,6 @@ const handleHighlight = useCallback((site, originId) => {
         [targetId]: {
           ...prev[targetId],
           linkedHighlights: [leaf1, leaf2],
-          highlightedNodes: [leaf1, leaf2],
         }
       }));
     }
@@ -1559,7 +1557,7 @@ const makeCommonProps = useCallback((panel) => {
   onClick={() => triggerUpload('heatmap')}
   className="w-40 h-20 bg-red-200 text-black px-4 py-2 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl"
 >
-  Upload Distance (.phy)
+  Upload Distance matrix (.phy/.phylip/.dist)
 </button>
           <div className="relative group">
   <a
