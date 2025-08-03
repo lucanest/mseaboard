@@ -13,7 +13,7 @@ function valueToColor(val, min, max, i, j) {
   return `rgb(${r},${g},${b})`;
 }
 
-export default function PhylipHeatmap({ labels, matrix }) {
+export default function PhylipHeatmap({ labels, matrix, onHighlight, id }) {
   const containerRef = useRef();
   const [dims, setDims] = useState({ width: 400, height: 300 });
   const [hoverCell, setHoverCell] = useState(null);
@@ -47,11 +47,13 @@ export default function PhylipHeatmap({ labels, matrix }) {
         value: val
       }
     });
+    onHighlight?.({ row, col }, id);
   };
 
   const handleCellMouseLeave = () => {
     setHoverCell(null);
     setTooltip({ visible: false, x: 0, y: 0, content: null });
+    onHighlight?.(null, id);
   };
 
   if (!labels || !matrix) return null;

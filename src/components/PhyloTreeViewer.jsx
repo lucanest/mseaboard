@@ -1,3 +1,4 @@
+/* PhyloTreeViewer.jsx */
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 
@@ -6,7 +7,7 @@ const PhyloTreeViewer = ({
   newick: newickStr, isNhx = false,
   highlightedSequenceId, onHoverTip,
   linkedTo, highlightOrigin, radial= false, setPanelData,
-  highlightedNodes = []
+  highlightedNodes = [], linkedHighlights = [],
 }) => {
   const containerRef = useRef();
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -114,9 +115,9 @@ if (pos < newickString.length && newickString[pos] === ':') {
     const isLinkedHighlight =
       d.data && highlightedSequenceId === d.data.name &&
       (linkedTo === highlightOrigin || id === highlightOrigin);
-    const isHighlight = highlightedNode === d.data.name || isLinkedHighlight;
+    const isHighlight = highlightedNode === d.data.name || isLinkedHighlight || linkedHighlights.includes(d.data.name);
     const isPersistentHighlight = highlightedNodes.includes(d.data.name);
-    return { isLinkedHighlight, isHighlight, isPersistentHighlight };
+    return { isLinkedHighlight, isHighlight, isPersistentHighlight};
   };
 
     const extractNhxData = (nameWithNhx) => {
@@ -340,12 +341,17 @@ const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
     onHoverTip?.(null, null);
   setHighlightedNode(null);
   }
-  /* console.log('Hover tip:', {
+ const { isHighlight, isLinkedHighlight, isPersistentHighlight } = getHighlightState(event);
+const isnameinLinkedHighlights = linkedHighlights.includes(nodeName); 
+ console.log('Hover tip:', {
     nodeName,
+    isHighlight,
+    linkedHighlights,
+    isnameinLinkedHighlights,
     id,
     linkedTo,
-    highlightedNode,
-    highlightOrigin});*/
+    highlightedNodes,
+    highlightOrigin});
 })
 .on('mousemove', function (event) {
   tooltip
@@ -409,6 +415,7 @@ g.append('g')
   const nodeName = event.data?.name;
   onHoverTip?.(nodeName || '', id);
   setHighlightedNode(nodeName || '');
+
 })
 .on('mouseleave', () => {
   onHoverTip?.(null);

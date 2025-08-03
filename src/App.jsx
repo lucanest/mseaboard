@@ -271,7 +271,8 @@ function PanelContainer({ id, linkedTo, hoveredPanelId, setHoveredPanelId, child
 
 const HeatmapPanel = React.memo(function HeatmapPanel({
   id, data, onRemove, onDuplicate, onLinkClick, isLinkModeActive, isLinked,
-  hoveredPanelId, setHoveredPanelId, setPanelData, onReupload,
+  hoveredPanelId, setHoveredPanelId, setPanelData, onReupload, highlightedSite,
+  highlightOrigin, onHighlight, 
 }) {
   const { labels, matrix, filename } = data || {};
   const containerRef = useRef();
@@ -345,12 +346,22 @@ return (
         filenameInput={filename}
         setFilenameInput={()=>{}}
       />
-    {labels && matrix ? (
-      <PhylipHeatmap labels={labels} matrix={matrix} />
-    ) : (
-      <div className="flex-1 flex items-center justify-center text-gray-400">No data</div>
-    )}
-  </PanelContainer>
+{/* Add padding container around the heatmap */}
+      <div className="flex-1 p-2 pb-4 pr-4 overflow-hidden">
+        {labels && matrix ? (
+          <PhylipHeatmap
+          id={id}
+          labels={labels}
+          matrix={matrix}
+          highlightSite={highlightedSite}
+          highlightOrigin={highlightOrigin}
+          onHighlight={onHighlight}
+          />
+        ) : (
+          <div className="flex-1 flex items-center justify-center text-gray-400">No data</div>
+        )}
+      </div>
+    </PanelContainer>
 );
 });
 
@@ -827,6 +838,7 @@ const TreePanel = React.memo(function TreePanel({
           id={id}
          setPanelData={setPanelData}
          highlightedNodes={data.highlightedNodes || []}
+         linkedHighlights={data.linkedHighlights || []}
         />
       </div>
     </PanelContainer>
@@ -1222,12 +1234,46 @@ const handleHighlight = useCallback((site, originId) => {
   setHighlightSite(site);
   setHighlightOrigin(originId);
 
+  // 1) must have a linked panel
   const targetId = panelLinks[originId];
-  if (!targetId || site == null) return;
+  if (!targetId) return;
 
+  // 2) get types once, up front
   const sourcePanel = panels.find(p => p.i === originId);
   const targetPanel = panels.find(p => p.i === targetId);
-  if (!sourcePanel || !targetPanel) return;
+
+  // 3) hover-out: clear any heatmap→tree highlights
+  if (site === null) {
+    if (sourcePanel?.type === 'heatmap' && targetPanel?.type === 'tree') {
+      setPanelData(prev => ({
+        ...prev,
+        [targetId]: {
+          ...prev[targetId],
+          linkedHighlights: [],
+          highlightedNodes: [],
+        }
+      }));
+    }
+    return;
+  }
+
+  // Heatmap → tree
+  if (sourcePanel.type === 'heatmap' && targetPanel.type === 'tree') {
+    const { labels } = panelData[originId] || {};
+    if (labels) {
+      const { row, col } = site;
+      const leaf1 = labels[row], leaf2 = labels[col];
+      setPanelData(prev => ({
+        ...prev,
+        [targetId]: {
+          ...prev[targetId],
+          linkedHighlights: [leaf1, leaf2],
+          highlightedNodes: [leaf1, leaf2],
+        }
+      }));
+    }
+    return;
+  }
 
   // Alignment -> Histogram
   if (sourcePanel.type === 'alignment' && targetPanel.type === 'histogram') {
@@ -1619,7 +1665,9 @@ let syncId;
     ) : panel.type === 'heatmap' ? (
       <HeatmapPanel
       {...commonProps}
+      onHighlight={handleHighlight}
       setPanelData={setPanelData}
+
     />
     )
      : null}
