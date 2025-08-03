@@ -401,7 +401,7 @@ g.append('g')
 .text(d => (d.data && typeof d.data.name !== 'undefined') ? d.data.name : '')
   .style('font-size', d => {
     const { isHighlight, isLinkedHighlight, isPersistentHighlight } = getHighlightState(d);
-    return isHighlight || isPersistentHighlight ? '16px' : '12px';
+    return isHighlight || isPersistentHighlight ? '20px' : '12px';
   })
   .style('fill', d => {
     const { isHighlight, isLinkedHighlight, isPersistentHighlight } = getHighlightState(d);
@@ -414,7 +414,7 @@ g.append('g')
 .on('mouseenter', (event, d) => {
   const nodeName = event.data?.name;
   onHoverTip?.(nodeName || '', id);
-  setHighlightedNode(nodeName || '');
+  setHighlightedNode(nodeName || null);
 
 })
 .on('mouseleave', () => {
@@ -470,7 +470,7 @@ g.append('g')
     }
 
     setDebugInfo(`Tree rendered successfully. Found ${Object.keys(colorMap).length} different ${colorField} values.`);
-  }, [newickStr, isNhx, size, highlightedSequenceId, linkedTo, highlightOrigin, onHoverTip,highlightedNodes]);
+  }, [newickStr, isNhx, size, highlightedSequenceId, linkedTo, highlightOrigin, onHoverTip,highlightedNodes,linkedHighlights]);
 
   return (
     <div
