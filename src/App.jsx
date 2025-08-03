@@ -1594,7 +1594,7 @@ const makeCommonProps = useCallback((panel) => {
   style={{ display: 'none' }}
 />
           <button onClick={() => triggerUpload('alignment')} className="w-40 h-20 bg-green-200 text-black px-4 py-2 rounded-xl hover:bg-green-300 shadow-lg hover:shadow-xl">
-            Upload MSA (.fasta)
+            Upload MSA (.fasta/.fas)
           </button>
           <button onClick={() => triggerUpload('tree')} className="w-40 h-20 bg-blue-200 text-black px-4 py-2 rounded-xl hover:bg-blue-300 shadow-lg hover:shadow-xl">
             Upload Tree (.nwk/.nhx)
