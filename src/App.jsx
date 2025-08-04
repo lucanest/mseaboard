@@ -270,7 +270,7 @@ useEffect(() => {
           
           <SequenceLogoSVG
   sequences={sequences}
-  height={180}
+  height={200}
   highlightedSite={shouldHighlight ? highlightedSite : null}
   onHighlight={siteIdx => {
     // Only send highlight if panel is linked, or user is hovering here
@@ -1180,6 +1180,7 @@ const handleDuplicateSeqLogo = useCallback((id) => {
   const originalLayout = layout.find(l => l.i === id);
   const newLayout = {
     ...originalLayout,
+    h:8,
     i: newId,
     x: originalLayout.x,
     y: originalLayout.y + 1
@@ -1199,7 +1200,7 @@ const handleDuplicateSeqLogo = useCallback((id) => {
     ...prev,
     [newId]: {
       msa: data.data,  // pass alignment
-      filename: (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'alignment') + '_logo.png'
+      filename: (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'alignment')
     }
   }));
 }, [panels, panelData, layout]);

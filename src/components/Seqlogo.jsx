@@ -1,5 +1,4 @@
 // Seqlogo.jsx
-import React from "react";
 import { useMemo } from "react";
 
 const residueSvgColors = {
@@ -15,7 +14,6 @@ function log2(x) {
   return x <= 0 ? 0 : Math.log2(x);
 }
 
-// Main Logo renderer
 function SequenceLogoSVG({
   sequences,
   height = 160,
@@ -26,7 +24,7 @@ function SequenceLogoSVG({
   const seqLen = sequences[0]?.length || 0;
   const colWidth = 24; // Fixed column width
   const logoWidth = colWidth * seqLen;
-  const xAxisHeight = 20;
+  const xAxisHeight = 30;
   const svgHeight = height + xAxisHeight;
 
   // Get alphabet
@@ -117,6 +115,18 @@ function SequenceLogoSVG({
             onClick={() => onHighlight && onHighlight(i)}
             style={{ cursor: 'default' }}
           >
+            {/* Transparent rectangle for hit detection */}
+            <rect
+              x={0}
+              y={0}
+              width={colWidth}
+              height={height}
+              fill="transparent"
+              onMouseEnter={() => onHighlight && onHighlight(i)}
+              onMouseMove={() => onHighlight && onHighlight(i)}
+              onMouseLeave={() => onHighlight && onHighlight(null)}
+              onClick={() => onHighlight && onHighlight(i)}
+            />
             {col.ordered.map(([res, p], j) => {
               const h = yScale(p * col.info);
               if (h < 1e-1) return null;
@@ -159,7 +169,7 @@ function SequenceLogoSVG({
             <text
               key={i}
               x={i * colWidth + colWidth / 2}
-              y={height + 15}
+              y={height + 20}
               fontSize={fontSize}
               fontFamily="monospace"
               fill="#888"
