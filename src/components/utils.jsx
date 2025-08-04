@@ -23,6 +23,19 @@ const codonTable = {
   '---' : '-'
 };
 
+const proteinOnlyChars = new Set(['D', 'E', 'F', 'H', 'I', 'K', 'L', 'M', 'P', 'Q', 'R', 'S', 'V', 'W', 'Y']);
+
+export function isNucleotide(msaData) {
+  if (!msaData || msaData.length === 0) return true;
+  for (let i = 0; i < Math.min(msaData.length, 10); i++) {
+    const seq = msaData[i].sequence.toUpperCase();
+    for (let j = 0; j < Math.min(seq.length, 100); j++) {
+      if (proteinOnlyChars.has(seq[j])) return false;
+    }
+  }
+  return true;
+}
+
 export function translateNucToAmino(msa) {
   return msa.map(seq => {
     let aaSeq = '';

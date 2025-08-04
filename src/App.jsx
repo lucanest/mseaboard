@@ -11,7 +11,7 @@ import ReactDOM from 'react-dom';
 import PhyloTreeViewer from './components/PhyloTreeViewer.jsx';
 import PhylipHeatmap from "./components/Heatmap";
 import Histogram from './components/Histogram.jsx';
-import { translateNucToAmino, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick } from './components/utils.jsx';
+import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick } from './components/utils.jsx';
 
 const LABEL_WIDTH = 66;
 const CELL_SIZE = 24;
@@ -281,6 +281,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [codonMode, setCodonModeState] = useState(data.codonMode || false);
   const [scrollTop, setScrollTop] = useState(0);
+  const isNuc = useMemo(() => isNucleotide(msaData), [msaData]);
 
 
   useEffect(() => {
@@ -484,12 +485,6 @@ if (colStart < currentScrollLeft || colEnd > currentScrollLeft + viewportWidth) 
        [codonMode, codonIndex, columnIndex, rowIndex, id, throttledHighlight]
      );
  
-     const handleMouseLeave = useCallback(() => {
-       throttledHighlight.cancel();
-       setHoveredCol(null);
-       setHoveredRow(null);
-       onHighlight(null, id);
-     }, [throttledHighlight, setHoveredCol, setHoveredRow, onHighlight, id]);
 
  
      return (
@@ -503,8 +498,7 @@ if (colStart < currentScrollLeft || colEnd > currentScrollLeft + viewportWidth) 
          isLinkedHighlight={isLinkedHighlight}
          onMouseEnter={handleMouseEnter}
          onMouseMove={handleMouseMove}
-         onMouseLeave={handleMouseLeave}
-                 onClick={handleClick}
+        onClick={handleClick}
         isPersistentHighlight={isPersistentHighlight}
        />
      );
@@ -541,6 +535,7 @@ const sequenceLabels = useMemo(() => {
         ref={containerRef}
         className="relative flex flex-col h-full border rounded-xl bg-white"
         onMouseLeave={() => {
+          throttledHighlight.cancel();
           setHoveredCol(null);
           if (id === highlightOrigin) {
             onHighlight(null, id);
@@ -556,13 +551,13 @@ const sequenceLabels = useMemo(() => {
          setEditing={setEditing}
          filenameInput={filenameInput}
          setFilenameInput={setFilenameInput}
-          extraButtons={[
-            <CodonToggleButton
+        extraButtons={isNuc ? [
+          <CodonToggleButton
               onClick={() => setCodonMode(m => !m)}
               isActive={codonMode}
             />,
             <TranslateButton onClick={() => onDuplicateTranslate(id)} />
-          ]}
+          ] : []}
          onDuplicate={onDuplicate}
          onLinkClick={onLinkClick}
          isLinkModeActive={isLinkModeActive}
