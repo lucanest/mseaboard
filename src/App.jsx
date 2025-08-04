@@ -2,7 +2,7 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import throttle from 'lodash.throttle'
 import debounce from 'lodash.debounce';
-import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton, CodonToggleButton, TranslateButton, SeqlogoButton} from './components/Buttons.jsx';
+import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton, CodonToggleButton, TranslateButton, SeqlogoButton, GitHubButton} from './components/Buttons.jsx';
 import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick } from './components/Utils.jsx';
 import { FixedSizeGrid as Grid } from 'react-window';
 import GridLayout from 'react-grid-layout';
@@ -78,10 +78,6 @@ function PanelHeader({
           filename={filename}
           setPanelData={setPanelData}
           prefix={prefix}
-          editing={editing}
-          setEditing={setEditing}
-          filenameInput={filenameInput}
-          setFilenameInput={setFilenameInput}
         />
       </div>
       <div className="flex items-center gap-1">
@@ -372,8 +368,6 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const containerRef = useRef(null);
   const gridContainerRef = useRef(null);
   const gridRef = useRef(null);
-  const [editing, setEditing] = useState(false);
-  const [filenameInput, setFilenameInput] = useState(filename);
   const [dims, setDims] = useState({ width: 0, height: 0 });
   const [hoveredCol, setHoveredCol] = useState(null);
   const [hoveredRow, setHoveredRow] = useState(null);
@@ -438,9 +432,6 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
     }
   }, [data.codonMode]);
 
-  useEffect(() => {
-  setFilenameInput(filename);
-}, [filename]);
 useEffect(() => {
   if (hoveredPanelId !== id && hoveredPanelId !== linkedTo) {
     setHoveredCol(null);
@@ -646,10 +637,6 @@ const sequenceLabels = useMemo(() => {
          prefix="MSA: "
          filename={filename}
          setPanelData={setPanelData}
-         editing={editing}
-         setEditing={setEditing}
-         filenameInput={filenameInput}
-         setFilenameInput={setFilenameInput}
         extraButtons={isNuc ? [
           <CodonToggleButton
               onClick={() => setCodonMode(m => !m)}
@@ -770,12 +757,6 @@ const TreePanel = React.memo(function TreePanel({
   setHoveredPanelId, setPanelData
 }) {
   const { data: newick, filename, isNhx,RadialMode=true } = data;
-  const [editing, setEditing] = useState(false);
-  const [filenameInput, setFilenameInput] = useState(filename);
-
-  useEffect(() => {
-  setFilenameInput(filename);
-}, [filename]);
 
   const handleRadialToggle = useCallback(() => {
     setPanelData(pd => ({
@@ -800,10 +781,6 @@ const TreePanel = React.memo(function TreePanel({
         prefix="Tree: "
         filename={filename}
         setPanelData={setPanelData}
-        editing={editing}
-        setEditing={setEditing}
-        filenameInput={filenameInput}
-        setFilenameInput={setFilenameInput}
         onDuplicate={onDuplicate}
         onLinkClick={onLinkClick}
         isLinkModeActive={isLinkModeActive}
@@ -839,7 +816,6 @@ const NotepadPanel = React.memo(function NotepadPanel({
   id, data, onRemove, onDuplicate, hoveredPanelId,
   setHoveredPanelId, setPanelData
 }) {
-  const [editing, setEditing] = useState(false);
   const [filenameInput, setFilenameInput] = useState(data.filename || "Notes");
   const [text, setText] = useState(data.text || "");
 
@@ -860,10 +836,6 @@ const NotepadPanel = React.memo(function NotepadPanel({
         prefix="-"
         filename={filenameInput}
         setPanelData={setPanelData}
-        editing={editing}
-        setEditing={setEditing}
-        filenameInput={filenameInput}
-        setFilenameInput={setFilenameInput}
         onDuplicate={onDuplicate}
         onRemove={onRemove}
       />
@@ -892,8 +864,6 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
   setHoveredPanelId, setPanelData, syncId,
 }) {
   const { filename } = data;
-  const [editing, setEditing] = useState(false);
-  const [filenameInput, setFilenameInput] = useState(filename);
   const isTabular = !Array.isArray(data.data);
 const [selectedCol, setSelectedCol] = useState(
   isTabular
@@ -953,9 +923,6 @@ const xValues = useMemo(() => {
   const chartContainerRef = useRef(null);
   const [height, setHeight] = useState(300); // default height
   useEffect(() => {
-  setFilenameInput(filename);
-}, [filename]);
-  useEffect(() => {
     if (!chartContainerRef.current) return;
     const handleResize = () => {
       setHeight(chartContainerRef.current.offsetHeight);
@@ -978,10 +945,6 @@ const xValues = useMemo(() => {
       prefix="Data: "
       filename={filename}
       setPanelData={setPanelData}
-      editing={editing}
-      setEditing={setEditing}
-      filenameInput={filenameInput}
-      setFilenameInput={setFilenameInput}
       onDuplicate={onDuplicate}
       onLinkClick={onLinkClick}
       isLinkModeActive={isLinkModeActive}
@@ -1117,12 +1080,17 @@ const duplicatePanel = useCallback((id) => {
   const newPanel = { ...panel, i: newId };
 
   const originalLayout = layout.find(l => l.i === id);
+  let newX = (originalLayout.x + originalLayout.w);
+  if (newX + originalLayout.w > 12) {
+    newX = originalLayout.x;
+  }
   const newLayout = {
     ...originalLayout,
     i: newId,
-    x: (originalLayout.x + 1) % 12,
+    x: newX,
     y: originalLayout.y + 1
   };
+
 
   setPanels(prev => [...prev.filter(p => p.i !== '__footer'), newPanel, { i: '__footer', type: 'footer' }]);
   setLayout(prev => {
@@ -1138,17 +1106,20 @@ const handleDuplicateTranslate = useCallback((id) => {
   const data = panelData[id];
   if (!panel || !data) return;
 
-  // ---- translation ----
   const translatedMsa = translateNucToAmino(data.data)
 
   const newId = `alignment-aa-${Date.now()}`;
   const newPanel = { ...panel, i: newId };
 
   const originalLayout = layout.find(l => l.i === id);
+  let newX = (originalLayout.x + originalLayout.w);
+  if (newX + originalLayout.w > 12) {
+    newX = originalLayout.x;
+  }
   const newLayout = {
     ...originalLayout,
     i: newId,
-    x: (originalLayout.x + 1) % 12,
+    x: newX,
     y: originalLayout.y + 1
   };
 
@@ -1199,7 +1170,7 @@ const handleDuplicateSeqLogo = useCallback((id) => {
   setPanelData(prev => ({
     ...prev,
     [newId]: {
-      msa: data.data,  // pass alignment
+      msa: data.data,
       filename: (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'alignment')
     }
   }));
@@ -1400,12 +1371,12 @@ const handleHighlight = useCallback((site, originId) => {
   }
 
   // SequenceLogo <-> Alignment
-if (
+  if (
   (sourcePanel.type === 'seqlogo' && targetPanel.type === 'alignment') ||
   (sourcePanel.type === 'alignment' && targetPanel.type === 'seqlogo')
-) {
+  ) {
   const siteIdx = site;
-  // Scroll alignment panel if necessary (just like alignment <-> alignment)
+  // Scroll alignment panel if necessary
   if (targetPanel.type === 'alignment') {
     const targetData = panelData[targetId];
     if (!targetData) return;
@@ -1422,7 +1393,7 @@ if (
     setHighlightOrigin(originId);
   }
   return;
-}
+  }
 
   // Alignment -> Histogram
   if (sourcePanel.type === 'alignment' && targetPanel.type === 'histogram') {
@@ -1459,15 +1430,15 @@ if (
         }
       }
     }
- const targetIsCodon = targetData.codonMode;
+    const targetIsCodon = targetData.codonMode;
     const scrollMultiplier = targetIsCodon ? 3 : 1;
 
-    setScrollPositions(prev => ({
-      ...prev,
-      [targetId]: scrollToSite * scrollMultiplier * CELL_SIZE
-    }));
-    setHighlightSite(highlightCol);
-    setHighlightOrigin(originId);
+      setScrollPositions(prev => ({
+          ...prev,
+          [targetId]: scrollToSite * scrollMultiplier * CELL_SIZE
+        }));
+        setHighlightSite(highlightCol);
+        setHighlightOrigin(originId);
   }
   // Alignment -> Alignment
   else if (sourcePanel.type === 'alignment' && targetPanel.type === 'alignment') {
@@ -1717,36 +1688,10 @@ const makeCommonProps = useCallback((panel) => {
           <button onClick={() => triggerUpload('histogram')} className="w-40 h-20 bg-orange-200 text-black px-4 py-2 rounded-xl hover:bg-orange-300 shadow-lg hover:shadow-xl leading-tight">
             Upload Data (.txt/.tsv/.csv)
           </button>
-          <button
-  onClick={() => triggerUpload('heatmap')}
-  className="w-40 h-20 bg-red-200 text-black px-4 py-2 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl leading-tight"
->
-  Upload Distance Matrix (.phy/.phylip/.dist)
-</button>
-          <div className="relative group">
-  <a
-    href="https://github.com/lucanest/mseaview"
-    target="_blank"
-    rel="noopener noreferrer"
-    className="inline-flex items-center px-2 py-1 rounded hover:bg-gray-200"
-  >
- <svg
-              xmlns="http://www.w3.org/2000/svg"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-              className="w-7 h-7 text-gray-800"
-              aria-hidden="true"
-            >
-              <path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.867 8.184 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.342-3.369-1.342-.454-1.154-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.004.07 1.532 1.032 1.532 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.339-2.221-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.254-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.025A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.295 2.748-1.025 2.748-1.025.546 1.378.202 2.396.1 2.65.64.7 1.028 1.595 1.028 2.688 0 3.847-2.337 4.695-4.566 4.944.36.31.68.921.68 1.857 0 1.34-.012 2.421-.012 2.751 0 .267.18.578.688.48C19.135 20.2 22 16.447 22 12.021 22 6.484 17.523 2 12 2z"/>
-            </svg>
-  </a>
-
-  <div className="absolute top-full mb-2 left-1/2 -translate-x-1/2 translate-y-12
-                  bg-blue-200 text-black text-xs px-1 py-1 rounded-md
-                  opacity-0 group-hover:opacity-80 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-50">
-    GitHub: <br /> - Read <br /> &nbsp; docs <br />  - Run <br /> &nbsp; locally <br /> - Report <br /> &nbsp; issues <br /> - Request <br /> &nbsp; features <br /> - Help to <br /> &nbsp; improve
-  </div>
-</div>
+          <button onClick={() => triggerUpload('heatmap')} className="w-40 h-20 bg-red-200 text-black px-4 py-2 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl leading-tight">
+            Upload Distance Matrix (.phy/.phylip/.dist)
+          </button>
+          <GitHubButton />
           <input ref={fileInputRef} type="file" accept=".fasta,.nwk,.nhx,.txt,.tsv,.csv,.fas,.phy,.phylip,.dist" onChange={handleFileUpload} style={{ display: 'none' }} />
         </div>
       </div>
