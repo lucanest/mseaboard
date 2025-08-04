@@ -1,7 +1,8 @@
+// App.jsx
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import throttle from 'lodash.throttle'
 import debounce from 'lodash.debounce';
-import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton, CodonToggleButton, TranslateButton} from './components/Buttons.jsx';
+import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton, CodonToggleButton, TranslateButton, SeqlogoButton} from './components/Buttons.jsx';
 import { FixedSizeGrid as Grid } from 'react-window';
 import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
@@ -11,6 +12,7 @@ import ReactDOM from 'react-dom';
 import PhyloTreeViewer from './components/PhyloTreeViewer.jsx';
 import PhylipHeatmap from "./components/Heatmap";
 import Histogram from './components/Histogram.jsx';
+import SequenceLogoSVG from './components/Seqlogo.jsx';
 import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick } from './components/utils.jsx';
 
 const LABEL_WIDTH = 66;
@@ -184,6 +186,56 @@ function PanelContainer({ id, linkedTo, hoveredPanelId, setHoveredPanelId, child
   );
 }
 
+
+const SeqLogoPanel = React.memo(function SeqLogoPanel({
+  id, data, onRemove, onDuplicate, hoveredPanelId, setHoveredPanelId, setPanelData
+}) {
+  // Support both MSA format and array of sequences
+  const sequences = useMemo(() => {
+    if (!data?.msa) return [];
+    // Support FASTA object format: [{id, sequence}, ...]
+    if (Array.isArray(data.msa) && typeof data.msa[0] === "object") {
+      return data.msa.map(seq => seq.sequence.toUpperCase());
+    }
+    // Or just array of strings
+    if (Array.isArray(data.msa)) return data.msa.map(s => s.toUpperCase());
+    return [];
+  }, [data.msa]);
+
+  return (
+    <PanelContainer
+      id={id}
+      hoveredPanelId={hoveredPanelId}
+      setHoveredPanelId={setHoveredPanelId}
+    >
+      <PanelHeader
+        id={id}
+        prefix="SeqLogo: "
+        filename={data.filename || "Sequence Logo"}
+        setPanelData={setPanelData}
+        editing={false}
+        setEditing={()=>{}}
+        filenameInput={data.filename || "Sequence Logo"}
+        setFilenameInput={()=>{}}
+        onDuplicate={onDuplicate}
+        onRemove={onRemove}
+      />
+      <div className="flex-1 p-2 bg-white overflow-x-auto">
+        {sequences.length === 0 ? (
+          <div className="text-gray-400 text-center">
+            No data to render sequence logo.
+          </div>
+        ) : (
+          <SequenceLogoSVG
+            sequences={sequences}
+            height={180}
+          />
+        )}
+      </div>
+    </PanelContainer>
+  );
+});
+
 const HeatmapPanel = React.memo(function HeatmapPanel({
   id, data, onRemove, onDuplicate, onLinkClick, isLinkModeActive, isLinked,
   hoveredPanelId, setHoveredPanelId, setPanelData, onReupload, highlightedSite,
@@ -261,7 +313,7 @@ return (
 const AlignmentPanel = React.memo(function AlignmentPanel({
   id,
   data,
-  onRemove, onReupload, onDuplicate, onDuplicateTranslate,
+  onRemove, onReupload, onDuplicate, onDuplicateTranslate, onDuplicateSeqLogo,
   onLinkClick, isLinkModeActive, isLinked, linkedTo,
   highlightedSite, highlightOrigin, onHighlight,
   onSyncScroll, externalScrollLeft,
@@ -556,8 +608,9 @@ const sequenceLabels = useMemo(() => {
               onClick={() => setCodonMode(m => !m)}
               isActive={codonMode}
             />,
-            <TranslateButton onClick={() => onDuplicateTranslate(id)} />
-          ] : []}
+            <TranslateButton onClick={() => onDuplicateTranslate(id)} />,
+            <SeqlogoButton onClick={() => onDuplicateSeqLogo(id)} />
+          ] : [<SeqlogoButton onClick={() => onDuplicateSeqLogo(id)} />]}
          onDuplicate={onDuplicate}
          onLinkClick={onLinkClick}
          isLinkModeActive={isLinkModeActive}
@@ -1068,6 +1121,41 @@ const handleDuplicateTranslate = useCallback((id) => {
     }
   }));
 }, [panels, panelData, layout, setPanels, setLayout, setPanelData]);
+
+const handleDuplicateSeqLogo = useCallback((id) => {
+  const panel = panels.find(p => p.i === id);
+  const data = panelData[id];
+  if (!panel || !data) return;
+
+  const newId = `seqlogo-${Date.now()}`;
+  const newPanel = { i: newId, type: 'seqlogo' };
+
+  const originalLayout = layout.find(l => l.i === id);
+  const newLayout = {
+    ...originalLayout,
+    i: newId,
+    x: originalLayout.x,
+    y: originalLayout.y + 1
+  };
+
+  setPanels(prev => [
+    ...prev.filter(p => p.i !== '__footer'),
+    newPanel,
+    { i: '__footer', type: 'footer' }
+  ]);
+  setLayout(prev => {
+    const withoutFooter = prev.filter(l => l.i !== '__footer');
+    const footer = prev.find(l => l.i === '__footer');
+    return [...withoutFooter, newLayout, footer];
+  });
+  setPanelData(prev => ({
+    ...prev,
+    [newId]: {
+      msa: data.data,  // pass alignment
+      filename: (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'alignment') + '_logo.png'
+    }
+  }));
+}, [panels, panelData, layout]);
 
 const handleLinkClick = useCallback((id) => {
   if (!linkMode) {
@@ -1644,6 +1732,7 @@ let syncId;
       highlightedSequenceId={highlightedSequenceId}
       setHighlightedSequenceId={setHighlightedSequenceId}
       onDuplicateTranslate={handleDuplicateTranslate} 
+      onDuplicateSeqLogo={handleDuplicateSeqLogo}
     />
 ) : panel.type === 'tree' ? (
       <TreePanel
@@ -1670,8 +1759,12 @@ let syncId;
       setPanelData={setPanelData}
 
     />
-    )
-     : null}
+    ) : panel.type === 'seqlogo' ? (
+  <SeqLogoPanel
+    {...commonProps}
+    setPanelData={setPanelData}
+  />
+) : null}
   </div>
 );
 })}
