@@ -11,6 +11,7 @@ import ReactDOM from 'react-dom';
 import PhyloTreeViewer from './components/PhyloTreeViewer.jsx';
 import PhylipHeatmap from "./components/Heatmap";
 import Histogram from './components/Histogram.jsx';
+import { translateNucToAmino, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick } from './components/utils.jsx';
 
 const LABEL_WIDTH = 66;
 const CELL_SIZE = 24;
@@ -24,102 +25,6 @@ const residueColors = {
   '-': 'bg-white'
 };
 
-const codonTable = {
-  'TTT': 'F', 'TTC': 'F', 'TTA': 'L', 'TTG': 'L',
-  'TCT': 'S', 'TCC': 'S', 'TCA': 'S', 'TCG': 'S',
-  'TAT': 'Y', 'TAC': 'Y', 'TAA': '*', 'TAG': '*',
-  'TGT': 'C', 'TGC': 'C', 'TGA': '*', 'TGG': 'W',
-
-  'CTT': 'L', 'CTC': 'L', 'CTA': 'L', 'CTG': 'L',
-  'CCT': 'P', 'CCC': 'P', 'CCA': 'P', 'CCG': 'P',
-  'CAT': 'H', 'CAC': 'H', 'CAA': 'Q', 'CAG': 'Q',
-  'CGT': 'R', 'CGC': 'R', 'CGA': 'R', 'CGG': 'R',
-
-  'ATT': 'I', 'ATC': 'I', 'ATA': 'I', 'ATG': 'M',
-  'ACT': 'T', 'ACC': 'T', 'ACA': 'T', 'ACG': 'T',
-  'AAT': 'N', 'AAC': 'N', 'AAA': 'K', 'AAG': 'K',
-  'AGT': 'S', 'AGC': 'S', 'AGA': 'R', 'AGG': 'R',
-
-  'GTT': 'V', 'GTC': 'V', 'GTA': 'V', 'GTG': 'V',
-  'GCT': 'A', 'GCC': 'A', 'GCA': 'A', 'GCG': 'A',
-  'GAT': 'D', 'GAC': 'D', 'GAA': 'E', 'GAG': 'E',
-  'GGT': 'G', 'GGC': 'G', 'GGA': 'G', 'GGG': 'G',
-  '---' : '-'
-};
-
-function translateNucToAmino(msa) {
-  // msa: [{id, sequence}]
-  return msa.map(seq => {
-    let aaSeq = '';
-    for (let i = 0; i < seq.sequence.length - 2; i += 3) {
-      const codon = seq.sequence.slice(i, i + 3).toUpperCase();
-      aaSeq += codonTable[codon] || 'X'; // 'X' for unknown/invalid
-    }
-    return { ...seq, sequence: aaSeq };
-  });
-}
-
-function parsePhylipDistanceMatrix(text) {
-  const lines = text.trim().split(/\r?\n/).filter(x => x.trim());
-  if (!lines.length) throw new Error("Empty PHYLIP file");
-
-  // First line: number of taxa
-  const n = parseInt(lines[0]);
-  if (isNaN(n) || n < 1) throw new Error('Invalid PHYLIP matrix: bad header');
-
-  // Guess format:
-  // - If each data row has n numbers after the label => square
-  // - If row i has i numbers after the label => lower-triangular
-  // - Otherwise, error
-
-  const labels = [];
-  let matrix = Array.from({ length: n }, () => Array(n).fill(0));
-  let format = null; // "square" or "lower"
-
-  // Inspect first two rows to guess format
-  function extractNums(line) {
-    // Label in first 10 chars, rest is numbers
-    return line.slice(10).trim().split(/\s+/).filter(Boolean);
-  }
-
-  if (lines.length - 1 < n) throw new Error('File too short for PHYLIP format');
-
-  const firstNums = extractNums(lines[1]);
-  if (firstNums.length === n) {
-    format = "square";
-  } else if (firstNums.length === 1) {
-    format = "lower";
-  } else {
-    throw new Error("Unrecognized PHYLIP matrix format");
-  }
-
-  // Parse
-  if (format === "square") {
-    for (let i = 0; i < n; ++i) {
-      const line = lines[i + 1];
-      const label = line.slice(0, 10).trim();
-      labels.push(label);
-      const nums = extractNums(line).map(Number);
-      if (nums.length !== n) throw new Error(`Row ${i+1} does not have ${n} values`);
-      matrix[i] = nums;
-    }
-  } else if (format === "lower") {
-    // Lower triangular: fill only lower triangle, then mirror to upper triangle
-    for (let i = 0; i < n; ++i) {
-      const line = lines[i + 1];
-      const label = line.slice(0, 10).trim();
-      labels.push(label);
-      const nums = extractNums(line).map(Number);
-      if (nums.length !== i + 1) throw new Error(`Row ${i+1} does not have ${i+1} values`);
-      for (let j = 0; j <= i; ++j) {
-        matrix[i][j] = nums[j];
-        matrix[j][i] = nums[j]; // Fill symmetric
-      }
-    }
-  }
-
-  return { labels, matrix };
-}
 
 const MSACell = React.memo(function MSACell({
    style, char, isHoverHighlight, isLinkedHighlight,
@@ -189,32 +94,6 @@ function PanelHeader({
       </div>
     </div>
   );
-}
-
-function parseFasta(content) {
-  const lines = content.split(/\r?\n/);
-  const result = [];
-  let current = null;
-
-  for (let line of lines) {
-    line = line.trim();
-    if (!line) continue;
-
-    if (line.startsWith(">")) {
-      if (current) result.push(current);
-      current = { id: line.slice(1).trim(), sequence: "" };
-    } else if (current) {
-      current.sequence += line.trim();
-    }
-  }
-  if (current) result.push(current);
-
-  return result;
-}
-
-function getLeafOrderFromNewick(newick) {
-  // Simple regex to parse leaf names (assuming they do not contain parentheses, colons, commas, or semicolons)
-  return (newick.match(/[\w\.\-\|]+(?=[,\)\:])/g) || []);
 }
 
 function EditableFilename({ 
@@ -337,28 +216,6 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
     );
   }
 
-  const n = labels.length;
-  // Compute grid cell sizes
-  const labelSpace = 45; // px reserved for row/col labels
-  const gridWidth = Math.max(dims.width - labelSpace, 40);
-  const gridHeight = Math.max(dims.height - labelSpace, 40);
-  const cellWidth = gridWidth / n;
-  const cellHeight = gridHeight / n;
-
-  // Color scale
-  const values = matrix.flat();
-  const min = Math.min(...values);
-  const max = Math.max(...values);
-  function valueToColor(val, i, j) {
-    if (i === j) return "#00e3ff"; // cyan diagonal
-    if (max === min) return "#eee";
-    const t = (val - min) / (max - min);
-    // orange (high) to teal (low)
-    const r = Math.round(255 * t);
-    const g = Math.round(160 - 90 * t);
-    const b = Math.round(100 + 155 * (1-t));
-    return `rgb(${r},${g},${b})`;
-  }
 return (
   <PanelContainer
     id={id}
@@ -423,16 +280,14 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [codonMode, setCodonModeState] = useState(data.codonMode || false);
   const [scrollTop, setScrollTop] = useState(0);
+
   // throttle highlight to once every 150ms
   const throttledHighlight = useMemo(
     () => throttle((col,row, originId, clientX, clientY) => {
-      // visual hover
       setHoveredCol(col);
       setHoveredRow(row);
-      // tooltip position
       const rect = containerRef.current.getBoundingClientRect();
       setTooltipPos({ x: clientX - rect.left, y: clientY - rect.top });
-      // notify parent
       onHighlight(col, originId);
     }, 150),
     [onHighlight]
@@ -543,23 +398,12 @@ return () => {
   useEffect(() => {
     if (!gridRef.current || typeof externalScrollLeft !== 'number') return;
 
-    // compute the width of the scrollable MSA grid viewport
     const viewportWidth = dims.width - LABEL_WIDTH;
-
-    // grab the real current scrollLeft from the grid's outer scrolling element
-    // (react-window stores it internally on _outerRef)
     const outer = gridRef.current._outerRef;
     const currentScrollLeft = outer ? outer.scrollLeft : 0;
-
-    // if our desired scroll position would put column N fully outside the
-    // current [currentScrollLeft…currentScrollLeft+viewportWidth] window,
-    // then actually scroll — otherwise do nothing.
-
-const colStart = externalScrollLeft;
-// The width of what we are trying to see is always one cell,
-// but in codon mode, that one "conceptual" cell is 3x wide.
-const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
-const colEnd = colStart + itemWidth;
+    const colStart = externalScrollLeft;
+    const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
+    const colEnd = colStart + itemWidth;
 
 if (colStart < currentScrollLeft || colEnd > currentScrollLeft + viewportWidth) {
   gridRef.current.scrollTo({ scrollLeft: colStart });
@@ -601,7 +445,7 @@ if (colStart < currentScrollLeft || colEnd > currentScrollLeft + viewportWidth) 
     };
   });
 }, [id, idx, setPanelData]);
-     // Memoized handlers
+
      const handleMouseEnter = useCallback(
        (e) => {
          const { clientX, clientY } = e;
@@ -1465,8 +1309,6 @@ const handleHighlight = useCallback((site, originId) => {
     if (!originData || !targetData) return;
 
     const targetIsCodon = targetData.codonMode;
-
-    // We need to calculate the scroll position based on the TARGET's mode.
     const scrollSite = targetIsCodon ? site * 3 : site;
 
     setScrollPositions(prev => ({
@@ -1478,7 +1320,7 @@ const handleHighlight = useCallback((site, originId) => {
   }
 }, [panelLinks, panels, panelData, highlightOrigin]);
 
-  // Trigger upload or reupload
+
 const triggerUpload = useCallback((type, panelId = null) => {
     pendingTypeRef.current = type;
     pendingPanelRef.current = panelId;
