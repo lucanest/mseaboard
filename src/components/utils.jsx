@@ -1,5 +1,4 @@
-// utils.jsx
-import React from 'react';
+// Utils.jsx
 
 const codonTable = {
   'TTT': 'F', 'TTC': 'F', 'TTA': 'L', 'TTG': 'L',

@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import throttle from 'lodash.throttle'
 import debounce from 'lodash.debounce';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton, CodonToggleButton, TranslateButton, SeqlogoButton} from './components/Buttons.jsx';
+import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick } from './components/Utils.jsx';
 import { FixedSizeGrid as Grid } from 'react-window';
 import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
@@ -13,7 +14,6 @@ import PhyloTreeViewer from './components/PhyloTreeViewer.jsx';
 import PhylipHeatmap from "./components/Heatmap";
 import Histogram from './components/Histogram.jsx';
 import SequenceLogoSVG from './components/Seqlogo.jsx';
-import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick } from './components/utils.jsx';
 
 const LABEL_WIDTH = 66;
 const CELL_SIZE = 24;
