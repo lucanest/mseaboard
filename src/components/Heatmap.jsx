@@ -1,4 +1,4 @@
-/* Heatmap.jsx */
+// Heatmap.jsx
 import React, { useRef, useEffect, useState } from "react";
 
 function valueToColor(val, min, max, i, j) {

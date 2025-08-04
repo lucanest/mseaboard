@@ -1,3 +1,4 @@
+// utils.jsx
 import React from 'react';
 
 const codonTable = {

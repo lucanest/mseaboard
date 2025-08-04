@@ -1,4 +1,4 @@
-/* Histogram.jsx */
+// Histogram.jsx
 import React, { useRef, useEffect, useState, useMemo, useCallback} from 'react';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell
