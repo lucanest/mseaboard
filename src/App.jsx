@@ -84,12 +84,14 @@ function PanelHeader({
       </div>
       <div className="flex items-center gap-1">
         {extraButtons.map((btn, i) => <React.Fragment key={i}>{btn}</React.Fragment>)}
-        <DuplicateButton onClick={() => onDuplicate(id)} />
-        <LinkButton
-          onClick={() => onLinkClick(id)}
-          isLinked={isLinked}
-          isLinkModeActive={isLinkModeActive}
-        />
+       <DuplicateButton onClick={() => onDuplicate(id)} />
+        {onLinkClick && (
+          <LinkButton
+            onClick={() => onLinkClick(id)}
+            isLinked={isLinked}
+            isLinkModeActive={isLinkModeActive}
+          />
+        )}
         <RemoveButton onClick={() => onRemove(id)} />
       </div>
     </div>
@@ -148,11 +150,10 @@ function EditableFilename({
 }
 
 
-
 function Tooltip({ x, y, children }) {
   return ReactDOM.createPortal(
     <div
-      className="fixed px-1 py-0.5 text-xs bg-gray-200 rounded-xl pointer-events-none z-[9999]" // z-index much higher
+      className="fixed px-1 py-0.5 text-xs bg-gray-200 rounded-xl pointer-events-none z-[9999]"
       style={{ top: y + 24, left: x + 14 }}
     >
       {children}
@@ -166,7 +167,7 @@ function PanelContainer({ id, linkedTo, hoveredPanelId, setHoveredPanelId, child
     <div
       className={`border rounded-2xl overflow-hidden h-full flex flex-col bg-white
         shadow-lg
-        ${hoveredPanelId === id ? 'shadow-xl' : ''}
+        ${hoveredPanelId === id ? 'shadow-blue-400/50' : ''}
         ${linkedTo && (hoveredPanelId === id || hoveredPanelId === linkedTo) ? 'shadow-blue-400/50' : ''}
       `}
       onMouseEnter={() => setHoveredPanelId(id)}
@@ -294,7 +295,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
       }
     }
   }, [linkedTo, highlightedSite, id, highlightOrigin, codonMode, dims.height]);
-  
+
   // throttle highlight to once every 150ms
   const throttledHighlight = useMemo(
     () => throttle((col,row, originId, clientX, clientY) => {
@@ -740,8 +741,7 @@ const TreePanel = React.memo(function TreePanel({
 });
 
 const NotepadPanel = React.memo(function NotepadPanel({
-  id, data, onRemove, onDuplicate,
-  onLinkClick, isLinkModeActive, isLinked, hoveredPanelId,
+  id, data, onRemove, onDuplicate, hoveredPanelId,
   setHoveredPanelId, setPanelData
 }) {
   const [editing, setEditing] = useState(false);
@@ -770,9 +770,6 @@ const NotepadPanel = React.memo(function NotepadPanel({
         filenameInput={filenameInput}
         setFilenameInput={setFilenameInput}
         onDuplicate={onDuplicate}
-        onLinkClick={onLinkClick}
-        isLinkModeActive={isLinkModeActive}
-        isLinked={isLinked}
         onRemove={onRemove}
       />
       <div className="flex-1 p-2">
