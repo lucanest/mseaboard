@@ -29,7 +29,7 @@ export function isNucleotide(msaData) {
   if (!msaData || msaData.length === 0) return true;
   for (let i = 0; i < Math.min(msaData.length, 10); i++) {
     const seq = msaData[i].sequence.toUpperCase();
-    for (let j = 0; j < Math.min(seq.length, 100); j++) {
+    for (let j = 0; j < Math.min(seq.length, 50); j++) {
       if (proteinOnlyChars.has(seq[j])) return false;
     }
   }
@@ -51,7 +51,6 @@ export function parsePhylipDistanceMatrix(text) {
   const lines = text.trim().split(/\r?\n/).filter(x => x.trim());
   if (!lines.length) throw new Error("Empty PHYLIP file");
 
-  // First line: number of taxa
   const n = parseInt(lines[0]);
   if (isNaN(n) || n < 1) throw new Error('Invalid PHYLIP matrix: bad header');
 
