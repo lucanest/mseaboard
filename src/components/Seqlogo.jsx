@@ -80,7 +80,6 @@ function SequenceLogoSVG({
     return results;
   }, [sequences, seqLen, alphabet.length]);
 
-
   // Info scaling: scale so that max info (bits) fills full height
   const maxInfo = log2(alphabet.length) || 2;
   const yScale = (val) => (val / maxInfo) * height;
@@ -88,22 +87,22 @@ function SequenceLogoSVG({
   // For text vertical scaling
   const textHeightPx = colWidth * 0.9;
 
-   return (
+  return (
     <svg width={logoWidth} height={svgHeight} style={{ cursor: 'default', userSelect: 'none' }}>
-      <rect x={0} y={0} width={logoWidth} height={svgHeight} fill="#fff" />
-      {/* Highlight column (if any) */}
-      {highlightedSite != null && (
-        <rect
-          x={highlightedSite * colWidth}
-          y={0}
-          width={colWidth}
-          height={height}
-          fill="#fde68a"
-          fillOpacity={0.5}
-          pointerEvents="none"
-        />
-      )}
-      {columns.map((col, i) => {
+    <rect x={0} y={0} width={logoWidth} height={svgHeight} fill="#fff" />
+    {/* Highlight column (if any) */}
+    {highlightedSite != null && (
+    <rect
+        x={highlightedSite * colWidth}
+        y={0}
+        width={colWidth}
+        height={height}
+        fill="#fde68a"
+        fillOpacity={0.5}
+        pointerEvents="none"
+    />)}
+    {/* Draw columns */}
+    {columns.map((col, i) => {
         let y0 = height;
         return (
           <g
@@ -139,7 +138,7 @@ function SequenceLogoSVG({
                   fontSize={textHeightPx}
                   fontFamily={fontFamily}
                   textAnchor="middle"
-                  alignmentBaseline="baseline"
+                  dominantBaseline="auto"
                   fill={residueSvgColors[res] || "#444"}
                   style={{
                     transform: `scaleY(${h / textHeightPx})`,
@@ -160,7 +159,7 @@ function SequenceLogoSVG({
         {Array.from({ length: seqLen }).map((_, i) => {
           const label = String(i + 1);
           const len = label.length;
-          let fontSize = colWidth * 0.55; // Default size
+          let fontSize = colWidth * 0.55;
           if (len > 2) {
             fontSize = (colWidth / len) * 1.2;
           }
@@ -174,7 +173,6 @@ function SequenceLogoSVG({
               fontFamily="monospace"
               fill="#888"
               textAnchor="middle"
-              dominantBaseline="middle"
             >
               {label}
             </text>
