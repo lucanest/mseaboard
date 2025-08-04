@@ -555,15 +555,16 @@ return () => {
     // current [currentScrollLeft…currentScrollLeft+viewportWidth] window,
     // then actually scroll — otherwise do nothing.
 
-const isCodon = codonMode;
-const codonWidth = isCodon ? 3 : 1;
-const colStart = isCodon ? externalScrollLeft * codonWidth : externalScrollLeft;
-const colEnd   = colStart + codonWidth;
+const colStart = externalScrollLeft;
+// The width of what we are trying to see is always one cell,
+// but in codon mode, that one "conceptual" cell is 3x wide.
+const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
+const colEnd = colStart + itemWidth;
 
 if (colStart < currentScrollLeft || colEnd > currentScrollLeft + viewportWidth) {
   gridRef.current.scrollTo({ scrollLeft: colStart });
 }
-  }, [externalScrollLeft, dims.width]);
+  }, [externalScrollLeft, dims.width, codonMode]);
 
   const rowCount = msaData.length;
   const colCount = msaData[0]?.sequence.length || 0;
@@ -1110,7 +1111,7 @@ function App() {
   const [panels, setPanels] = useState([]);
   const [layout, setLayout] = useState([]);
   const [linkMode, setLinkMode] = useState(null);
-  const [panelLinks, setPanelLinks] = useState({}); // { [id]: linkedId }
+  const [panelLinks, setPanelLinks] = useState({});
   const [scrollPositions, setScrollPositions] = useState({});
   const [highlightSite, setHighlightSite] = useState(null);
   const [highlightOrigin, setHighlightOrigin] = useState(null);
@@ -1131,13 +1132,32 @@ function App() {
 
 const onSyncScroll = useCallback((scrollLeft, originId) => {
     const targetId = panelLinks[originId];
-    if (targetId) {
-      setScrollPositions(prev => ({
-        ...prev,
-        [targetId]: scrollLeft
-      }));
+    if (!targetId) return;
+
+    const originPanel = panels.find(p => p.i === originId);
+    const targetPanel = panels.find(p => p.i === targetId);
+    if (!originPanel || !targetPanel) return;
+
+    const originData = panelData[originId];
+    const targetData = panelData[targetId];
+    if (!originData || !targetData) return;
+
+    const originIsCodon = originData.codonMode;
+    const targetIsCodon = targetData.codonMode;
+
+    let targetScrollLeft = scrollLeft;
+    // Scale scroll position if modes are different
+    if (originIsCodon && !targetIsCodon) {
+      targetScrollLeft = scrollLeft / 3;
+    } else if (!originIsCodon && targetIsCodon) {
+      targetScrollLeft = scrollLeft * 3;
     }
-  },[panelLinks]);
+
+    setScrollPositions(prev => ({
+        ...prev,
+        [targetId]: targetScrollLeft
+    }));
+}, [panelLinks, panels, panelData]);
 
 const duplicatePanel = useCallback((id) => {
   const panel = panels.find(p => p.i === id);
@@ -1377,7 +1397,7 @@ const handleHighlight = useCallback((site, originId) => {
     return;
   }
 
-  // Heatmap → tree
+  // Heatmap -> tree
   if (sourcePanel.type === 'heatmap' && targetPanel.type === 'tree') {
     const { labels } = panelData[originId] || {};
     if (labels) {
@@ -1413,6 +1433,8 @@ const handleHighlight = useCallback((site, originId) => {
   // Histogram -> Alignment
   else if (sourcePanel.type === 'histogram' && targetPanel.type === 'alignment') {
     const sourceData = panelData[originId];
+    const targetData = panelData[targetId];
+    if (!targetData) return;
     let scrollToSite = site;
     let highlightCol = site;
     if (sourceData && !Array.isArray(sourceData.data)) {
@@ -1426,18 +1448,30 @@ const handleHighlight = useCallback((site, originId) => {
         }
       }
     }
+ const targetIsCodon = targetData.codonMode;
+    const scrollMultiplier = targetIsCodon ? 3 : 1;
+
     setScrollPositions(prev => ({
       ...prev,
-      [targetId]: scrollToSite * CELL_SIZE
+      [targetId]: scrollToSite * scrollMultiplier * CELL_SIZE
     }));
     setHighlightSite(highlightCol);
     setHighlightOrigin(originId);
   }
   // Alignment -> Alignment
   else if (sourcePanel.type === 'alignment' && targetPanel.type === 'alignment') {
+    const originData = panelData[originId];
+    const targetData = panelData[targetId];
+    if (!originData || !targetData) return;
+
+    const targetIsCodon = targetData.codonMode;
+
+    // We need to calculate the scroll position based on the TARGET's mode.
+    const scrollSite = targetIsCodon ? site * 3 : site;
+
     setScrollPositions(prev => ({
       ...prev,
-      [targetId]: site * CELL_SIZE
+      [targetId]: scrollSite * CELL_SIZE
     }));
     setHighlightSite(site);
     setHighlightOrigin(originId);
