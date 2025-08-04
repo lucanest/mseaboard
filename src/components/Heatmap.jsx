@@ -1,7 +1,7 @@
 // Heatmap.jsx
-import React, { useRef, useEffect, useState } from "react";
+import { useRef, useEffect, useState } from "react";
 
-function valueToColor(val, min, max, i, j) {
+function valueToColor(val, min, max) {
   if (max === min) return "#eee";
   const t = (val - min) / (max - min);
   
@@ -106,8 +106,7 @@ export default function PhylipHeatmap({ labels, matrix, onHighlight, id }) {
                 textOverflow: "ellipsis",
                 lineHeight: `${labelSpace}px`,
                 backgroundColor:
-                  hoverCell?.col === col ? "rgba(255,255,0,0.3)" : "transparent",
-                transition: "background-color 0.2s",
+                  hoverCell?.col === col ? "rgba(255,255,0,0.6)" : "transparent",
               }}
               title={label}
             >
@@ -141,7 +140,7 @@ export default function PhylipHeatmap({ labels, matrix, onHighlight, id }) {
                 textOverflow: "ellipsis",
                 lineHeight: `${cellSize}px`,
                 backgroundColor:
-                  hoverCell?.row === row ? "rgba(255,255,0,0.3)" : "transparent",
+                  hoverCell?.row === row ? "rgba(255,255,0,0.6)" : "transparent",
                 transition: "background-color 0.2s",
               }}
               title={label}
@@ -172,7 +171,7 @@ export default function PhylipHeatmap({ labels, matrix, onHighlight, id }) {
                 onMouseEnter={(e) => handleCellMouseEnter(i, j, val, e)}
                 onMouseLeave={handleCellMouseLeave}
                 style={{
-                  background: valueToColor(val, min, max, i, j),
+                  background: valueToColor(val, min, max),
                   width: cellSize,
                   height: cellSize,
                   display: "flex",
@@ -188,13 +187,8 @@ export default function PhylipHeatmap({ labels, matrix, onHighlight, id }) {
                       : "#fff",
                   border:
                     hoverCell?.row === i && hoverCell?.col === j
-                      ? "2px solid #c00660"
+                      ? "2px solid rgb(13, 245, 241)"
                       : "1px solid rgba(220,220,220,0.5)",
-                  transition: "border 0.2s, transform 0.2s",
-                  transform:
-                    hoverCell?.row === i && hoverCell?.col === j
-                      ? "scale(1.05)"
-                      : "scale(1)",
                   zIndex: hoverCell?.row === i && hoverCell?.col === j ? 10 : 1,
                   position:
                     hoverCell?.row === i && hoverCell?.col === j
