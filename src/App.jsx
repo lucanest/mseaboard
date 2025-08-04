@@ -281,13 +281,26 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [codonMode, setCodonModeState] = useState(data.codonMode || false);
   const [scrollTop, setScrollTop] = useState(0);
 
+
+  useEffect(() => {
+    if (linkedTo && highlightedSite != null && id !== highlightOrigin) {
+      if (gridRef.current && gridRef.current._outerRef) {
+        const rect = gridRef.current._outerRef.getBoundingClientRect();
+        const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
+        const scrollOffset = gridRef.current._outerRef.scrollLeft;
+        const x = rect.left + (highlightedSite * itemWidth) - scrollOffset + (itemWidth / 2);
+        const y = rect.top + (rect.height / 2);
+        setTooltipPos({ x, y });
+      }
+    }
+  }, [linkedTo, highlightedSite, id, highlightOrigin, codonMode, dims.height]);
+  
   // throttle highlight to once every 150ms
   const throttledHighlight = useMemo(
     () => throttle((col,row, originId, clientX, clientY) => {
       setHoveredCol(col);
       setHoveredRow(row);
-      const rect = containerRef.current.getBoundingClientRect();
-      setTooltipPos({ x: clientX - rect.left, y: clientY - rect.top });
+      setTooltipPos({ x: clientX, y: clientY });
       onHighlight(col, originId);
     }, 150),
     [onHighlight]
