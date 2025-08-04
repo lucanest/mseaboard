@@ -188,20 +188,57 @@ function PanelContainer({ id, linkedTo, hoveredPanelId, setHoveredPanelId, child
 
 
 const SeqLogoPanel = React.memo(function SeqLogoPanel({
-  id, data, onRemove, onDuplicate, hoveredPanelId, setHoveredPanelId, setPanelData
+  id, data, onRemove, onDuplicate, hoveredPanelId, setHoveredPanelId, setPanelData,
+  highlightedSite, highlightOrigin, onHighlight, linkedTo,
+  onLinkClick, isLinkModeActive, isLinked
 }) {
-  // Support both MSA format and array of sequences
   const sequences = useMemo(() => {
     if (!data?.msa) return [];
-    // Support FASTA object format: [{id, sequence}, ...]
     if (Array.isArray(data.msa) && typeof data.msa[0] === "object") {
       return data.msa.map(seq => seq.sequence.toUpperCase());
     }
-    // Or just array of strings
     if (Array.isArray(data.msa)) return data.msa.map(s => s.toUpperCase());
     return [];
   }, [data.msa]);
 
+  const scrollContainerRef = useRef();
+  const shouldHighlight = (
+  highlightedSite != null &&
+  (
+    highlightOrigin === id ||
+    linkedTo === highlightOrigin
+  )
+)
+useEffect(() => {
+  // Only scroll if highlight comes from a linked panel
+  if (
+    highlightedSite != null &&
+    linkedTo === highlightOrigin &&
+    highlightOrigin !== id &&
+    scrollContainerRef.current
+  ) {
+    const colWidth = 24;
+    const container = scrollContainerRef.current;
+    const containerWidth = container.offsetWidth;
+    const currentScroll = container.scrollLeft;
+
+    const colLeft = highlightedSite * colWidth;
+    const colRight = colLeft + colWidth;
+
+    // If not fully visible, scroll to reveal
+    if (colLeft < currentScroll) {
+      container.scrollTo({
+        left: colLeft - 600, // padding
+        behavior: "smooth",
+      });
+    } else if (colRight > currentScroll + containerWidth) {
+      container.scrollTo({
+        left: colRight - containerWidth + 600, // padding
+        behavior: "smooth",
+      });
+    }
+  }
+}, [highlightedSite, highlightOrigin, linkedTo, id]);
   return (
     <PanelContainer
       id={id}
@@ -219,17 +256,27 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
         setFilenameInput={()=>{}}
         onDuplicate={onDuplicate}
         onRemove={onRemove}
+        onLinkClick={onLinkClick}
+        isLinkModeActive={isLinkModeActive}
+        isLinked={isLinked}
       />
-      <div className="flex-1 p-2 bg-white overflow-x-auto">
+      <div ref={scrollContainerRef}
+      className="flex-1 p-2 bg-white overflow-x-auto">
         {sequences.length === 0 ? (
           <div className="text-gray-400 text-center">
             No data to render sequence logo.
           </div>
         ) : (
+          
           <SequenceLogoSVG
-            sequences={sequences}
-            height={180}
-          />
+  sequences={sequences}
+  height={180}
+  highlightedSite={shouldHighlight ? highlightedSite : null}
+  onHighlight={siteIdx => {
+    // Only send highlight if panel is linked, or user is hovering here
+    if (onHighlight) onHighlight(siteIdx, id);
+  }}
+/>
         )}
       </div>
     </PanelContainer>
@@ -1351,6 +1398,31 @@ const handleHighlight = useCallback((site, originId) => {
     return;
   }
 
+  // SequenceLogo <-> Alignment
+if (
+  (sourcePanel.type === 'seqlogo' && targetPanel.type === 'alignment') ||
+  (sourcePanel.type === 'alignment' && targetPanel.type === 'seqlogo')
+) {
+  const siteIdx = site;
+  // Scroll alignment panel if necessary (just like alignment <-> alignment)
+  if (targetPanel.type === 'alignment') {
+    const targetData = panelData[targetId];
+    if (!targetData) return;
+    const targetIsCodon = targetData.codonMode;
+    const scrollSite = targetIsCodon ? siteIdx * 3 : siteIdx;
+    setScrollPositions(prev => ({
+      ...prev,
+      [targetId]: scrollSite * CELL_SIZE
+    }));
+    setHighlightSite(siteIdx);
+    setHighlightOrigin(originId);
+  } else if (targetPanel.type === 'seqlogo') {
+    setHighlightSite(siteIdx);
+    setHighlightOrigin(originId);
+  }
+  return;
+}
+
   // Alignment -> Histogram
   if (sourcePanel.type === 'alignment' && targetPanel.type === 'histogram') {
     const targetData = panelData[targetId];
@@ -1367,6 +1439,7 @@ const handleHighlight = useCallback((site, originId) => {
       }
     }
   }
+
   // Histogram -> Alignment
   else if (sourcePanel.type === 'histogram' && targetPanel.type === 'alignment') {
     const sourceData = panelData[originId];
@@ -1759,10 +1832,19 @@ let syncId;
       setPanelData={setPanelData}
 
     />
-    ) : panel.type === 'seqlogo' ? (
+    ) :panel.type === 'seqlogo' ? (
   <SeqLogoPanel
     {...commonProps}
     setPanelData={setPanelData}
+    highlightedSite={highlightSite}
+    highlightOrigin={highlightOrigin}
+    onHighlight={handleHighlight}
+    linkedTo={panelLinks[panel.i] || null}
+    hoveredPanelId={hoveredPanelId}
+    setHoveredPanelId={setHoveredPanelId}
+    onLinkClick={handleLinkClick}
+    isLinkModeActive={linkMode === panel.i}
+    isLinked={!!panelLinks[panel.i]}
   />
 ) : null}
   </div>

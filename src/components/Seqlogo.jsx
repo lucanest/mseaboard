@@ -16,7 +16,13 @@ function log2(x) {
 }
 
 // Main Logo renderer
-function SequenceLogoSVG({ sequences, height = 160, fontFamily = "monospace" }) {
+function SequenceLogoSVG({
+  sequences,
+  height = 160,
+  fontFamily = "monospace",
+  onHighlight,             
+  highlightedSite = null, 
+}) {
   const seqLen = sequences[0]?.length || 0;
   const colWidth = 24; // Fixed column width
   const logoWidth = colWidth * seqLen;
@@ -84,18 +90,36 @@ function SequenceLogoSVG({ sequences, height = 160, fontFamily = "monospace" }) 
   // For text vertical scaling
   const textHeightPx = colWidth * 0.9;
 
-  return (
-    <svg width={logoWidth} height={svgHeight}>
-      {/* Background */}
+   return (
+    <svg width={logoWidth} height={svgHeight} style={{ cursor: 'default', userSelect: 'none' }}>
       <rect x={0} y={0} width={logoWidth} height={svgHeight} fill="#fff" />
-      {/* Stacks */}
+      {/* Highlight column (if any) */}
+      {highlightedSite != null && (
+        <rect
+          x={highlightedSite * colWidth}
+          y={0}
+          width={colWidth}
+          height={height}
+          fill="#fde68a"
+          fillOpacity={0.5}
+          pointerEvents="none"
+        />
+      )}
       {columns.map((col, i) => {
-        let y0 = height; // start from bottom
+        let y0 = height;
         return (
-          <g key={i} transform={`translate(${i * colWidth},0)`}>
+          <g
+            key={i}
+            transform={`translate(${i * colWidth},0)`}
+            onMouseEnter={() => onHighlight && onHighlight(i)}
+            onMouseMove={() => onHighlight && onHighlight(i)}
+            onMouseLeave={() => onHighlight && onHighlight(null)}
+            onClick={() => onHighlight && onHighlight(i)}
+            style={{ cursor: 'default' }}
+          >
             {col.ordered.map(([res, p], j) => {
               const h = yScale(p * col.info);
-              if (h < 1e-1) return null; // Skip very small
+              if (h < 1e-1) return null;
               y0 -= h;
               return (
                 <text
@@ -147,10 +171,6 @@ function SequenceLogoSVG({ sequences, height = 160, fontFamily = "monospace" }) 
           );
         })}
       </g>
-      {/* Y axis label (optional) */}
-      <text x={4} y={16} fontSize={colWidth * 0.62} fontFamily="monospace" fill="#888" textAnchor="start">
-        bits
-      </text>
     </svg>
   );
 }
