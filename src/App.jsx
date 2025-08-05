@@ -32,11 +32,11 @@ const MSACell = React.memo(function MSACell({
    style, char, isHoverHighlight, isLinkedHighlight,
    onMouseEnter, onMouseMove, onMouseLeave,onClick, isPersistentHighlight
  }) {
-   const baseBg = residueColors[char?.toUpperCase()] || 'bg-white';
+   const background = residueColors[char?.toUpperCase()] || 'bg-white';
    return (
      <div
        style={style}
-       className={`flex items-center justify-center  ${baseBg} ${
+       className={`flex items-center justify-center  ${background} ${
       isHoverHighlight || isLinkedHighlight
           ? 'alignment-highlight'
           : isPersistentHighlight
@@ -78,7 +78,7 @@ function PanelHeader({
       </div>
       <div className="flex items-center gap-1">
         {extraButtons.map((btn, i) => <React.Fragment key={i}>{btn}</React.Fragment>)}
-       <DuplicateButton onClick={() => onDuplicate(id)} />
+        <DuplicateButton onClick={() => onDuplicate(id)} />
         {onLinkClick && (
           <LinkButton
             onClick={() => onLinkClick(id)}
@@ -135,14 +135,13 @@ function EditableFilename({
         onClick={() => setEditing(true)}
         title="Edit filename"
       >
-        <span className="inline-flex items-center justify-center w-6 h-6">
+        <span className="inline-flex items-center justify-center w-6 h-7">
           <PencilSquareIcon className="w-5 h-5 text-gray-700"/>
         </span>
       </button>
     </div>
   );
 }
-
 
 function Tooltip({ x, y, children }) {
   return ReactDOM.createPortal(
@@ -161,8 +160,7 @@ function PanelContainer({ id, linkedTo, hoveredPanelId, setHoveredPanelId, child
     <div
       className={`border rounded-2xl overflow-hidden h-full flex flex-col bg-white
         shadow-lg
-        ${hoveredPanelId === id ? 'shadow-blue-400/50' : ''}
-        ${linkedTo && (hoveredPanelId === id || hoveredPanelId === linkedTo) ? 'shadow-blue-400/50' : ''}
+        ${hoveredPanelId === id || (linkedTo && hoveredPanelId === linkedTo) ? 'shadow-blue-400/50' : ''}
       `}
       onMouseEnter={() => setHoveredPanelId(id)}
       onMouseLeave={() => {
@@ -194,7 +192,7 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
   }, [data.msa]);
 
   const scrollContainerRef = useRef();
-  const shouldHighlight = (
+  const Highlighted = (
   highlightedSite != null &&
   (
     highlightOrigin === id ||
@@ -221,12 +219,12 @@ useEffect(() => {
     if (colLeft < currentScroll) {
       container.scrollTo({
         left: colLeft - 600, // padding
-        behavior: "smooth",
+         behavior: "smooth",
       });
     } else if (colRight > currentScroll + containerWidth) {
       container.scrollTo({
         left: colRight - containerWidth + 600, // padding
-        behavior: "smooth",
+         behavior: "smooth",
       });
     }
   }
@@ -236,6 +234,7 @@ useEffect(() => {
       id={id}
       hoveredPanelId={hoveredPanelId}
       setHoveredPanelId={setHoveredPanelId}
+      linkedTo={linkedTo}
     >
       <PanelHeader
         id={id}
@@ -260,15 +259,15 @@ useEffect(() => {
           </div>
         ) : (
           
-          <SequenceLogoSVG
-  sequences={sequences}
-  height={200}
-  highlightedSite={shouldHighlight ? highlightedSite : null}
-  onHighlight={siteIdx => {
-    // Only send highlight if panel is linked, or user is hovering here
-    if (onHighlight) onHighlight(siteIdx, id);
-  }}
-/>
+        <SequenceLogoSVG
+          sequences={sequences}
+          height={200}
+          highlightedSite={Highlighted ? highlightedSite : null}
+          onHighlight={siteIdx => {
+            // Only send highlight if panel is linked, or user is hovering here
+            if (onHighlight) onHighlight(siteIdx, id);
+          }} 
+        />
         )}
       </div>
     </PanelContainer>
