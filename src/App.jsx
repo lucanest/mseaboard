@@ -429,39 +429,23 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
     }
   }, [data.codonMode]);
 
-  useEffect(() => {
-    if (hoveredPanelId !== id && hoveredPanelId !== linkedTo) {
-      setHoveredCol(null);
-      setHoveredRow(null);
-      if (id === highlightOrigin) {
-        onHighlight(null, id);
-      }
+useEffect(() => {
+  const clearHighlight = () => {
+    setHoveredCol(null);
+    setHoveredRow(null);
+    setHighlightedSequenceId(null);
+    if (id === highlightOrigin) {
+      onHighlight(null, id);
     }
-  }, [hoveredPanelId, id, linkedTo, highlightOrigin, onHighlight]);
+  };
 
-  useEffect(() => {
-    window.clearAlignmentHighlight = (panelId) => {
-      if (panelId === id) {
-        setHoveredCol(null);
-        setHoveredRow(null);
-        onHighlight(null, id);
-      }
-    };
-    return () => {
-      if (window.clearAlignmentHighlight) delete window.clearAlignmentHighlight;
-    };
-  }, [id, onHighlight]);
-
-  useEffect(() => {
-    if (hoveredPanelId !== id) {
-      setHoveredCol(null);
-      setHoveredRow(null);
-      setHighlightedSequenceId(null);
-      if (id === highlightOrigin) {
-        onHighlight(null, id);
-      }
-    }
-  }, [hoveredPanelId, id, highlightOrigin, onHighlight]);
+  if (hoveredPanelId !== id) {
+    clearHighlight();
+  }
+  if (linkedTo && hoveredPanelId === linkedTo) {
+    return;
+  }
+}, [hoveredPanelId, id, linkedTo, highlightOrigin, onHighlight, setHighlightedSequenceId]);
 
   useEffect(() => {
   if (!gridContainerRef.current) return;
@@ -793,14 +777,14 @@ const TreePanel = React.memo(function TreePanel({
           <PhyloTreeViewer
             newick={newick}
             isNhx={isNhx}
-            highlightedSequenceId={highlightedSequenceId}
+            //highlightedSequenceId={highlightedSequenceId} //commenting this still doesn't resolve the issue but it simplifies the code
             onHoverTip={onHoverTip}
             linkedTo={linkedTo}
             highlightOrigin={highlightOrigin}
             radial={RadialMode}
             id={id}
           setPanelData={setPanelData}
-          highlightedNodes={data.highlightedNodes || []}
+          highlightedNodes={data.highlightedNodes ? [...data.highlightedNodes, highlightedSequenceId] : [highlightedSequenceId]}
           linkedHighlights={data.linkedHighlights || []}
           />
       </div>
