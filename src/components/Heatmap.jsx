@@ -6,9 +6,9 @@ function valueToColor(val, min, max) {
   const t = (val - min) / (max - min);
   
   // Yellow to purple gradient
-  const r = Math.round(255 - 195 * t);    // 255 to 60 (bright yellow to dark purple)
-  const g = Math.round(255 - 255 * t);    // 255 to 0 (bright yellow to dark purple)
-  const b = Math.round(0 + 160 * t);      // 0 to 160 (yellow to purple)
+  const r = Math.round(255 - 195 * t);    // 255 to 60
+  const g = Math.round(255 - 255 * t);    // 255 to 0
+  const b = Math.round(0 + 160 * t);      // 0 to 160
   
   return `rgb(${r},${g},${b})`;
 }

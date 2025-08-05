@@ -168,7 +168,7 @@ function SequenceLogoSVG({
             <text
               key={i}
               x={i * colWidth + colWidth / 2}
-              y={height + 20}
+              y={height + 25}
               fontSize={fontSize}
               fontFamily="monospace"
               fill="#888"
