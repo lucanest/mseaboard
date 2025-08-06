@@ -14,8 +14,8 @@ function isDiscrete(values) {
 
 function Histogram({ values, xValues, panelId, onHighlight, highlightedSite, highlightOrigin, linkedTo, height, syncId,  setPanelData,
   highlightedSites}) {
-// console.log("Histogram", panelId, "syncId =", syncId);
-  // Use xValues if provided, otherwise fallback to index
+
+// Use xValues if provided, otherwise fallback to index
 const data = useMemo(() => {
   return values.map((value, index) => ({
     site: xValues ? xValues[index] : index + 1,
@@ -74,7 +74,7 @@ const hoveredSite = payload[0].payload.site;
     return (
       <div className="bg-white p-2 border border-gray-300 rounded shadow-md text-sm">
         <p className="font-medium">{`${label}`}</p>
-        <p className="text-blue-600">{`value : ${payload[0].value}`}</p>
+        <p className="text-blue-600">{`Value : ${payload[0].value}`}</p>
       </div>
     );
   }
@@ -188,7 +188,7 @@ onClick={() => {
             style={{
               position: 'absolute',
               left: tooltipPos.left,
-              top: tooltipPos.top - 0, // Adjust as needed
+              top: tooltipPos.top - 0,
               transform: 'translateX(10%)',
               pointerEvents: 'none',
               zIndex: 10
@@ -196,7 +196,7 @@ onClick={() => {
             className="bg-white p-2 border border-gray-300 rounded shadow-md text-sm"
           >
             <p className="font-medium">{`${getXLabel(highlightedSite)}`}</p>
-            <p className="text-blue-600">{`value : ${values[highlightedSite]}`}</p>
+            <p className="text-blue-600">{`Value : ${values[highlightedSite]}`}</p>
           </div>
         )}
       </div>
