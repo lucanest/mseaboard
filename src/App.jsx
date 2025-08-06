@@ -784,8 +784,16 @@ const TreePanel = React.memo(function TreePanel({
             radial={RadialMode}
             id={id}
           setPanelData={setPanelData}
-          highlightedNodes={data.highlightedNodes ? [...data.highlightedNodes, highlightedSequenceId] : [highlightedSequenceId]}
-          linkedHighlights={data.linkedHighlights || []}
+          highlightedNodes={
+            (hoveredPanelId === id || (linkedTo && hoveredPanelId === linkedTo))
+              ? (data.highlightedNodes ? [...data.highlightedNodes, highlightedSequenceId] : [highlightedSequenceId])
+              : (data.highlightedNodes || [])
+          }
+          linkedHighlights={
+            (hoveredPanelId === id || (linkedTo && hoveredPanelId === linkedTo))
+              ? (data.linkedHighlights ? [...data.linkedHighlights, highlightedSequenceId] : [highlightedSequenceId])
+              : (data.linkedHighlights || [])
+          }
           />
       </div>
     </PanelContainer>
