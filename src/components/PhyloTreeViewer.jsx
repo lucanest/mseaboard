@@ -1,11 +1,10 @@
 // PhyloTreeViewer.jsx
-import React, { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 
 const PhyloTreeViewer = ({
   id,
-  newick: newickStr, isNhx = false,
-  highlightedSequenceId, onHoverTip,
+  newick: newickStr, isNhx = false, onHoverTip,
   linkedTo, highlightOrigin, radial= false, setPanelData,
   highlightedNodes = [], linkedHighlights = [],
 }) => {
@@ -13,7 +12,6 @@ const PhyloTreeViewer = ({
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [debugInfo, setDebugInfo] = useState('');
   const [highlightedNode, setHighlightedNode] = useState(null);
-
   
   const parseNewick = (newickString) => {
     let pos = 0;
@@ -112,12 +110,9 @@ if (pos < newickString.length && newickString[pos] === ':') {
     }
 
     const getHighlightState = (d) => {
-    const isLinkedHighlight =
-      d.data && highlightedSequenceId === d.data.name &&
-      (linkedTo === highlightOrigin || id === highlightOrigin);
-    const isHighlight = highlightedNode === d.data.name || isLinkedHighlight || linkedHighlights.includes(d.data.name);
+    const isHighlight = highlightedNode === d.data.name || linkedHighlights.includes(d.data.name);
     const isPersistentHighlight = highlightedNodes.includes(d.data.name);
-    return { isLinkedHighlight, isHighlight, isPersistentHighlight};
+    return {isHighlight, isPersistentHighlight};
   };
 
     const extractNhxData = (nameWithNhx) => {
@@ -342,17 +337,16 @@ const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
     return val ? colorMap[val] : '#555';
   })
   .attr('stroke', d => {
-    const { isHighlight, isLinkedHighlight, isPersistentHighlight } = getHighlightState(d);
+    const { isHighlight, isPersistentHighlight } = getHighlightState(d);
     return isHighlight ? '#333' : (isPersistentHighlight ? "#cc0066" : '#fff');
   })
   .attr('stroke-width', d => {
-    const { isHighlight, isLinkedHighlight, isPersistentHighlight } = getHighlightState(d);
+    const { isHighlight, isPersistentHighlight } = getHighlightState(d);
     return isHighlight || isPersistentHighlight ? 2 : 1;
   })
 .on('mouseenter', (event, d) => {
   const nodeName = event.data?.name;
   const isLeaf = event.height ==0;
-  const Trait = event.data?.nhx?.[colorField] || '';
   const nhxData = event.data?.nhx || {};
 
   const nhxString = Object.entries(nhxData)
@@ -374,8 +368,11 @@ const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
     onHoverTip?.(null, null);
   setHighlightedNode(null);
   }
- const { isHighlight, isLinkedHighlight, isPersistentHighlight } = getHighlightState(event);
+
+/*
+const { isHighlight, isPersistentHighlight } = getHighlightState(event);
 const isnameinLinkedHighlights = linkedHighlights.includes(nodeName); 
+
  console.log('Hover tip:', {
     nodeName,
     isHighlight,
@@ -384,8 +381,10 @@ const isnameinLinkedHighlights = linkedHighlights.includes(nodeName);
     id,
     linkedTo,
     highlightedNodes,
-    highlightOrigin});
+    highlightOrigin}); */
+
 })
+
 .on('mousemove', function (event) {
   tooltip
     .style("bottom", `10px`)
@@ -419,7 +418,6 @@ const isnameinLinkedHighlights = linkedHighlights.includes(nodeName);
   });
 })
 
-
 g.append('g')
   .selectAll('text')
 .data(root.descendants().filter(d => !d.children && d.data && typeof d.data.name !== 'undefined'))
@@ -433,15 +431,15 @@ g.append('g')
 .attr('dy', radial ? '0.35em' : '0.35em')
 .text(d => (d.data && typeof d.data.name !== 'undefined') ? d.data.name : '')
   .style('font-size', d => {
-    const { isHighlight, isLinkedHighlight, isPersistentHighlight } = getHighlightState(d);
+    const { isHighlight, isPersistentHighlight } = getHighlightState(d);
     return isHighlight || isPersistentHighlight ? '20px' : '12px';
   })
   .style('fill', d => {
-    const { isHighlight, isLinkedHighlight, isPersistentHighlight } = getHighlightState(d);
+    const { isHighlight, isPersistentHighlight } = getHighlightState(d);
     return isHighlight ? '#333' : (isPersistentHighlight ? "#cc0066" : '#333');
   })
     .style('font-weight', d => {
-    const { isHighlight, isLinkedHighlight, isPersistentHighlight } = getHighlightState(d);
+    const { isHighlight, isPersistentHighlight } = getHighlightState(d);
     return isHighlight || isPersistentHighlight ? 'bold' : 'normal';
   })
 .on('mouseenter', (event, d) => {
@@ -477,7 +475,6 @@ g.append('g')
   });
 })
 
-
     if (Object.keys(colorMap).length > 0) {
 
 
@@ -503,7 +500,7 @@ g.append('g')
     }
 
     setDebugInfo(`Tree rendered successfully. Found ${Object.keys(colorMap).length} different ${colorField} values.`);
-  }, [newickStr, isNhx, size, highlightedSequenceId, linkedTo, highlightOrigin, onHoverTip,highlightedNodes,linkedHighlights]);
+  }, [newickStr, isNhx, size, linkedTo, highlightOrigin, onHoverTip,highlightedNodes,linkedHighlights]);
 
   return (
     <div
