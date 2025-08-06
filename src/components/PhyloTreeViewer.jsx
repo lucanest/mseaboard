@@ -290,14 +290,47 @@ g.append('g')
   .attr('fill', 'none')
   .attr('stroke', '#ccc')
   .attr('stroke-width', 2)
-.attr('d', radial
+  .attr('d', radial
   ? d3.linkRadial().angle(d => d.x).radius(d => d.y)
   : d3.linkHorizontal().x(d => d.y).y(d => d.x));
 
-    g.append('g')
-      .selectAll('circle')
-      .data(root.descendants())
-      .join('circle')
+// Invisible hover arcs for radial mode
+if (radial) {
+  const leaves = root.leaves();
+  const angleStep = (2 * Math.PI) / leaves.length;
+  const outerRadius = radius + margin;
+
+  const arc = d3.arc()
+    .innerRadius(radius - 50)
+    .outerRadius(outerRadius)
+    .startAngle(d => d.x - angleStep / 2)
+    .endAngle(d => d.x + angleStep / 2);
+
+  g.append('g')
+    .selectAll('path.hover-arc')
+    .data(leaves)
+    .join('path')
+    .attr('class', 'hover-arc')
+    .attr('d', arc)
+    .attr('fill', 'transparent')
+    .on('mouseenter', (event, d) => {
+      const nodeName = event.data?.name;
+      onHoverTip?.(nodeName || '', id);
+      setHighlightedNode(nodeName || null);
+    })
+    .on('mouseleave', (event, d) => {
+      const toElement = event.relatedTarget;
+      if (!toElement || !toElement.classList.contains('hover-arc')) {
+        onHoverTip?.(null, null);
+        setHighlightedNode(null);
+      }
+    });
+}
+
+g.append('g')
+  .selectAll('circle')
+  .data(root.descendants())
+  .join('circle')
 .attr('transform', d => radial
   ? `rotate(${(d.x * 180 / Math.PI - 90)}) translate(${d.y},0)`
   : null)
