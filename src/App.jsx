@@ -299,6 +299,29 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
     return () => obs.disconnect();
   }, []);
 
+  const handleCellClick = (cell, id) => {
+    setPanelData(prev => {
+      const current = prev[id] || {};
+      const prevHighlights = current.highlightedCells || [];
+      
+      const alreadyHighlighted = prevHighlights.some(
+        c => c.row === cell.row && c.col === cell.col
+      );
+
+      const updated = alreadyHighlighted
+        ? prevHighlights.filter(c => c.row !== cell.row || c.col !== cell.col)
+        : [...prevHighlights, cell];
+
+      return {
+        ...prev,
+        [id]: {
+          ...current,
+          highlightedCells: updated,
+        },
+      };
+    });
+  };
+
   if (!labels || !matrix) {
     return (
       <PanelContainer id={id} hoveredPanelId={hoveredPanelId} setHoveredPanelId={setHoveredPanelId}>
@@ -340,6 +363,8 @@ return (
         highlightSite={highlightedSite}
         highlightOrigin={highlightOrigin}
         onHighlight={onHighlight}
+        onCellClick={handleCellClick}
+        highlightedCells={data.highlightedCells || []}
         />
       ) : (
         <div className="flex-1 flex items-center justify-center text-gray-400">No data</div>

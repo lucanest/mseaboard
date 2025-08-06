@@ -13,7 +13,7 @@ function valueToColor(val, min, max) {
   return `rgb(${r},${g},${b})`;
 }
 
-function PhylipHeatmap({ labels, matrix, onHighlight, id }) {
+function PhylipHeatmap({ labels, matrix, onHighlight, id , highlightedCells = [], onCellClick }) {
   const containerRef = useRef();
   const [dims, setDims] = useState({ width: 400, height: 300 });
   const [hoverCell, setHoverCell] = useState(null);
@@ -54,6 +54,10 @@ function PhylipHeatmap({ labels, matrix, onHighlight, id }) {
     setHoverCell(null);
     setTooltip({ visible: false, x: 0, y: 0, content: null });
     onHighlight?.(null, id);
+  };
+
+const handleCellClick = (row, col) => {
+    onCellClick?.({ row, col }, id);
   };
 
   if (!labels || !matrix) return null;
@@ -164,41 +168,47 @@ function PhylipHeatmap({ labels, matrix, onHighlight, id }) {
             border: "1px solid #eee",
           }}
         >
-          {matrix.map((row, i) =>
-            row.map((val, j) => (
-              <div
-                key={i + "," + j}
-                onMouseEnter={(e) => handleCellMouseEnter(i, j, val, e)}
-                onMouseLeave={handleCellMouseLeave}
-                style={{
-                  background: valueToColor(val, min, max),
-                  width: cellSize,
-                  height: cellSize,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  fontWeight: "bold",
-                  fontSize: cellSize < 38 ? "0.7em" : "1em",
-                  color:
-                    i === j
-                      ? "#222"
-                      : val > (min + max) / 2
-                      ? "#222"
-                      : "#fff",
-                  border:
-                    hoverCell?.row === i && hoverCell?.col === j
-                      ? "2px solid rgb(13, 245, 241)"
-                      : "1px solid rgba(220,220,220,0.5)",
-                  zIndex: hoverCell?.row === i && hoverCell?.col === j ? 10 : 1,
-                  position:
-                    hoverCell?.row === i && hoverCell?.col === j
-                      ? "relative"
-                      : "static",
-                }}
-              >
-                {cellSize > 65 ? val.toFixed(3) : ""}
-              </div>
-            ))
+        {matrix.map((row, i) =>
+            row.map((val, j) => {
+              const isHighlighted = highlightedCells.some(cell => cell.row === i && cell.col === j);
+              return (
+                <div
+                  key={i + "," + j}
+                  onClick={() => handleCellClick(i, j)}
+                  onMouseEnter={(e) => handleCellMouseEnter(i, j, val, e)}
+                  onMouseLeave={handleCellMouseLeave}
+                  style={{
+                    background: valueToColor(val, min, max),
+                    width: cellSize,
+                    height: cellSize,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontWeight: "bold",
+                    fontSize: cellSize < 38 ? "0.7em" : "1em",
+                    color:
+                      i === j
+                        ? "#222"
+                        : val > (min + max) / 2
+                        ? "#222"
+                        : "#fff",
+                    border:
+                      hoverCell?.row === i && hoverCell?.col === j
+                        ? "2px solid rgb(13, 245, 241)"
+                        : isHighlighted
+                        ? "2px solid #cc0066"
+                        : "1px solid rgba(220,220,220,0.5)",
+                    zIndex: hoverCell?.row === i && hoverCell?.col === j ? 10 : isHighlighted ? 5 : 1,
+                    position:
+                      (hoverCell?.row === i && hoverCell?.col === j) || isHighlighted
+                        ? "relative"
+                        : "static",
+                  }}
+                >
+                  {cellSize > 65 ? val.toFixed(3) : ""}
+                </div>
+              );
+            })
           )}
         </div>
       </div>
