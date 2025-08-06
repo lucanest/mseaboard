@@ -14,6 +14,7 @@ import PhyloTreeViewer from './components/PhyloTreeViewer.jsx';
 import PhylipHeatmap from "./components/Heatmap";
 import Histogram from './components/Histogram.jsx';
 import SequenceLogoSVG from './components/Seqlogo.jsx';
+import StructureViewer from './components/StructureViewer.jsx';
 
 const LABEL_WIDTH = 66;
 const CELL_SIZE = 24;
@@ -372,6 +373,41 @@ return (
     </div>
   </PanelContainer>
 );
+});
+
+const StructurePanel = React.memo(function StructurePanel({
+  id, data, onRemove, onDuplicate, hoveredPanelId, setHoveredPanelId, setPanelData, onReupload
+}) {
+  const { pdb, filename } = data || {};
+
+  return (
+    <PanelContainer
+      id={id}
+      hoveredPanelId={hoveredPanelId}
+      setHoveredPanelId={setHoveredPanelId}
+      onDoubleClick={() => onReupload(id)}
+    >
+      <PanelHeader
+        id={id}
+        prefix="Structure: "
+        filename={filename}
+        setPanelData={setPanelData}
+        onDuplicate={onDuplicate}
+        onRemove={onRemove}
+      />
+      <div className="flex-1 p-2 bg-white overflow-hidden">
+        {pdb ? (
+          <div className="h-full w-full">
+            <StructureViewer pdb={pdb} panelId={id} />
+          </div>
+        ) : (
+          <div className="text-gray-400 text-center">
+            No PDB data. Drag and drop a PDB file to view a structure.
+          </div>
+        )}
+      </div>
+    </PanelContainer>
+  );
 });
 
 const AlignmentPanel = React.memo(function AlignmentPanel({
@@ -1528,7 +1564,10 @@ function App() {
         const text = await file.text();
         const parsed = parsePhylipDistanceMatrix(text);
         panelPayload = { ...parsed, filename };
-  }
+  }    else if (type === 'structure') {
+        const text = await file.text();
+        panelPayload = { pdb: text, filename };
+        }
 
       // Update or add panel data
       setPanelData(prev => ({ ...prev, [id]: panelPayload }));
@@ -1703,8 +1742,11 @@ function App() {
             <button onClick={() => triggerUpload('heatmap')} className="w-40 h-20 bg-red-200 text-black px-4 py-2 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl leading-tight">
               Upload Distance Matrix (.phy/.phylip/.dist)
             </button>
+            <button onClick={() => triggerUpload('structure')} className="w-40 h-20 bg-indigo-200 text-black px-4 py-2 rounded-xl hover:bg-indigo-300 shadow-lg hover:shadow-xl">
+              Upload Structure (.pdb)
+            </button>
             <GitHubButton />
-            <input ref={fileInputRef} type="file" accept=".fasta,.nwk,.nhx,.txt,.tsv,.csv,.fas,.phy,.phylip,.dist" onChange={handleFileUpload} style={{ display: 'none' }} />
+            <input ref={fileInputRef} type="file" accept=".fasta,.nwk,.nhx,.txt,.tsv,.csv,.fas,.phy,.phylip,.dist,.pdb" onChange={handleFileUpload} style={{ display: 'none' }} />
           </div>
         </div>
 
@@ -1804,7 +1846,13 @@ function App() {
       isLinkModeActive={linkMode === panel.i}
       isLinked={!!panelLinks[panel.i]}
     />
-  ) : null}
+  ): panel.type === 'structure' ? (
+  <StructurePanel
+    {...commonProps}
+    setPanelData={setPanelData}
+   
+  />
+)   : null}
     </div>
   );
   })}
