@@ -1,5 +1,5 @@
 // Seqlogo.jsx
-import { useMemo } from "react";
+import React, { useMemo } from "react";
 
 const residueSvgColors = {
   A: '#22c55e', C: '#facc15', D: '#ef4444', E: '#ef4444',
@@ -182,4 +182,4 @@ function SequenceLogoSVG({
     </svg>
   );
 }
-export default SequenceLogoSVG;
+export default React.memo(SequenceLogoSVG);

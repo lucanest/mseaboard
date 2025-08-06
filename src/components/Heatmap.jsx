@@ -1,5 +1,5 @@
 // Heatmap.jsx
-import { useRef, useEffect, useState } from "react";
+import React, { useRef, useEffect, useState } from "react";
 
 function valueToColor(val, min, max) {
   if (max === min) return "#eee";
@@ -13,7 +13,7 @@ function valueToColor(val, min, max) {
   return `rgb(${r},${g},${b})`;
 }
 
-export default function PhylipHeatmap({ labels, matrix, onHighlight, id }) {
+function PhylipHeatmap({ labels, matrix, onHighlight, id }) {
   const containerRef = useRef();
   const [dims, setDims] = useState({ width: 400, height: 300 });
   const [hoverCell, setHoverCell] = useState(null);
@@ -220,3 +220,5 @@ export default function PhylipHeatmap({ labels, matrix, onHighlight, id }) {
     </div>
   );
 }
+
+export default React.memo(PhylipHeatmap);

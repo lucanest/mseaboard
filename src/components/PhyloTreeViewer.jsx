@@ -1,5 +1,5 @@
 // PhyloTreeViewer.jsx
-import { useEffect, useRef, useState } from 'react';
+import  React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 
 const PhyloTreeViewer = ({
@@ -515,4 +515,4 @@ g.append('g')
   );
 };
 
-export default PhyloTreeViewer;
+export default React.memo(PhyloTreeViewer);
