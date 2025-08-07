@@ -2,7 +2,9 @@
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import throttle from 'lodash.throttle'
 import debounce from 'lodash.debounce';
-import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton, CodonToggleButton, TranslateButton, SeqlogoButton, GitHubButton} from './components/Buttons.jsx';
+import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
+CodonToggleButton, TranslateButton, SurfaceToggleButton,
+SeqlogoButton, GitHubButton} from './components/Buttons.jsx';
 import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick } from './components/Utils.jsx';
 import { FixedSizeGrid as Grid } from 'react-window';
 import GridLayout from 'react-grid-layout';
@@ -15,6 +17,7 @@ import PhylipHeatmap from "./components/Heatmap";
 import Histogram from './components/Histogram.jsx';
 import SequenceLogoSVG from './components/Seqlogo.jsx';
 import StructureViewer from './components/StructureViewer.jsx';
+import { Surface } from 'recharts';
 
 const LABEL_WIDTH = 66;
 const CELL_SIZE = 24;
@@ -378,8 +381,16 @@ return (
 const StructurePanel = React.memo(function StructurePanel({
   id, data, onRemove, onDuplicate, hoveredPanelId, setHoveredPanelId, setPanelData, onReupload
 }) {
-  const { pdb, filename } = data || {};
-
+  const { pdb, filename, surface = false } = data || {};
+  const handleSurfaceToggle = useCallback(() => {
+    setPanelData(pd => ({
+      ...pd,
+      [id]: {
+        ...pd[id],
+        surface: !surface
+      }
+    }));
+  }, [id, setPanelData, surface]);
   return (
     <PanelContainer
       id={id}
@@ -394,11 +405,17 @@ const StructurePanel = React.memo(function StructurePanel({
         setPanelData={setPanelData}
         onDuplicate={onDuplicate}
         onRemove={onRemove}
+        extraButtons={[
+          <SurfaceToggleButton
+            onClick={handleSurfaceToggle}
+            isActive={surface}
+          />
+        ]}
       />
       <div className="flex-1 p-2 bg-white overflow-hidden">
         {pdb ? (
           <div className="h-full w-full">
-            <StructureViewer pdb={pdb} panelId={id} />
+            <StructureViewer pdb={pdb} panelId={id} surface = {surface} />
           </div>
         ) : (
           <div className="text-gray-400 text-center">

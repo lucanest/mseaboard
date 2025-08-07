@@ -20,7 +20,7 @@ function ensure3Dmol(cb) {
   document.body.appendChild(script);
 }
 
-function StructureViewer({ pdb, panelId }) {
+function StructureViewer({ pdb, panelId , surface = true}) {
   const viewerDiv = useRef();
 
 useEffect(() => {
@@ -42,12 +42,17 @@ useEffect(() => {
       const viewer = window.$3Dmol.createViewer(viewerDiv.current, config);
       viewer.addModel(pdb, 'pdb');
       viewer.setStyle({}, { cartoon: { color: 'spectrum' } });
+      if (surface) {
+        viewer.addSurface('SAS', { opacity: 0.9, color: 'white' });
+      }
       viewer.setZoomLimits(0.9, 1000);
       
       viewer.zoomTo();
+      const zoomLevel = 0.8; // Adjust this value to control the initial zoom
+      viewer.zoom(zoomLevel);
       viewer.render();
     });
-  }, [pdb, panelId]);
+  }, [pdb, panelId, surface]);
 
   return (
     <div

@@ -86,6 +86,24 @@ export function CodonToggleButton({ onClick, isActive }) {
   );
 }
 
+export function SurfaceToggleButton({ onClick, isActive }) {
+  return (
+    <button
+      onClick={onClick}
+      className="p-0.5"
+      title="Show/hide surface"
+    >
+      <span className={`inline-flex items-center justify-center w-6 h-6 rounded
+        ${isActive ? 'bg-gray-200' : 'bg-gray-200'}
+        border border-gray-400 hover:bg-orange-300`}>
+        <span className="text-xs font-bold text-purple-800 leading-none">
+          <EyeIcon className="w-5 h-5" />
+        </span>
+      </span>
+    </button>
+  );
+}
+
 export function TranslateButton({ onClick }) {
   return (
     <button
