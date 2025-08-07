@@ -1264,6 +1264,7 @@ function App() {
       x: originalLayout.x,
       y: originalLayout.y + 1,
       h: 3,
+      w: 12,
       minH: 3,
     };
 
