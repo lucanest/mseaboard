@@ -17,7 +17,7 @@ import PhylipHeatmap from "./components/Heatmap";
 import Histogram from './components/Histogram.jsx';
 import SequenceLogoSVG from './components/Seqlogo.jsx';
 import StructureViewer from './components/StructureViewer.jsx';
-import { Surface } from 'recharts';
+import { ArrowDownTrayIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 
 const LABEL_WIDTH = 66;
 const CELL_SIZE = 24;
@@ -1703,19 +1703,33 @@ function App() {
               <span key={i} className={`w-16 h-16 flex items-center justify-center text-5xl font-bold leading-none ${residueColors[char]} `}>{char}</span>
             ))}
           </div>
-          <div className="flex items-center gap-4">
-            <button
-    onClick={handleSaveWorkspace}
-    className="w-40 h-20 bg-gray-200 text-black px-4 py-2 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl"
-  >
-    Save Workspace
-  </button>
-  <button
-    onClick={() => fileInputRefWorkspace.current.click()}
-    className="w-40 h-20 bg-gray-200 text-black px-4 py-2 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl"
-  >
-    Load Workspace
-  </button>
+<div className="flex items-center gap-4">
+  <div className="flex items-center gap-2 mr-8">
+  {/* Save Workspace Button with Tooltip */}
+  <div className="relative group">
+    <button
+      onClick={handleSaveWorkspace}
+      className="w-12 h-12 bg-gray-200 text-black rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center"
+    >
+      <ArrowDownTrayIcon className="w-8 h-8" />
+    </button>
+    <span className="absolute left-1/2 -translate-x-1/2 top-16 z-10 px-1 rounded bg-gray-300 text-black text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap">
+      Save Workspace
+    </span>
+  </div>
+  {/* Load Workspace Button with Tooltip */}
+  <div className="relative group">
+    <button
+      onClick={() => fileInputRefWorkspace.current.click()}
+      className="w-12 h-12 bg-gray-200 text-black rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center"
+    >
+      <ArrowUpTrayIcon className="w-8 h-8" />
+    </button>
+    <span className="absolute left-1/2 -translate-x-1/2 top-16 z-10 px-1 rounded bg-gray-300 text-black text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap">
+      Load Workspace
+    </span>
+  </div>
+</div>
   <button
     onClick={() => {
       const id = `notepad-${Date.now()}`;
