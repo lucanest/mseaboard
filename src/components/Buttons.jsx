@@ -1,5 +1,5 @@
 // Buttons.jsx
-import { LinkIcon, ChartBarIcon , DocumentDuplicateIcon, XMarkIcon, Bars3Icon, EyeIcon, LanguageIcon } from '@heroicons/react/24/outline';
+import { LinkIcon, ChartBarIcon , DocumentDuplicateIcon, XMarkIcon, Bars3Icon, EyeIcon, LanguageIcon, CodeBracketIcon } from '@heroicons/react/24/outline';
 
 export function DuplicateButton({ onClick }) {
   return (
@@ -129,6 +129,21 @@ export function SeqlogoButton({ onClick }) {
     >
       <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-pink-200">
         <ChartBarIcon className="w-5 h-5" />
+      </span>
+    </button>
+  );
+}
+
+export function SequenceButton({ onClick }) {
+  return (
+    <button
+      type="button"
+      className="p-0.5"
+      onClick={onClick}
+      title="Create sequence from structure"
+    >
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-yellow-200">
+        <CodeBracketIcon className="w-5 h-5" />
       </span>
     </button>
   );

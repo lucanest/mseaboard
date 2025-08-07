@@ -4,8 +4,8 @@ import throttle from 'lodash.throttle'
 import debounce from 'lodash.debounce';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SurfaceToggleButton,
-SeqlogoButton, GitHubButton} from './components/Buttons.jsx';
-import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick } from './components/Utils.jsx';
+SeqlogoButton, SequenceButton, GitHubButton} from './components/Buttons.jsx';
+import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick, getSequenceFromPdb } from './components/Utils.jsx';
 import { FixedSizeGrid as Grid } from 'react-window';
 import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
@@ -379,7 +379,8 @@ return (
 });
 
 const StructurePanel = React.memo(function StructurePanel({
-  id, data, onRemove, onDuplicate, hoveredPanelId, setHoveredPanelId, setPanelData, onReupload
+  id, data, onRemove, onDuplicate, hoveredPanelId, setHoveredPanelId, setPanelData, onReupload,
+  onCreateSequenceFromStructure
 }) {
   const { pdb, filename, surface = false } = data || {};
   const handleSurfaceToggle = useCallback(() => {
@@ -405,11 +406,12 @@ const StructurePanel = React.memo(function StructurePanel({
         setPanelData={setPanelData}
         onDuplicate={onDuplicate}
         onRemove={onRemove}
-        extraButtons={[
+extraButtons={[
           <SurfaceToggleButton
             onClick={handleSurfaceToggle}
             isActive={surface}
-          />
+          />,
+          <SequenceButton onClick={() => onCreateSequenceFromStructure(id)} />
         ]}
       />
       <div className="flex-1 p-2 bg-white overflow-hidden">
@@ -1242,6 +1244,49 @@ function App() {
     }));
   }, [panels, panelData, layout]);
 
+  const handleCreateSequenceFromStructure = useCallback((id) => {
+    const data = panelData[id];
+    if (!data || !data.pdb) return;
+
+    const sequence = getSequenceFromPdb(data.pdb);
+    if (!sequence) {
+      alert("Could not extract sequence from PDB.");
+      return;
+    }
+
+    const newId = `alignment-from-pdb-${Date.now()}`;
+    const newPanel = { i: newId, type: 'alignment' };
+
+    const originalLayout = layout.find(l => l.i === id);
+    const newLayout = {
+      ...originalLayout,
+      i: newId,
+      x: originalLayout.x,
+      y: originalLayout.y + 1,
+      h: 3,
+      minH: 3,
+    };
+
+    setPanels(prev => [
+      ...prev.filter(p => p.i !== '__footer'),
+      newPanel,
+      { i: '__footer', type: 'footer' }
+    ]);
+    setLayout(prev => {
+      const withoutFooter = prev.filter(l => l.i !== '__footer');
+      const footer = prev.find(l => l.i === '__footer');
+      return [...withoutFooter, newLayout, footer];
+    });
+    setPanelData(prev => ({
+      ...prev,
+      [newId]: {
+        data: [{ id: data.filename || 'sequence', sequence }],
+        filename: (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'structure') + '.fasta',
+        codonMode: false,
+      }
+    }));
+  }, [panelData, layout]);
+
   const handleLinkClick = useCallback((id) => {
     if (!linkMode) {
       // no panel selected yet
@@ -1881,6 +1926,7 @@ function App() {
   <StructurePanel
     {...commonProps}
     setPanelData={setPanelData}
+    onCreateSequenceFromStructure={handleCreateSequenceFromStructure}
    
   />
 )   : null}
