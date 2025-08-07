@@ -1,5 +1,6 @@
 // StructureViewer.jsx
 import React, { useEffect, useRef } from 'react';
+import * as $3Dmol from '3dmol/build/3Dmol-min.js'
 
 function ensure3Dmol(cb) {
   if (window.$3Dmol) return cb();
