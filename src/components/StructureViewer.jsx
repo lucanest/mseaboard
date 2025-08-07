@@ -2,6 +2,22 @@
 import React, { useEffect, useRef } from 'react';
 import * as $3Dmol from '3dmol/build/3Dmol-min.js'
 
+const residueColorHex = {
+  A: '#A7F3D0', C: '#FEF08A', D: '#FCA5A5', E: '#FCA5A5',
+  F: '#DDD6FE', G: '#E5E7EB', H: '#FBCFE8', I: '#BFDBFE',
+  K: '#FDBA74', L: '#BFDBFE', M: '#DBEAFE', N: '#FECACA',
+  P: '#99F6E4', Q: '#FECACA', R: '#FDBA74', S: '#BBF7D0',
+  T: '#BBF7D0', V: '#DBEAFE', W: '#C4B5FD', Y: '#DDD6FE',
+  '-': '#FFFFFF'
+};
+
+const threeToOne = {
+  ALA: 'A', CYS: 'C', ASP: 'D', GLU: 'E', PHE: 'F', GLY: 'G', HIS: 'H',
+  ILE: 'I', LYS: 'K', LEU: 'L', MET: 'M', ASN: 'N', PRO: 'P', GLN: 'Q',
+  ARG: 'R', SER: 'S', THR: 'T', VAL: 'V', TRP: 'W', TYR: 'Y', 
+  // Add more if needed
+};
+
 function ensure3Dmol(cb) {
   if (window.$3Dmol) return cb();
   if (document.getElementById('threedmol-cdn')) {
@@ -23,12 +39,11 @@ function ensure3Dmol(cb) {
 function StructureViewer({ pdb, panelId , surface = true}) {
   const viewerDiv = useRef();
 
-useEffect(() => {
+  useEffect(() => {
     if (!pdb) return;
 
     ensure3Dmol(() => {
       if (!viewerDiv.current) return;
-      
       viewerDiv.current.innerHTML = '';
 
       const config = {
@@ -38,12 +53,23 @@ useEffect(() => {
         width: '100%',
         height: '100%'
       };
-      
+
       const viewer = window.$3Dmol.createViewer(viewerDiv.current, config);
       viewer.addModel(pdb, 'pdb');
-      viewer.setStyle({}, { cartoon: { color: 'spectrum' } });
+    //viewer.setStyle({}, {cartoon: { color: 'spectrum' },});
+ viewer.setStyle({}, {
+  cartoon: {
+    colorfunc: function(atom) {
+      const resn = (atom.resn || '').trim().toUpperCase();
+      const oneLetter = threeToOne[resn] || '-';
+      const color = residueColorHex[oneLetter] || '#FFFFFF';
+      // console.log('atom.resn:', atom.resn, '->', resn, '->', oneLetter, '->', color);
+      return color;
+    }
+  }
+});
       if (surface) {
-        viewer.addSurface('SAS', { opacity: 0.9, color: 'white' });
+        viewer.addSurface('SAS', { opacity: 0.8, color: 'white' });
       }
       viewer.setZoomLimits(0.9, 1000);
       
