@@ -5,7 +5,8 @@ import debounce from 'lodash.debounce';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SurfaceToggleButton,
 SeqlogoButton, SequenceButton, GitHubButton} from './components/Buttons.jsx';
-import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick, getSequenceFromPdb } from './components/Utils.jsx';
+import { translateNucToAmino, isNucleotide, threeToOne,
+   parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick} from './components/Utils.jsx';
 import { FixedSizeGrid as Grid } from 'react-window';
 import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
@@ -1244,49 +1245,121 @@ function App() {
     }));
   }, [panels, panelData, layout]);
 
-  const handleCreateSequenceFromStructure = useCallback((id) => {
-    const data = panelData[id];
-    if (!data || !data.pdb) return;
 
-    const sequence = getSequenceFromPdb(data.pdb);
-    if (!sequence) {
-      alert("Could not extract sequence from PDB.");
-      return;
-    }
+const handleCreateSequenceFromStructure = useCallback((id) => {
+  const data = panelData[id];
+  if (!data || !data.pdb) return;
 
-    const newId = `alignment-from-pdb-${Date.now()}`;
-    const newPanel = { i: newId, type: 'alignment' };
+  // --- minimal per-chain PDB parser (proteins via CA atoms) ---
 
-    const originalLayout = layout.find(l => l.i === id);
+  // We’ll collect unique (chain, resSeq, iCode) via CA atoms in order
+  const chains = new Map(); // chainId -> array of one-letter residues in order
+  const seen = new Set();   // key: chain|resSeq|iCode to avoid duplicates
+
+  const lines = data.pdb.split(/\r?\n/);
+  for (const line of lines) {
+    // Standard PDB columns:
+    // 1-6  "ATOM  "
+    // 13-16 atom name
+    // 18-20 resName
+    // 22   chainID
+    // 23-26 resSeq
+    // 27   iCode
+    if (!line.startsWith('ATOM')) continue;
+
+    const atomName = line.slice(12,16).trim(); // e.g., "CA"
+    if (atomName !== 'CA') continue; // use alpha carbons as residue representatives
+
+    const resName = line.slice(17,20).trim().toUpperCase();
+    const one = threeToOne[resName] || 'X';
+
+    const chainId = (line[21] || 'A').trim() || 'A';
+    const resSeq  = line.slice(22,26).trim();
+    const iCode   = (line[26] || '').trim();
+
+    const key = `${chainId}|${resSeq}|${iCode}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    if (!chains.has(chainId)) chains.set(chainId, []);
+    chains.get(chainId).push(one);
+  }
+
+  if (chains.size === 0) {
+    alert("Could not extract any chains/sequences from PDB (no CA atoms found).");
+    return;
+  }
+
+  // Build sequences per chain
+  const chainSeqs = Array.from(chains.entries())
+    .map(([chainId, arr]) => ({ chainId, sequence: arr.join('') }))
+    .filter(s => s.sequence.length > 0);
+
+  if (chainSeqs.length === 0) {
+    alert("Could not extract sequence(s) from PDB.");
+    return;
+  }
+
+  // --- Create one Alignment panel per chain ---
+  const originalLayout = layout.find(l => l.i === id);
+  const baseY = originalLayout ? (originalLayout.y + originalLayout.h) : 0;
+
+  // We’ll add panels and layout in a single batch
+  const newPanels = [];
+  const newLayouts = [];
+  const newPanelDataEntries = {};
+
+  chainSeqs.forEach((cs, idx) => {
+    const newId = `alignment-from-pdb-${cs.chainId}-${Date.now()}-${idx}`;
+    newPanels.push({ i: newId, type: 'alignment' });
+
+    // Stack them under the structure panel, full width to be readable
     const newLayout = {
-      ...originalLayout,
       i: newId,
-      x: originalLayout.x,
-      y: originalLayout.y + 1,
+      x: 0,
+      y: baseY + idx * 3, // stagger rows a bit
       h: 3,
       w: 12,
       minH: 3,
+      minW: 3
     };
+    newLayouts.push(newLayout);
 
-    setPanels(prev => [
-      ...prev.filter(p => p.i !== '__footer'),
-      newPanel,
+    const baseName = (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'structure');
+    newPanelDataEntries[newId] = {
+      data: [{ id: `${baseName}_chain_${cs.chainId}`, sequence: cs.sequence }],
+      filename: `${baseName}_chain_${cs.chainId}.fasta`,
+      codonMode: false
+    };
+  });
+
+  // Insert while keeping the __footer logic intact
+  setPanels(prev => {
+    const withoutFooter = prev.filter(p => p.i !== '__footer');
+    return [
+      ...withoutFooter,
+      ...newPanels,
       { i: '__footer', type: 'footer' }
-    ]);
-    setLayout(prev => {
-      const withoutFooter = prev.filter(l => l.i !== '__footer');
-      const footer = prev.find(l => l.i === '__footer');
-      return [...withoutFooter, newLayout, footer];
-    });
-    setPanelData(prev => ({
-      ...prev,
-      [newId]: {
-        data: [{ id: data.filename || 'sequence', sequence }],
-        filename: (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'structure') + '.fasta',
-        codonMode: false,
-      }
-    }));
-  }, [panelData, layout]);
+    ];
+  });
+
+  setLayout(prev => {
+    const withoutFooter = prev.filter(l => l.i !== '__footer');
+    const footer = prev.find(l => l.i === '__footer');
+    const next = [...withoutFooter, ...newLayouts];
+
+    // Recompute footer y to appear after the last panel
+    const maxY = next.reduce((m, l) => Math.max(m, l.y + l.h), 0);
+    const fixedFooter = footer ? { ...footer, y: maxY } : { i: '__footer', x: 0, y: maxY, w: 12, h: 2, static: true };
+
+    return [...next, fixedFooter];
+  });
+
+  setPanelData(prev => ({
+    ...prev,
+    ...newPanelDataEntries
+  }));
+}, [panelData, layout, setPanels, setLayout, setPanelData]);
 
   const handleLinkClick = useCallback((id) => {
     if (!linkMode) {

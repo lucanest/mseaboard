@@ -1,5 +1,12 @@
 // Utils.jsx
 
+export const threeToOne = {
+  'ALA': 'A', 'ARG': 'R', 'ASN': 'N', 'ASP': 'D', 'CYS': 'C',
+  'GLN': 'Q', 'GLU': 'E', 'GLY': 'G', 'HIS': 'H', 'ILE': 'I',
+  'LEU': 'L', 'LYS': 'K', 'MET': 'M', 'PHE': 'F', 'PRO': 'P',
+  'SER': 'S', 'TRP': 'W', 'THR': 'T', 'TYR': 'Y', 'VAL': 'V',  'SEC':'U', 'PYL':'O'
+};
+
 const codonTable = {
   'TTT': 'F', 'TTC': 'F', 'TTA': 'L', 'TTG': 'L',
   'TCT': 'S', 'TCC': 'S', 'TCA': 'S', 'TCG': 'S',
@@ -133,37 +140,4 @@ export function parseFasta(content) {
 export function getLeafOrderFromNewick(newick) {
   // Simple regex to parse leaf names (assuming they do not contain parentheses, colons, commas, or semicolons)
   return (newick.match(/[\w\.\-\|]+(?=[,\)\:])/g) || []);
-}
-
-export function getSequenceFromPdb(pdbText) {
-  if (!pdbText) return null;
-
-  const threeToOne = {
-    'ALA': 'A', 'ARG': 'R', 'ASN': 'N', 'ASP': 'D', 'CYS': 'C',
-    'GLN': 'Q', 'GLU': 'E', 'GLY': 'G', 'HIS': 'H', 'ILE': 'I',
-    'LEU': 'L', 'LYS': 'K', 'MET': 'M', 'PHE': 'F', 'PRO': 'P',
-    'SER': 'S', 'TRP': 'W', 'THR': 'T', 'TYR': 'Y', 'VAL': 'V'
-  };
-
-  const sequence = [];
-  const seenResidues = new Set();
-
-  const lines = pdbText.split('\n');
-  for (const line of lines) {
-    if (line.startsWith('ATOM') && line.slice(13, 15).trim() === 'CA') {
-      const resName = line.slice(17, 20).trim();
-      const chainId = line.slice(21, 22).trim();
-      const resSeq = line.slice(22, 26).trim();
-      const key = `${chainId}-${resSeq}`;
-
-      if (!seenResidues.has(key)) {
-        const aa = threeToOne[resName];
-        if (aa) {
-          sequence.push(aa);
-        }
-        seenResidues.add(key);
-      }
-    }
-  }
-  return sequence.join('');
 }
