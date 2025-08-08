@@ -418,7 +418,7 @@ extraButtons={[
       <div className="flex-1 p-2 bg-white overflow-hidden">
         {pdb ? (
           <div className="h-full w-full">
-            <StructureViewer pdb={pdb} panelId={id} surface = {surface} />
+            <StructureViewer pdb={pdb} panelId={id} surface = {surface} data={data} setPanelData={setPanelData} />
           </div>
         ) : (
           <div className="text-gray-400 text-center">
