@@ -1,5 +1,5 @@
 // StructureViewer.jsx
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef ,useState} from 'react';
 import * as $3Dmol from '3dmol/build/3Dmol-min.js'
 import { threeToOne } from './Utils.jsx';
 
@@ -46,7 +46,9 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData }) {
   const viewerRef = useRef(null);
   const surfaceHandleRef = useRef(null);
   const appliedInitialViewRef = useRef(false); // only apply saved view once per PDB
+  const [tooltip, setTooltip] = useState(null);
 
+  
   // --- helpers ---
   const applyCartoon = () => {
     const v = viewerRef.current;
@@ -61,6 +63,29 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData }) {
       }
     });
   };
+
+const setupHoverTooltip = () => {
+  const v = viewerRef.current;
+  if (!v) return;
+
+  v.setHoverable(
+    {},
+    true,
+    function onHover(atom) {
+      if (!atom || atom.hetflag) return;
+
+      const resn = (atom.resn || '').trim().toUpperCase();
+      const one = threeToOne[resn] || '-';
+      const chain = atom.chain || '';
+      const resi = atom.resi ?? '';
+      const text = `chain ${chain}, ${resi}:  ${one}`
+      setTooltip(text); // <-- set tooltip text
+    },
+    function onUnhover() {
+      setTooltip(null); // <-- hide tooltip
+    }
+  );
+};
 
   const rebuildSurface = () => {
     const v = viewerRef.current;
@@ -103,6 +128,7 @@ useEffect(() => {
     viewer.addModel(pdb, 'pdb');
     applyCartoon();
     rebuildSurface();
+    setupHoverTooltip();
 
     viewer.setZoomLimits(0.9, 1000);
 
@@ -145,7 +171,7 @@ if (
   const { near, far } = viewer.getSlab();
   viewer.setSlab(near - 1e6, far + 1e6);
 }
-
+viewer.setHoverDuration(0);
 viewer.render();
   });
 }, [pdb, panelId]); // NOTE: not depending on `surface` here
@@ -176,6 +202,7 @@ useEffect(() => {
   if (!el || !v) return;
 
   let wheelTimeout = null;
+
 
 const saveViewAndSlab = () => {
   const view = v.getView();      // camera/rotation/translation
@@ -210,20 +237,44 @@ const saveViewAndSlab = () => {
     clearTimeout(wheelTimeout);
   };
 }, [panelId, setPanelData]);
-
-  return (
-    <div
-      ref={viewerDiv}
-      style={{
-        width: '100%',
-        height: '100%',
-        position: 'relative',
-        overflow: 'hidden',
-        borderRadius: '0.75rem',
-        background: 'white'
-      }}
-      className="structure-viewer-container"
-    />
+return (
+    <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+      <div
+        ref={viewerDiv}
+        style={{
+          width: '100%',
+          height: '100%',
+          position: 'relative',
+          overflow: 'hidden',
+          borderRadius: '0.75rem',
+          background: 'white'
+        }}
+        className="structure-viewer-container"
+      />
+{tooltip && (
+        <div
+          style={{
+            position: 'absolute',
+            //left: '80%',
+            right: '10px',
+            bottom: '10px',
+            transform: 'translateX(0%)',
+            background: 'rgba(0,0,0,0.3)',
+            color: '#fff',
+            padding: '4px 8px',
+            borderRadius: '10px',
+            pointerEvents: 'none',
+            fontSize: '12px',
+            zIndex: 10,
+            maxWidth: '90%',
+            textAlign: 'center',
+            display: 'block'
+          }}
+        >
+          {tooltip}
+        </div>
+      )}
+    </div>
   );
 }
 
