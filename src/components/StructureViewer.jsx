@@ -31,6 +31,21 @@ function ensure3Dmol(cb) {
   document.body.appendChild(script);
 }
 
+// Define a color palette for chains
+const chainColors = [
+  '#A7F3D0', '#FCA5A5', '#BFDBFE', '#FBCFE8', '#FDBA74', '#DDD6FE',
+  '#E5E7EB', '#FEF08A', '#DBEAFE', '#FECACA', '#99F6E4', '#BBF7D0',
+  '#C4B5FD', '#FECACA', '#FDBA74', '#BBF7D0', '#DBEAFE', '#DDD6FE'
+];
+
+// Helper to assign a color to each chain
+const getChainColor = (chain) => {
+  if (!chain) return '#FFFFFF';
+  // Simple hash: sum char codes and mod by palette length
+  const idx = chain.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % chainColors.length;
+  return chainColors[idx];
+};
+
 function StructureViewer({ pdb, panelId , surface = true}) {
   const viewerDiv = useRef();
 
@@ -63,8 +78,13 @@ function StructureViewer({ pdb, panelId , surface = true}) {
     }
   }
 });
-      if (surface) {
-        viewer.addSurface('SAS', { opacity: 0.8, color: 'white' });
+if (surface) {
+        viewer.addSurface('SAS', {
+          opacity: 0.8,
+          colorfunc: function(atom) {
+            return getChainColor(atom.chain);
+          }
+        });
       }
       viewer.setZoomLimits(0.9, 1000);
       
