@@ -158,10 +158,45 @@ function EditableFilename({
 }
 
 function Tooltip({ x, y, children }) {
+  const ref = React.useRef(null);
+  const [size, setSize] = React.useState({ w: 0, h: 0 });
+
+  // Measure tooltip whenever content/position changes
+  React.useLayoutEffect(() => {
+    if (!ref.current) return;
+    const r = ref.current.getBoundingClientRect();
+    // Only update if changed (prevents layout thrash)
+    if (Math.abs(r.width - size.w) > 0.5 || Math.abs(r.height - size.h) > 0.5) {
+      setSize({ w: r.width, h: r.height });
+    }
+  }, [children, x, y]); // re-measure when content or anchor changes
+
+  const GAP = 12; // distance from pointer
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  // Decide flips against the viewport edges
+  const flipX = x + GAP + size.w > vw; // too close to right edge
+  const flipY = y + GAP + size.h > vh; // too close to bottom edge
+
+  // Anchor at the pointer, nudge by GAP, and flip using translate
+  const left = x + (flipX ? -GAP : GAP);
+  const top  = y + (flipY ? -GAP : GAP);
+
+  // Keep inside small margins
+  const clampedLeft = Math.max(4, Math.min(vw - 4, left));
+  const clampedTop  = Math.max(4, Math.min(vh - 4, top));
+
   return ReactDOM.createPortal(
     <div
-      className="fixed px-1 py-0.5 text-xs bg-gray-200 rounded-xl pointer-events-none z-[9999]"
-      style={{ top: y + 24, left: x + 14 }}
+      ref={ref}
+      className="fixed px-1 py-0.5 text-xs bg-gray-200 rounded-xl pointer-events-none z-[9999] shadow"
+      style={{
+        left: clampedLeft,
+        top: clampedTop,
+        transform: `translate(${flipX ? '-100%' : '0'}, ${flipY ? '-100%' : '0'})`,
+        willChange: 'transform, left, top',
+      }}
     >
       {children}
     </div>,
