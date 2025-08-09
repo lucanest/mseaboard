@@ -32,6 +32,15 @@ const residueColors = {
   '-': 'bg-white'
 };
 
+const logocolors = {
+  A: 'bg-green-200', C: 'bg-yellow-200', D: 'bg-red-200', E: 'bg-cyan-200',
+  F: 'bg-purple-200', G: 'bg-gray-200', H: 'bg-pink-200', I: 'bg-blue-200',
+  K: 'bg-orange-200', L: 'bg-blue-200', M: 'bg-blue-100', N: 'bg-red-100',
+  P: 'bg-teal-200', Q: 'bg-red-100', R: 'bg-orange-300', S: 'bg-yellow-100',
+  T: 'bg-green-100', V: 'bg-blue-100', W: 'bg-purple-300', Y: 'bg-purple-100',
+  '-': 'bg-white', O : 'bg-purple-300', U: 'bg-gray-300', B : 'bg-red-300'
+};
+
 
 const MSACell = React.memo(function MSACell({
    style, char, isHoverHighlight, isLinkedHighlight,
@@ -1905,7 +1914,7 @@ if (sourcePanel?.type === 'structure' && targetPanel?.type === 'alignment') {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'mseaview-workspace.json';
+    a.download = 'mseaboard-workspace.json';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -1944,8 +1953,8 @@ if (sourcePanel?.type === 'structure' && targetPanel?.type === 'alignment') {
       <div className="h-screen w-screen flex flex-col overflow-hidden bg-white text-black">
         <div className="p-4 flex justify-between items-center">
           <div className="flex items-center justify-start w-full">
-            {'MSEAVIEW'.split('').map((char, i) => (
-              <span key={i} className={`w-16 h-16 flex items-center justify-center text-5xl font-bold leading-none ${residueColors[char]} `}>{char}</span>
+            {'MSEABOARD'.split('').map((char, i) => (
+              <span key={i} className={`w-16 h-16 flex items-center justify-center text-5xl font-bold leading-none ${logocolors[char]} `}>{char}</span>
             ))}
           </div>
 <div className="flex items-center gap-4">
