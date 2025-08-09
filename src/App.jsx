@@ -157,7 +157,7 @@ function EditableFilename({
   );
 }
 
-function Tooltip({ x, y, children }) {
+function MSATooltip({ x, y, children }) {
   const ref = React.useRef(null);
   const [size, setSize] = React.useState({ w: 0, h: 0 });
 
@@ -769,7 +769,7 @@ useEffect(() => {
       
 
         {hoveredCol != null && hoveredPanelId === id && (
-        <Tooltip x={tooltipPos.x} y={tooltipPos.y}>
+        <MSATooltip x={tooltipPos.x} y={tooltipPos.y}>
           <div className="flex flex-col items-center">
             <span className="font-bold">
               {codonMode
@@ -780,18 +780,18 @@ useEffect(() => {
               <span className="text-gray-700 font-mono text-xs">{msaData[hoveredRow].id}</span>
             )}
           </div>
-        </Tooltip>
+        </MSATooltip>
         )}
 
         {highlightedSite != null &&
           linkedTo === highlightOrigin &&
           id !== highlightOrigin && (
-            <Tooltip x={tooltipPos.x} y={tooltipPos.y}>
+            <MSATooltip x={tooltipPos.x} y={tooltipPos.y}>
           <span>
             {codonMode ? 'Codon ' : 'Site '}
             <span className="font-bold">{highlightedSite + 1}</span>
           </span>
-            </Tooltip>
+            </MSATooltip>
           )}
 
         <div
@@ -1994,7 +1994,7 @@ if (sourcePanel?.type === 'structure' && targetPanel?.type === 'alignment') {
           </div>
 <div className="flex items-center gap-4">
   <div className="flex items-center gap-2 mr-8">
-  {/* Save Workspace Button with Tooltip */}
+  {/* Save Workspace Button */}
   <div className="relative group">
     <button
       onClick={handleSaveWorkspace}
@@ -2006,7 +2006,7 @@ if (sourcePanel?.type === 'structure' && targetPanel?.type === 'alignment') {
       Save Workspace
     </span>
   </div>
-  {/* Load Workspace Button with Tooltip */}
+  {/* Load Workspace Button */}
   <div className="relative group">
     <button
       onClick={() => fileInputRefWorkspace.current.click()}
