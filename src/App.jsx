@@ -381,7 +381,9 @@ return (
 
 const StructurePanel = React.memo(function StructurePanel({
   id, data, onRemove, onDuplicate, hoveredPanelId, setHoveredPanelId, setPanelData, onReupload,
-  onCreateSequenceFromStructure
+  onCreateSequenceFromStructure, onLinkClick, isLinkModeActive, isLinked,
+  linkedTo, highlightedSite, highlightOrigin, onHighlight,
+  linkedPanelData
 }) {
   const { pdb, filename, surface = false } = data || {};
   const handleSurfaceToggle = useCallback(() => {
@@ -405,6 +407,9 @@ const StructurePanel = React.memo(function StructurePanel({
         prefix="Structure: "
         filename={filename}
         setPanelData={setPanelData}
+        onLinkClick={onLinkClick}
+        isLinkModeActive={isLinkModeActive}
+        isLinked={isLinked}
         onDuplicate={onDuplicate}
         onRemove={onRemove}
 extraButtons={[
@@ -412,13 +417,18 @@ extraButtons={[
             onClick={handleSurfaceToggle}
             isActive={surface}
           />,
-          <SequenceButton onClick={() => onCreateSequenceFromStructure(id)} />
+          <SequenceButton onClick={() => onCreateSequenceFromStructure(id)} />,
         ]}
       />
       <div className="flex-1 p-2 bg-white overflow-hidden">
         {pdb ? (
           <div className="h-full w-full">
-            <StructureViewer pdb={pdb} panelId={id} surface = {surface} data={data} setPanelData={setPanelData} />
+            <StructureViewer pdb={pdb} panelId={id} surface = {surface} data={data} setPanelData={setPanelData}
+            linkedTo={linkedTo}
+      highlightedSite={highlightedSite}
+      highlightOrigin={highlightOrigin}
+      onHighlight={onHighlight}
+      linkedPanelData={linkedPanelData} />
           </div>
         ) : (
           <div className="text-gray-400 text-center">
@@ -714,7 +724,7 @@ useEffect(() => {
         />
       
 
-        {hoveredCol != null && (hoveredPanelId === id || hoveredPanelId === linkedTo) && id === highlightOrigin && (
+        {hoveredCol != null && hoveredPanelId === id && (
         <Tooltip x={tooltipPos.x} y={tooltipPos.y}>
           <div className="flex flex-col items-center">
             <span className="font-bold">
@@ -1534,8 +1544,18 @@ const handleCreateSequenceFromStructure = useCallback((id) => {
           }
         }));
       }
-      return;
-    }
+ if (sourcePanel?.type === 'alignment' && targetPanel?.type === 'structure') {
+    setPanelData(prev => ({
+      ...prev,
+      [targetId]: {
+        ...prev[targetId],
+        linkedResidueIndex: undefined,
+        linkedChainId: prev[targetId]?.linkedChainId // keep chain if you like
+      }
+    }));
+  }
+  return;
+}
 
     // Heatmap -> tree
     if (sourcePanel.type === 'heatmap' && targetPanel.type === 'tree') {
@@ -1640,6 +1660,112 @@ const handleCreateSequenceFromStructure = useCallback((id) => {
       setHighlightSite(site);
       setHighlightOrigin(originId);
     }
+
+  const extractChainIdFromSeqId = (id) => {
+  if (!id) return null;
+  const m = id.match(/_chain_([A-Za-z0-9])\b/i);
+  if (m) return m[1];
+  if (/^[A-Za-z0-9]$/.test(id)) return id; // single-letter chain like "A"
+  return null;
+};
+
+const getSeqForChain = (alignmentData, preferChainId, structureChainsLengths) => {
+  if (!alignmentData || !Array.isArray(alignmentData.data)) return { seq: null, chainId: null };
+  // Prefer name-based match
+  if (preferChainId) {
+    const named = alignmentData.data.find(s => {
+      const cid = extractChainIdFromSeqId(s.id);
+      return cid === preferChainId || s.id === preferChainId;
+    });
+    if (named) return { seq: named, chainId: preferChainId };
+  }
+  // Length-based unique match
+  if (structureChainsLengths) {
+    for (const s of alignmentData.data) {
+      const len = (s.sequence || '').replace(/-/g, '').length;
+      const match = Object.entries(structureChainsLengths).find(([, L]) => L === len);
+      if (match) return { seq: s, chainId: match[0] };
+    }
+  }
+  return { seq: alignmentData.data[0] || null, chainId: preferChainId || null };
+};
+
+// Alignment -> Structure
+if (sourcePanel?.type === 'alignment' && targetPanel?.type === 'structure') {
+  const alnData = panelData[originId];
+  const structId = targetId;
+  const structData = panelData[structId];
+
+  // we don’t know chain lengths here; let viewer deduce by name/length too,
+  // but we’ll try to pull a chainId from sequence id for better UX:
+  const preferredChainId =
+    extractChainIdFromSeqId(alnData?.data?.[0]?.id) ||
+    null;
+
+  // We need to map column -> residue index (skip gaps) for the matched sequence
+  // Try to find a matching sequence by chain name
+  const { seq, chainId } = getSeqForChain(alnData, preferredChainId, null);
+  if (seq) {
+    const residIdx = (() => {
+      let count = -1;
+      for (let i = 0; i <= site && i < seq.sequence.length; i++) {
+        if (seq.sequence[i] !== '-') count++;
+      }
+      return count < 0 ? null : count;
+    })();
+
+    setPanelData(prev => ({
+      ...prev,
+      [structId]: {
+        ...prev[structId],
+        linkedResidueIndex: residIdx,
+        linkedChainId: chainId || preferredChainId || undefined
+      }
+    }));
+  }
+  return;
+}
+
+// Structure -> Alignment
+if (sourcePanel?.type === 'structure' && targetPanel?.type === 'alignment') {
+  const structData = panelData[originId];
+  const alnData = panelData[targetId];
+  if (!alnData || !Array.isArray(alnData.data)) return;
+
+  const structureChainId = structData?.linkedChainId
+    || extractChainIdFromSeqId(alnData.data[0]?.id)
+    || null;
+
+  // pick the best sequence (by name or length)
+  const { seq } = getSeqForChain(alnData, structureChainId, null);
+  if (!seq) return;
+
+  // translate residue index -> MSA column
+  const residIdx = site; // what StructureViewer sends
+  const col = (() => {
+    let count = -1;
+    for (let i = 0; i < seq.sequence.length; i++) {
+      if (seq.sequence[i] !== '-') {
+        count++;
+        if (count === residIdx) return i;
+      }
+    }
+    return null;
+  })();
+
+  if (col != null) {
+    // Scroll & highlight the alignment column
+    const isCodon = panelData[targetId]?.codonMode;
+    const scrollMultiplier = isCodon ? 3 : 1;
+    setScrollPositions(prev => ({
+      ...prev,
+      [targetId]: col * scrollMultiplier * CELL_SIZE
+    }));
+    setHighlightSite(col);
+    setHighlightOrigin(originId);
+  }
+  return;
+}
   }, [panelLinks, panels, panelData, highlightOrigin]);
 
 
@@ -1999,8 +2125,9 @@ const handleCreateSequenceFromStructure = useCallback((id) => {
   ): panel.type === 'structure' ? (
   <StructurePanel
     {...commonProps}
-    setPanelData={setPanelData}
-    onCreateSequenceFromStructure={handleCreateSequenceFromStructure}
+setPanelData={setPanelData}
+  onCreateSequenceFromStructure={handleCreateSequenceFromStructure}
+  linkedPanelData={panelLinks[panel.i] ? panelData[panelLinks[panel.i]] : null}
    
   />
 )   : null}

@@ -41,14 +41,15 @@ const getChainColor = (chain) => {
   return chainColors[idx];
 };
 
-function StructureViewer({ pdb, panelId, surface = true, data, setPanelData }) {
+function StructureViewer({ pdb, panelId, surface = true, data, setPanelData,linkedTo, highlightedSite, highlightOrigin, onHighlight,
+  linkedPanelData }) {
   const viewerDiv = useRef(null);
   const viewerRef = useRef(null);
   const surfaceHandleRef = useRef(null);
   const appliedInitialViewRef = useRef(false);
 
-  // Tooltip: use state for small structures, direct DOM updates in perf mode
-  const [tooltip, setTooltip] = useState(null);
+  // StructureTooltip: use state for small structures, direct DOM updates in perf mode
+  const [tooltip, setStructureTooltip] = useState(null);
   const tooltipRef = useRef(null);
 
   // Perf controls
@@ -63,6 +64,90 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData }) {
 
   // throttle window in ms when perfMode = true
   const HOVER_THROTTLE_MS = 60; // tuned a bit higher for giant structures
+
+
+const chainInfoRef = useRef({
+  // byChain: { [chainId]: { caAtoms: Array<atom>, keyToIndex: Map, length: number } }
+  byChain: {}
+});
+
+function buildChainInfo(model) {
+  const byChain = {};
+  const atoms = model.selectedAtoms({ atom: 'CA' }) || [];
+  for (const a of atoms) {
+    const chain = (a.chain || 'A').trim() || 'A';
+    const resi = a.resi; // integer
+    const icode = a.inscode || a.icode || ''; // 3Dmol uses inscode
+    const key = `${chain}|${resi}|${icode}`;
+
+    if (!byChain[chain]) {
+      byChain[chain] = { caAtoms: [], keyToIndex: new Map(), length: 0 };
+    }
+    const info = byChain[chain];
+    const idx = info.caAtoms.length;
+    info.caAtoms.push(a);
+    info.keyToIndex.set(key, idx);
+    info.length++;
+  }
+  chainInfoRef.current.byChain = byChain;
+}
+
+const showStructureTooltipText = (text) => {
+  if (perfModeRef.current && tooltipRef.current) {
+    tooltipRef.current.textContent = text;
+    tooltipRef.current.style.display = 'block';
+  } else {
+    setStructureTooltip(text);
+  }
+};
+const hideStructureTooltipText = () => {
+  if (perfModeRef.current && tooltipRef.current) {
+    tooltipRef.current.style.display = 'none';
+  } else {
+    setStructureTooltip(null);
+  }
+};
+
+// Use linked MSA data to guess the chain (id like "..._chain_A" or equals "A"; or length match)
+function guessLinkedChainId(linkedPanelData) {
+  if (!linkedPanelData || !Array.isArray(linkedPanelData.data)) return null;
+
+  const byChain = chainInfoRef.current.byChain;
+  const chainIds = Object.keys(byChain);
+  if (!chainIds.length) return null;
+
+  // Try by name
+  for (const seq of linkedPanelData.data) {
+    const id = (seq.id || '').trim();
+    const m1 = id.match(/_chain_([A-Za-z0-9])\b/i);
+    if (m1 && byChain[m1[1]]) return m1[1];
+    if (chainIds.includes(id)) return id; // exact match like "A"
+  }
+
+  // Try by length (unique match)
+  const candidates = [];
+  for (const seq of linkedPanelData.data) {
+    const ungappedLen = (seq.sequence || '').replace(/-/g, '').length;
+    for (const c of chainIds) {
+      if (byChain[c].length === ungappedLen) {
+        candidates.push(c);
+      }
+    }
+  }
+  if (candidates.length === 1) return candidates[0];
+
+  return null;
+}
+
+// Map alignment column -> residue index (skip gaps)
+function msaColToResidIndex(seqString, col) {
+  if (!seqString || col == null) return null;
+  let count = -1;
+  for (let i = 0; i <= col && i < seqString.length; i++) {
+    if (seqString[i] !== '-') count++;
+  }
+  return count < 0 ? null : count;
+}
 
   const defaultColorFunc = (atom) => {
     const resn = (atom.resn || '').trim().toUpperCase();
@@ -127,42 +212,74 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData }) {
     });
   };
 
-  const setupHoverTooltip = () => {
-    const v = viewerRef.current;
-    if (!v) return;
+const setupHoverStructureTooltip = () => {
+  const v = viewerRef.current;
+  if (!v) return;
 
-    // Restrict picking to CA atoms to reduce hit test frequency
-    v.setHoverable(
-      { atom: 'CA' },
-      true,
-      function onHover(atom) {
-        if (!atom || atom.hetflag) return;
+  v.setHoverable(
+    { atom: 'CA' },
+    true,
+    function onHover(atom) {
+      if (!atom || atom.hetflag) return;
 
-        const resn = (atom.resn || '').trim().toUpperCase();
-        const one = threeToOne[resn] || '-';
-        const label = `chain ${atom.chain || ''}, ${atom.resi ?? ''}: ${one}`;
+      const resn = (atom.resn || '').trim().toUpperCase();
+      const one = threeToOne[resn] || '-';
+      const label = `chain ${atom.chain || ''}, ${atom.resi ?? ''}: ${one}`;
 
-        // Tooltip update: avoid React state churn in perf mode
-        if (perfModeRef.current && tooltipRef.current) {
-          tooltipRef.current.textContent = label;
-          tooltipRef.current.style.display = 'block';
-        } else {
-          setTooltip(label);
+      // StructureTooltip (hover-driven)
+      showStructureTooltipText(label);
+
+      // Share highlight back to MSA if linked
+      try {
+        const chain = (atom.chain || 'A').trim() || 'A';
+        const key = `${chain}|${atom.resi}|${atom.inscode || atom.icode || ''}`;
+        const info = chainInfoRef.current.byChain[chain];
+        const idx = info ? info.keyToIndex.get(key) : null;
+        if (idx != null && typeof onHighlight === 'function') {
+          onHighlight(idx, panelId);
         }
+      } catch {}
 
-        // Move the lightweight halo
-        scheduleHalo(atom);
-      },
-      function onUnhover() {
-        if (perfModeRef.current && tooltipRef.current) {
-          tooltipRef.current.style.display = 'none';
-        } else {
-          setTooltip(null);
-        }
-        scheduleHalo(null);
-      }
-    );
-  };
+      scheduleHalo(atom);
+    },
+    function onUnhover() {
+      hideStructureTooltipText();
+      scheduleHalo(null);
+      if (typeof onHighlight === 'function') onHighlight(null, panelId);
+    }
+  );
+};
+
+useEffect(() => {
+  const v = viewerRef.current;
+  const byChain = chainInfoRef.current.byChain;
+  if (!v || !byChain) return;
+
+  const chainId = data?.linkedChainId || guessLinkedChainId(linkedPanelData);
+  const residIdx = data?.linkedResidueIndex;
+
+  if (chainId && byChain[chainId] && Number.isInteger(residIdx)) {
+    const a = byChain[chainId].caAtoms[residIdx];
+    if (a) {
+      // Show halo
+      scheduleHalo(a);
+
+      // Build tooltip label same as hover
+      const resn = (a.resn || '').trim().toUpperCase();
+      const one = threeToOne[resn] || '-';
+      const label = `chain ${a.chain || ''}, ${a.resi ?? ''}: ${one}`;
+
+      // StructureTooltip (linked-driven)
+      showStructureTooltipText(label);
+      return;
+    }
+  }
+
+  // Clear if no valid linked highlight
+  hideStructureTooltipText();
+  scheduleHalo(null);
+  // eslint-disable-next-line
+}, [data?.linkedResidueIndex, data?.linkedChainId, linkedPanelData]);
 
   const rebuildSurface = () => {
     const v = viewerRef.current;
@@ -202,6 +319,7 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData }) {
 
       viewer.addModel(pdb, 'pdb');
       modelRef.current = viewer.getModel(0);
+      buildChainInfo(modelRef.current);
 
       // crude size check → enable perf mode for big structures
       let isPerf = false;
@@ -217,7 +335,7 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData }) {
       applyCartoonOnce();
       colorAllDefaultOnce();
       rebuildSurface();
-      setupHoverTooltip();
+      setupHoverStructureTooltip();
 
       viewer.setZoomLimits(0.9, 1000);
 
@@ -356,7 +474,7 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData }) {
         className="structure-viewer-container"
       />
 
-      {/* Tooltip: in perf mode we update via ref to avoid React churn */}
+      {/* StructureTooltip: in perf mode we update via ref to avoid React churn */}
       <div
         ref={tooltipRef}
         style={{
