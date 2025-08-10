@@ -280,36 +280,42 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
   )
 )
   useEffect(() => {
-    // Only scroll if highlight comes from a linked panel
-    if (
-      highlightedSite != null &&
-      linkedTo === highlightOrigin &&
-      highlightOrigin !== id &&
-      scrollContainerRef.current
-    ) {
-        const colWidth = 24;
-        const container = scrollContainerRef.current;
-        const containerWidth = container.offsetWidth;
-        const currentScroll = container.scrollLeft;
+  if (
+    highlightedSite != null &&
+    linkedTo === highlightOrigin &&
+    highlightOrigin !== id &&
+    scrollContainerRef.current
+  ) {
+    const colWidth = 24;
+    const container = scrollContainerRef.current;
+    const containerWidth = container.offsetWidth;
+    const currentScroll = container.scrollLeft;
+    const maxScroll = container.scrollWidth - containerWidth;
 
-        const colLeft = highlightedSite * colWidth;
-        const colRight = colLeft + colWidth;
+    const colLeft = highlightedSite * colWidth;
+    const colRight = colLeft + colWidth;
 
-        // If not fully visible, scroll to reveal
-        if (colLeft < currentScroll) {
-          container.scrollTo({
-            left: colLeft - 600, // padding
-            behavior: "smooth",
-          });
-        }
-        else if (colRight > currentScroll + containerWidth) {
-          container.scrollTo({
-            left: colRight - containerWidth + 600, // padding
-            behavior: "smooth",
-          });
-        }
+    // Use a dynamic padding: 1/3 of container width
+    const padding = containerWidth / 3;
+
+    let targetScroll = null;
+
+    if (colLeft < currentScroll) {
+      targetScroll = colLeft - padding;
+    } else if (colRight > currentScroll + containerWidth) {
+      targetScroll = colRight - containerWidth + padding;
     }
-    }, [highlightedSite, highlightOrigin, linkedTo, id]);
+
+    if (targetScroll != null) {
+      // Clamp between 0 and maxScroll
+      targetScroll = Math.max(0, Math.min(maxScroll, targetScroll));
+      container.scrollTo({
+        left: targetScroll,
+        behavior: "smooth",
+      });
+    }
+  }
+}, [highlightedSite, highlightOrigin, linkedTo, id]);
   return (
     <PanelContainer
       id={id}
