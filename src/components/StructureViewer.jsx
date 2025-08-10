@@ -224,7 +224,7 @@ const setupHoverStructureTooltip = () => {
 
       const resn = (atom.resn || '').trim().toUpperCase();
       const one = threeToOne[resn] || '-';
-      const label = `chain ${atom.chain || ''}, ${atom.resi ?? ''}: ${one}`;
+      const label = `chain ${atom.chain || ''}, ${atom.resi-1 ?? ''}: ${one}`;
 
       // StructureTooltip (hover-driven)
       showStructureTooltipText(label);
@@ -267,7 +267,7 @@ useEffect(() => {
       // Build tooltip label same as hover
       const resn = (a.resn || '').trim().toUpperCase();
       const one = threeToOne[resn] || '-';
-      const label = `chain ${a.chain || ''}, ${a.resi ?? ''}: ${one}`;
+      const label = `chain ${a.chain || ''}, ${a.resi-1 ?? ''}: ${one}`;
 
       // StructureTooltip (linked-driven)
       showStructureTooltipText(label);
