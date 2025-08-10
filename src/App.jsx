@@ -1,10 +1,10 @@
 // App.jsx
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import throttle from 'lodash.throttle'
-import debounce from 'lodash.debounce';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SurfaceToggleButton,
 SeqlogoButton, SequenceButton, GitHubButton} from './components/Buttons.jsx';
+import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, threeToOne,
    parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick} from './components/Utils.jsx';
 import { residueColors, logoColors } from './constants/colors.js';
@@ -12,15 +12,14 @@ import { FixedSizeGrid as Grid } from 'react-window';
 import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
-import { PencilSquareIcon } from '@heroicons/react/24/outline';
 import ReactDOM from 'react-dom';
 import PhyloTreeViewer from './components/PhyloTreeViewer.jsx';
 import PhylipHeatmap from "./components/Heatmap";
 import Histogram from './components/Histogram.jsx';
 import SequenceLogoSVG from './components/Seqlogo.jsx';
 import StructureViewer from './components/StructureViewer.jsx';
-import { ArrowDownTrayIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
 import { TitleFlip } from './components/Animations.jsx';
+import useElementSize from './hooks/useElementSize.js'
 
 const LABEL_WIDTH = 66;
 const CELL_SIZE = 24;
@@ -281,10 +280,6 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
         prefix="SeqLogo: "
         filename={data.filename || "Sequence Logo"}
         setPanelData={setPanelData}
-        editing={false}
-        setEditing={()=>{}}
-        filenameInput={data.filename || "Sequence Logo"}
-        setFilenameInput={()=>{}}
         onDuplicate={onDuplicate}
         onRemove={onRemove}
         onLinkClick={onLinkClick}
@@ -320,23 +315,7 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
   highlightOrigin, onHighlight, 
 }) {
   const { labels, matrix, filename } = data || {};
-  const containerRef = useRef();
-  const [dims, setDims] = useState({ width: 400, height: 400 });
-
-  // Watch for panel resize
-  useEffect(() => {
-    if (!containerRef.current) return;
-    const obs = new window.ResizeObserver(entries => {
-      for (let entry of entries) {
-        setDims({
-          width: entry.contentRect.width,
-          height: entry.contentRect.height,
-        });
-      }
-    });
-    obs.observe(containerRef.current);
-    return () => obs.disconnect();
-  }, []);
+  const [containerRef, dims] = useElementSize({ debounceMs: 150 });
 
   const handleCellClick = (cell, id) => {
     setPanelData(prev => {
@@ -387,13 +366,9 @@ return (
           isLinkModeActive={isLinkModeActive}
           isLinked={isLinked}
           onRemove={onRemove}
-          editing={false}
-          setEditing={()=>{}}
-          filenameInput={filename}
-          setFilenameInput={()=>{}}
     />
     {/* Add padding container around the heatmap */}
-    <div className="flex-1 p-2 pb-4 pr-4 overflow-hidden">
+    <div ref={containerRef} className="flex-1 p-2 pb-4 pr-4 overflow-hidden">
       {labels && matrix ? (
         <PhylipHeatmap
         id={id}
@@ -487,9 +462,8 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const msaData = useMemo(() => data.data, [data.data]);
   const filename = data.filename;
   const containerRef = useRef(null);
-  const gridContainerRef = useRef(null);
+  const [gridContainerRef, dims] = useElementSize({ debounceMs: 150 });
   const gridRef = useRef(null);
-  const [dims, setDims] = useState({ width: 0, height: 0 });
   const [hoveredCol, setHoveredCol] = useState(null);
   const [hoveredRow, setHoveredRow] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
@@ -571,41 +545,6 @@ useEffect(() => {
     return;
   }
 }, [hoveredPanelId, id, linkedTo, highlightOrigin, onHighlight, setHighlightedSequenceId]);
-
-  useEffect(() => {
-  if (!gridContainerRef.current) return;
-
-
-  const handleResize = debounce((width, height) => {
-    setDims(prev => {
-      if (prev.width === width && prev.height === height) return prev;
-      return { width, height };
-    });
-  }, 200); // Debounce at 200ms
-
-  let resizeRAF = null;
-  const ro = new ResizeObserver(entries => {
-    if (resizeRAF != null) return;
-    resizeRAF = requestAnimationFrame(() => {
-      let width, height;
-      for (let { contentRect } of entries) {
-        width = contentRect.width;
-        height = contentRect.height;
-      }
-      handleResize(width, height);
-      resizeRAF = null;
-    });
-  });
-
-  ro.observe(gridContainerRef.current);
-
-  return () => {
-    ro.disconnect();
-    handleResize.cancel();      
-    if (resizeRAF != null)      
-      cancelAnimationFrame(resizeRAF);
-  };
-  }, []);
 
   useEffect(() => {
     if (!gridRef.current || typeof externalScrollLeft !== 'number') return;
@@ -1035,18 +974,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
     }
     return data.xValues || data.data.map((_, i) => i + 1);
   }, [isTabular, selectedXCol, data]);
-  const chartContainerRef = useRef(null);
-  const [height, setHeight] = useState(300); // default height
-  useEffect(() => {
-    if (!chartContainerRef.current) return;
-    const handleResize = () => {
-      setHeight(chartContainerRef.current.offsetHeight);
-    };
-    handleResize();
-    const ro = new window.ResizeObserver(handleResize);
-    ro.observe(chartContainerRef.current);
-    return () => ro.disconnect();
-  }, []);
+  const [chartContainerRef, { height }] = useElementSize({ debounceMs: 150 });
   return (
   <PanelContainer
     id={id}
@@ -1853,7 +1781,6 @@ if (sourcePanel?.type === 'structure' && targetPanel?.type === 'alignment') {
           }
         else {
           // Split by line to preserve line numbers
-          const lines = text.trim().split(/\r?\n/);
           const values = lines.map(line => Number(line.trim())).filter(n => !isNaN(n));
           // Use line numbers (1-based) as xValues
           panelPayload = { data: values, filename, xValues: values.map((_, i) => i + 1) };
