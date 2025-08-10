@@ -495,24 +495,6 @@ useEffect(() => {
       >
         {tooltip}
       </div>
-
-      {/* Optional tiny indicator for perf mode */}
-      {perfMode && (
-        <div
-          style={{
-            position: 'absolute',
-            left: '10px',
-            bottom: '10px',
-            fontSize: '10px',
-            color: '#6b7280',
-            background: 'rgba(0,0,0,0.05)',
-            padding: '2px 6px',
-            borderRadius: '6px'
-          }}
-        >
-          perf mode
-        </div>
-      )}
     </div>
   );
 }

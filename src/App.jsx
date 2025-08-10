@@ -35,8 +35,8 @@ const residueColors = {
 const logocolors = {
   A: 'bg-green-200', C: 'bg-yellow-200', D: 'bg-red-200', E: 'bg-cyan-200',
   F: 'bg-purple-200', G: 'bg-gray-200', H: 'bg-pink-200', I: 'bg-blue-200',
-  K: 'bg-orange-200', L: 'bg-blue-200', M: 'bg-blue-100', N: 'bg-red-100',
-  P: 'bg-teal-200', Q: 'bg-red-100', R: 'bg-orange-300', S: 'bg-yellow-100',
+  K: 'bg-orange-200', L: 'bg-blue-200', M: 'bg-blue-200', N: 'bg-red-100',
+  P: 'bg-teal-200', Q: 'bg-red-100', R: 'bg-orange-300', S: 'bg-yellow-200',
   T: 'bg-green-100', V: 'bg-blue-100', W: 'bg-purple-300', Y: 'bg-purple-100',
   '-': 'bg-white', O : 'bg-purple-300', U: 'bg-gray-300', B : 'bg-red-300'
 };
