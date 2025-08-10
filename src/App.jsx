@@ -7,6 +7,7 @@ CodonToggleButton, TranslateButton, SurfaceToggleButton,
 SeqlogoButton, SequenceButton, GitHubButton} from './components/Buttons.jsx';
 import { translateNucToAmino, isNucleotide, threeToOne,
    parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick} from './components/Utils.jsx';
+import { residueColors, logoColors } from './constants/colors.js';
 import { FixedSizeGrid as Grid } from 'react-window';
 import GridLayout from 'react-grid-layout';
 import 'react-grid-layout/css/styles.css';
@@ -19,57 +20,10 @@ import Histogram from './components/Histogram.jsx';
 import SequenceLogoSVG from './components/Seqlogo.jsx';
 import StructureViewer from './components/StructureViewer.jsx';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon } from '@heroicons/react/24/outline';
+import { TitleFlip } from './components/Animations.jsx';
 
 const LABEL_WIDTH = 66;
 const CELL_SIZE = 24;
-
-const residueColors = {
-  A: 'bg-green-200', C: 'bg-yellow-200', D: 'bg-red-200', E: 'bg-red-200',
-  F: 'bg-purple-200', G: 'bg-gray-200', H: 'bg-pink-200', I: 'bg-blue-200',
-  K: 'bg-orange-200', L: 'bg-blue-200', M: 'bg-blue-100', N: 'bg-red-100',
-  P: 'bg-teal-200', Q: 'bg-red-100', R: 'bg-orange-300', S: 'bg-green-100',
-  T: 'bg-green-100', V: 'bg-blue-100', W: 'bg-purple-300', Y: 'bg-purple-100',
-  '-': 'bg-white'
-};
-
-const logocolors = {
-  A: 'bg-green-200', C: 'bg-yellow-200', D: 'bg-red-200', E: 'bg-cyan-200',
-  F: 'bg-purple-200', G: 'bg-gray-200', H: 'bg-pink-200', I: 'bg-blue-200',
-  K: 'bg-orange-200', L: 'bg-blue-200', M: 'bg-blue-200', N: 'bg-red-100',
-  P: 'bg-teal-200', Q: 'bg-red-100', R: 'bg-orange-300', S: 'bg-yellow-200',
-  T: 'bg-green-100', V: 'bg-blue-100', W: 'bg-purple-300', Y: 'bg-purple-100',
-  '-': 'bg-white', O : 'bg-purple-300', U: 'bg-gray-300', B : 'bg-red-300'
-};
-
-function TitleFlip({ text }) {
-  return (
-    <div className="flex items-center justify-start w-full gap-0">
-      {text.split('').map((ch, i) => {
-        const color = logocolors[ch] || 'bg-gray-200';
-        return (
-          <div key={i} className="flip-card w-16 h-16">
-            <div
-              className="flip-inner h-full w-full animate-tileFlip"
-              style={{
-                animation: 'tileFlip 650ms ease-out forwards',
-                animationDelay: `${i * 80}ms`
-              }}
-            >
-              {/* FRONT: blank colored tile */}
-              <span className={`flip-face flip-front ${color} block w-full h-full rounded-none`} />
-              {/* BACK: same color, but with the letter */}
-              <span
-                className={`flip-face flip-back ${color} block w-full h-full flex items-center justify-center text-5xl font-bold leading-none`}
-              >
-                {ch}
-              </span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
 
 const MSACell = React.memo(function MSACell({
    style, char, isHoverHighlight, isLinkedHighlight,
@@ -178,7 +132,6 @@ function EditableFilename({ id, filename, setPanelData, prefix = '', className =
         className="ml-2 p-0.5"
         onClick={() => setEditing(true)}
         title="Edit filename"
-        aria-label="Edit filename"
       >
         <span className="inline-flex items-center justify-center w-6 h-7">
           <PencilSquareIcon className="w-5 h-5 text-gray-700"/>
@@ -2027,7 +1980,7 @@ if (sourcePanel?.type === 'structure' && targetPanel?.type === 'alignment') {
     return (
       <div className="h-screen w-screen flex flex-col overflow-hidden bg-white text-black">
         <div className="p-4 flex justify-between items-center">
-          <TitleFlip key={titleFlipKey} text="MSEABOARD" />
+          <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors}/>
 <div className="flex items-center gap-4">
   <div className="flex items-center gap-2 mr-8">
   {/* Save Workspace Button */}

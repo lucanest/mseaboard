@@ -1,16 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as $3Dmol from '3dmol/build/3Dmol-min.js';
 import { threeToOne } from './Utils.jsx';
-
-// Per-residue palette for the initial cartoon colors (static)
-const residueColorHex = {
-  A: '#A7F3D0', C: '#FEF08A', D: '#FCA5A5', E: '#FCA5A5',
-  F: '#DDD6FE', G: '#E5E7EB', H: '#FBCFE8', I: '#BFDBFE',
-  K: '#FDBA74', L: '#BFDBFE', M: '#DBEAFE', N: '#FECACA',
-  P: '#99F6E4', Q: '#FECACA', R: '#FDBA74', S: '#BBF7D0',
-  T: '#BBF7D0', V: '#DBEAFE', W: '#C4B5FD', Y: '#DDD6FE',
-  '-': '#FFFFFF'
-};
+import { residueColorHex,chainColors } from '../constants/colors.js';
 
 function ensure3Dmol(cb) {
   if (window.$3Dmol) return cb();
@@ -30,11 +21,7 @@ function ensure3Dmol(cb) {
   document.body.appendChild(script);
 }
 
-const chainColors = [
-  '#A7F3D0', '#FCA5A5', '#BFDBFE', '#FBCFE8', '#FDBA74', '#DDD6FE',
-  '#E5E7EB', '#FEF08A', '#DBEAFE', '#FECACA', '#99F6E4', '#BBF7D0',
-  '#C4B5FD', '#FECACA', '#FDBA74', '#BBF7D0', '#DBEAFE', '#DDD6FE'
-];
+
 const getChainColor = (chain) => {
   if (!chain) return '#FFFFFF';
   const idx = chain.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % chainColors.length;
