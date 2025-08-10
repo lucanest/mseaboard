@@ -1033,7 +1033,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
   const [selectedXCol, setSelectedXCol] = useState(
     isTabular
       ? (data.selectedXCol ||
-        data.data.headers.find(h => typeof data.data.rows[0][h] !== 'number'))
+        data.data.headers.find(h => typeof data.data.rows[0][h] === 'number'))
       : null
   );
 
@@ -1045,7 +1045,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
       );
       setSelectedXCol(
         data.selectedXCol ||
-        data.data.headers.find(h => typeof data.data.rows[0][h] !== 'number')
+        data.data.headers.find(h => typeof data.data.rows[0][h] === 'number')
       );
     }
   }, [isTabular, data.selectedCol, data.selectedXCol, data.data]);
@@ -1057,9 +1057,6 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
     );
   }, [isTabular, data]);
 
-  const allCols = useMemo(() => {
-    return isTabular ? data.data.headers : [];
-  }, [isTabular, data]);
   const valuesToPlot = useMemo(() => {
     if (isTabular && selectedCol) {
       return data.data.rows.map(row => row[selectedCol]);
@@ -1115,7 +1112,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
           <div>
             <label className="mr-2">X:</label>
             <select
-              value={selectedXCol}
+              value={selectedXCol ?? ''}
               onChange={e => {
                 setSelectedXCol(e.target.value);
                 setPanelData(prev => ({
@@ -1128,7 +1125,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
               }}
               className="border rounded-xl p-1"
             >
-              {allCols.map(col => (
+               {numericCols.map(col => (
                 <option key={col} value={col}>{col}</option>
               ))}
             </select>
@@ -1136,7 +1133,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
                     <div>
             <label className="mr-2">Y:</label>
             <select
-              value={selectedCol}
+              value={selectedCol ?? ''}
               onChange={e => {
                 setSelectedCol(e.target.value);
                 setPanelData(prev => ({
@@ -1683,7 +1680,7 @@ const handleCreateSequenceFromStructure = useCallback((id) => {
       const targetData = panelData[targetId];
       if (targetData && !Array.isArray(targetData.data)) {
         const xCol = targetData.selectedXCol ||
-          (targetData.data.headers.find(h => typeof targetData.data.rows[0][h] !== 'number'));
+          (targetData.data.headers.find(h => typeof targetData.data.rows[0][h] === 'number'));
         if (xCol) {
           // Find the bar index whose x value matches the alignment column
           const xArr = targetData.data.rows.map(row => row[xCol]);
@@ -1704,7 +1701,7 @@ const handleCreateSequenceFromStructure = useCallback((id) => {
       let highlightCol = site;
       if (sourceData && !Array.isArray(sourceData.data)) {
         const xCol = sourceData.selectedXCol ||
-          (sourceData.data.headers.find(h => typeof sourceData.data.rows[0][h] !== 'number'));
+          (sourceData.data.headers.find(h => typeof sourceData.data.rows[0][h] === 'number'));
         if (xCol) {
           const xVal = sourceData.data.rows[site]?.[xCol];
           if (typeof xVal === 'number') {
