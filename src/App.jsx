@@ -135,13 +135,7 @@ function PanelHeader({
   );
 }
 
-function EditableFilename({ 
-  id, 
-  filename, 
-  setPanelData, 
-  prefix = '', 
-  className = '' 
-}) {
+function EditableFilename({ id, filename, setPanelData, prefix = '', className = '' }) {
   const [editing, setEditing] = useState(false);
   const [filenameInput, setFilenameInput] = useState(filename);
 
@@ -149,15 +143,19 @@ function EditableFilename({
     setFilenameInput(filename);
   }, [filename]);
 
+  const commit = () => {
+    setPanelData(prev => ({
+      ...prev,
+      [id]: { ...prev[id], filename: filenameInput }
+    }));
+    setEditing(false);
+  };
+
   return editing ? (
     <form
-      onSubmit={e => {
+      onSubmit={(e) => {
         e.preventDefault();
-        setPanelData(prev => ({
-          ...prev,
-          [id]: { ...prev[id], filename: filenameInput }
-        }));
-        setEditing(false);
+        commit();             
       }}
       className={`inline ${className}`}
     >
@@ -166,7 +164,10 @@ function EditableFilename({
         value={filenameInput}
         onChange={e => setFilenameInput(e.target.value)}
         autoFocus
-        onBlur={() => setEditing(false)}
+        onBlur={commit}        
+        onKeyDown={(e) => {
+          if (e.key === 'Escape') setEditing(false);
+        }}
       />
     </form>
   ) : (
@@ -177,6 +178,7 @@ function EditableFilename({
         className="ml-2 p-0.5"
         onClick={() => setEditing(true)}
         title="Edit filename"
+        aria-label="Edit filename"
       >
         <span className="inline-flex items-center justify-center w-6 h-7">
           <PencilSquareIcon className="w-5 h-5 text-gray-700"/>
@@ -860,7 +862,7 @@ useEffect(() => {
       }`}
       title={rawId}
       onMouseEnter={() => {
-        if (linkedTo) setHighlightedSequenceId(id);
+        if (linkedTo) setHighlightedSequenceId(seqId);
       }}
       onMouseLeave={() => {
         if (linkedTo) setHighlightedSequenceId(null);
