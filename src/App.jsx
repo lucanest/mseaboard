@@ -816,8 +816,8 @@ useEffect(() => {
           }}
         >
         {sequenceLabels.map(({ index, rawId, shortId, id: seqId}) => {
-        const isLinkedNameHighlight =
-            highlightedSequenceId === seqId && (hoveredPanelId === id || hoveredPanelId === linkedTo);
+        const isrowhovered = (msaData[hoveredRow]?.id === seqId) ? hoveredRow : false;
+        const isNameHighlight = isrowhovered || (highlightedSequenceId === seqId && hoveredPanelId === linkedTo)
 
   return (
     <div
@@ -827,7 +827,7 @@ useEffect(() => {
         lineHeight: `${CELL_SIZE}px`
       }}
       className={`flex items-center pr-2 pl-2 text-right font-bold truncate ${
-        isLinkedNameHighlight ? 'bg-yellow-100' : ''
+        isNameHighlight ? 'bg-yellow-100' : ''
       }`}
       title={rawId}
       onMouseEnter={() => {
