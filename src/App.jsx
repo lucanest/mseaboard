@@ -981,7 +981,6 @@ const NotepadPanel = React.memo(function NotepadPanel({
       id={id}
       hoveredPanelId={hoveredPanelId}
       setHoveredPanelId={setHoveredPanelId}
-      onDoubleClick={() => setEditing(true)}
     >
       <PanelHeader
         id={id}
