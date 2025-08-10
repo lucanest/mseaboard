@@ -24,30 +24,6 @@ import useElementSize from './hooks/useElementSize.js'
 const LABEL_WIDTH = 66;
 const CELL_SIZE = 24;
 
-const MSACell = React.memo(function MSACell({
-   style, char, isHoverHighlight, isLinkedHighlight,
-   onMouseEnter, onMouseMove, onMouseLeave,onClick, isPersistentHighlight
- }) {
-   const background = residueColors[char?.toUpperCase()] || 'bg-white';
-   return (
-     <div
-       style={style}
-       className={`flex items-center justify-center  ${background} ${
-      isHoverHighlight || isLinkedHighlight
-          ? 'alignment-highlight'
-          : isPersistentHighlight
-          ? 'persistent-alignment-highlight'
-          : ''
-       }`}
-       onMouseEnter={onMouseEnter}
-       onMouseMove={onMouseMove}
-       onMouseLeave={onMouseLeave}
-       onClick={onClick}
-     >
-       {char}
-     </div>
-   );
-});
 
 function PanelHeader({
   id,
@@ -449,6 +425,35 @@ extraButtons={[
   );
 });
 
+const MSACell = React.memo(function MSACell({
+  style,
+  char,
+  isHoverHighlight,
+  isLinkedHighlight,
+  isPersistentHighlight,
+  rowIndex,
+  columnIndex
+}) {
+  const background = residueColors[char?.toUpperCase()] || 'bg-white';
+  return (
+    <div
+      data-cell="1"
+      data-row={rowIndex}
+      data-col={columnIndex}
+      style={style}
+      className={`flex items-center justify-center ${background} ${
+        isHoverHighlight || isLinkedHighlight
+          ? 'alignment-highlight'
+          : isPersistentHighlight
+          ? 'persistent-alignment-highlight'
+          : ''
+      }`}
+    >
+      {char}
+    </div>
+  );
+});
+
 const AlignmentPanel = React.memo(function AlignmentPanel({
   id,
   data,
@@ -456,21 +461,21 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   onLinkClick, isLinkModeActive, isLinked, linkedTo,
   highlightedSite, highlightOrigin, onHighlight,
   onSyncScroll, externalScrollLeft,
-  highlightedSequenceId, setHighlightedSequenceId,hoveredPanelId,
-  setHoveredPanelId, setPanelData
+  highlightedSequenceId, setHighlightedSequenceId,
+  hoveredPanelId, setHoveredPanelId, setPanelData
 }) {
   const msaData = useMemo(() => data.data, [data.data]);
   const filename = data.filename;
   const containerRef = useRef(null);
   const [gridContainerRef, dims] = useElementSize({ debounceMs: 150 });
   const gridRef = useRef(null);
+
   const [hoveredCol, setHoveredCol] = useState(null);
   const [hoveredRow, setHoveredRow] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [codonMode, setCodonModeState] = useState(data.codonMode || false);
   const [scrollTop, setScrollTop] = useState(0);
   const isNuc = useMemo(() => isNucleotide(msaData), [msaData]);
-
 
   useEffect(() => {
     if (linkedTo && highlightedSite != null && id !== highlightOrigin) {
@@ -487,12 +492,13 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
 
   // throttle highlight to once every 150ms
   const throttledHighlight = useMemo(
-    () => throttle((col,row, originId, clientX, clientY) => {
-      setHoveredCol(col);
-      setHoveredRow(row);
-      setTooltipPos({ x: clientX, y: clientY });
-      onHighlight(col, originId);
-    }, 150),
+    () =>
+      throttle((col, row, originId, clientX, clientY) => {
+        setHoveredCol(col);
+        setHoveredRow(row);
+        setTooltipPos({ x: clientX, y: clientY });
+        onHighlight(col, originId);
+      }, 150),
     [onHighlight]
   );
 
@@ -507,20 +513,23 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
     [onSyncScroll, linkedTo, id]
   );
 
-  const setCodonMode = useCallback((fnOrValue) => {
-    setCodonModeState(prev => {
-      const next = typeof fnOrValue === 'function' ? fnOrValue(prev) : fnOrValue;
-      setPanelData(prevData => ({
-        ...prevData,
-        [id]: {
-          ...prevData[id],
-          codonMode: next,
-          highlightedSites: [] // clear highlights when switching modes
-        }
-      }));
-      return next;
-    });
-  }, [id, setPanelData]);
+  const setCodonMode = useCallback(
+    (fnOrValue) => {
+      setCodonModeState(prev => {
+        const next = typeof fnOrValue === 'function' ? fnOrValue(prev) : fnOrValue;
+        setPanelData(prevData => ({
+          ...prevData,
+          [id]: {
+            ...prevData[id],
+            codonMode: next,
+            highlightedSites: [] // clear highlights when switching modes
+          }
+        }));
+        return next;
+      });
+    },
+    [id, setPanelData]
+  );
 
   useEffect(() => {
     if (data.codonMode !== codonMode) {
@@ -528,34 +537,25 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
     }
   }, [data.codonMode]);
 
-useEffect(() => {
-  const clearHighlight = () => {
-    setHoveredCol(null);
-    setHoveredRow(null);
-    setHighlightedSequenceId(null);
-    if (id === highlightOrigin) {
-      onHighlight(null, id);
-    }
-  };
-
-  if (hoveredPanelId !== id) {
-    clearHighlight();
-  }
-  if (linkedTo && hoveredPanelId === linkedTo) {
-    return;
-  }
-}, [hoveredPanelId, id, linkedTo, highlightOrigin, onHighlight, setHighlightedSequenceId]);
+  useEffect(() => {
+    const clearHighlight = () => {
+      setHoveredCol(null);
+      setHoveredRow(null);
+      setHighlightedSequenceId(null);
+      if (id === highlightOrigin) onHighlight(null, id);
+    };
+    if (hoveredPanelId !== id) clearHighlight();
+    if (linkedTo && hoveredPanelId === linkedTo) return;
+  }, [hoveredPanelId, id, linkedTo, highlightOrigin, onHighlight, setHighlightedSequenceId]);
 
   useEffect(() => {
     if (!gridRef.current || typeof externalScrollLeft !== 'number') return;
-
     const viewportWidth = dims.width - LABEL_WIDTH;
     const outer = gridRef.current._outerRef;
     const currentScrollLeft = outer ? outer.scrollLeft : 0;
-    const colStart = externalScrollLeft;
     const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
+    const colStart = externalScrollLeft;
     const colEnd = colStart + itemWidth;
-
     if (colStart < currentScrollLeft || colEnd > currentScrollLeft + viewportWidth) {
       gridRef.current.scrollTo({ scrollLeft: colStart });
     }
@@ -564,85 +564,118 @@ useEffect(() => {
   const rowCount = msaData.length;
   const colCount = msaData[0]?.sequence.length || 0;
 
+  const pickCellFromEvent = useCallback((e) => {
+    const el = e.target.closest('[data-cell="1"]');
+    if (!el) return null;
+    const rowIndex = Number(el.getAttribute('data-row'));
+    const columnIndex = Number(el.getAttribute('data-col'));
+    if (Number.isNaN(rowIndex) || Number.isNaN(columnIndex)) return null;
+    return { rowIndex, columnIndex };
+  }, []);
+
+  const handleGridMouseMove = useCallback(
+    (e) => {
+      const hit = pickCellFromEvent(e);
+      if (!hit) return;
+      const { rowIndex, columnIndex } = hit;
+      const codonIndex = Math.floor(columnIndex / 3);
+      const idx = codonMode ? codonIndex : columnIndex;
+
+      // local UI state
+      setHoveredRow(rowIndex);
+      setHoveredCol(idx);
+      setTooltipPos({ x: e.clientX, y: e.clientY });
+
+      // cross-panel highlight (throttled)
+      throttledHighlight(idx, rowIndex, id, e.clientX, e.clientY);
+
+      if (linkedTo && setHighlightedSequenceId) {
+        const seqId = msaData[rowIndex]?.id;
+        if (seqId) setHighlightedSequenceId(seqId);
+      }
+    },
+    [pickCellFromEvent, codonMode, throttledHighlight, id, linkedTo, setHighlightedSequenceId, msaData]
+  );
+
+  const handleGridMouseLeave = useCallback(() => {
+    throttledHighlight.cancel();
+    setHoveredCol(null);
+    setHoveredRow(null);
+    if (id === highlightOrigin) onHighlight(null, id);
+    if (linkedTo && setHighlightedSequenceId) setHighlightedSequenceId(null);
+  }, [throttledHighlight, id, highlightOrigin, onHighlight, linkedTo, setHighlightedSequenceId]);
+
+  const handleGridClick = useCallback(
+    (e) => {
+      const hit = pickCellFromEvent(e);
+      if (!hit) return;
+      const { rowIndex, columnIndex } = hit;
+      const codonIndex = Math.floor(columnIndex / 3);
+      const idx = codonMode ? codonIndex : columnIndex;
+
+      setPanelData(prev => {
+        const prevHighlights = prev[id]?.highlightedSites || [];
+        const isHighlighted = prevHighlights.includes(idx);
+        const updatedHighlights = isHighlighted
+          ? prevHighlights.filter(i => i !== idx)
+          : [...prevHighlights, idx];
+        return {
+          ...prev,
+          [id]: {
+            ...prev[id],
+            highlightedSites: updatedHighlights
+          }
+        };
+      });
+    },
+    [pickCellFromEvent, codonMode, id, setPanelData]
+  );
+
+
   const Cell = useCallback(
-  ({ columnIndex, rowIndex, style }) => {
-    const char = msaData[rowIndex].sequence[columnIndex];
-    const codonIndex = Math.floor(columnIndex / 3);
-    const idx = codonMode ? codonIndex : columnIndex;
-    const persistentHighlights = data.highlightedSites || [];
-    const isPersistentHighlight = persistentHighlights.includes(idx); 
-    const isHoverHighlight = codonMode ? hoveredCol != null && hoveredCol === codonIndex : hoveredCol === columnIndex;
-    const isLinkedHighlight =
-      linkedTo &&
-      highlightedSite != null &&
-      (linkedTo === highlightOrigin || id === highlightOrigin) &&
-      (codonMode ? codonIndex === highlightedSite : columnIndex === highlightedSite);
-    const handleClick = useCallback(() => {
-    setPanelData(prev => {
-      const prevHighlights = prev[id]?.highlightedSites || [];
-      const isHighlighted = prevHighlights.includes(idx);
-      const updatedHighlights = isHighlighted
-        ? prevHighlights.filter(i => i !== idx)
-        : [...prevHighlights, idx];
+    ({ columnIndex, rowIndex, style }) => {
+      const char = msaData[rowIndex].sequence[columnIndex];
+      const codonIndex = Math.floor(columnIndex / 3);
+      const idx = codonMode ? codonIndex : columnIndex;
 
-      return {
-        ...prev,
-        [id]: {
-          ...prev[id],
-          highlightedSites: updatedHighlights
-        }
-      };
-    });
-    }, [id, idx, setPanelData]);
+      const persistentHighlights = data.highlightedSites || [];
+      const isPersistentHighlight = persistentHighlights.includes(idx);
 
-    const handleMouseEnter = useCallback(
-      (e) => {
-        const { clientX, clientY } = e;
-        const idx = codonMode ? codonIndex : columnIndex;
-        throttledHighlight(idx, rowIndex, id, clientX, clientY);
-        if (linkedTo && setHighlightedSequenceId) {
-          setHighlightedSequenceId(msaData[rowIndex].id);
-        }
-      },
-      [
-        codonMode, codonIndex, columnIndex, rowIndex, id,
-        throttledHighlight, linkedTo, setHighlightedSequenceId, msaData
-      ]
-    );
- 
-    const handleMouseMove = useCallback(
-      (e) => {
-        const { clientX, clientY } = e;
-        const idx = codonMode ? codonIndex : columnIndex;
-        throttledHighlight(idx, rowIndex, id, clientX, clientY);
-      },
-      [codonMode, codonIndex, columnIndex, rowIndex, id, throttledHighlight]
-    );
- 
+      const isHoverHighlight = codonMode
+        ? hoveredCol != null && hoveredCol === codonIndex
+        : hoveredCol === columnIndex;
 
- 
-     return (
-       <MSACell
-         key={`${rowIndex}-${columnIndex}`}
-         columnIndex={columnIndex}
-         rowIndex={rowIndex}
-         style={style}
-         char={char}
-         isHoverHighlight={isHoverHighlight}
-         isLinkedHighlight={isLinkedHighlight}
-         onMouseEnter={handleMouseEnter}
-         onMouseMove={handleMouseMove}
-        onClick={handleClick}
-        isPersistentHighlight={isPersistentHighlight}
-       />
-     );
-   },
-   [
-     msaData, codonMode, hoveredCol, highlightedSite, highlightOrigin,
-     linkedTo, id, onHighlight, throttledHighlight,
-     setHoveredCol, setHoveredRow, setHighlightedSequenceId
-   ]
- );
+      const isLinkedHighlight =
+        linkedTo &&
+        highlightedSite != null &&
+        (linkedTo === highlightOrigin || id === highlightOrigin) &&
+        (codonMode ? codonIndex === highlightedSite : columnIndex === highlightedSite);
+
+      return (
+        <MSACell
+          key={`${rowIndex}-${columnIndex}`}
+          columnIndex={columnIndex}
+          rowIndex={rowIndex}
+          style={style}
+          char={char}
+          isHoverHighlight={isHoverHighlight}
+          isLinkedHighlight={isLinkedHighlight}
+          isPersistentHighlight={isPersistentHighlight}
+        />
+      );
+    },
+    [
+      msaData,
+      codonMode,
+      hoveredCol,
+      highlightedSite,
+      highlightOrigin,
+      linkedTo,
+      id,
+      data.highlightedSites
+    ]
+  );
+
   const sequenceLabels = useMemo(() => {
     return msaData.map((seq, index) => {
       const rawId = seq.id.replace(/\s+/g, ' ').trim();
@@ -650,6 +683,7 @@ useEffect(() => {
       return { index, rawId, shortId, id: seq.id };
     });
   }, [msaData]);
+
   useEffect(() => {
     return () => {
       throttledHighlight.cancel();
@@ -668,111 +702,108 @@ useEffect(() => {
       <div
         ref={containerRef}
         className="relative flex flex-col h-full border rounded-xl bg-white"
-        onMouseLeave={() => {
-          throttledHighlight.cancel();
-          setHoveredCol(null);
-          if (id === highlightOrigin) {
-            onHighlight(null, id);
-          }
-        }}
+        onMouseLeave={handleGridMouseLeave}
       >
         <PanelHeader
           id={id}
           prefix="MSA: "
           filename={filename}
           setPanelData={setPanelData}
-          extraButtons={isNuc ? [
-            <CodonToggleButton
-                onClick={() => setCodonMode(m => !m)}
-                isActive={codonMode}
-              />,
-              <TranslateButton onClick={() => onDuplicateTranslate(id)} />,
-              <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />
-            ] : [<SeqlogoButton onClick={() => onCreateSeqLogo(id)} />]}
+          extraButtons={
+            isNuc
+              ? [
+                  <CodonToggleButton
+                    onClick={() => setCodonMode(m => !m)}
+                    isActive={codonMode}
+                  />,
+                  <TranslateButton onClick={() => onDuplicateTranslate(id)} />,
+                  <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />
+                ]
+              : [<SeqlogoButton onClick={() => onCreateSeqLogo(id)} />]
+          }
           onDuplicate={onDuplicate}
           onLinkClick={onLinkClick}
           isLinkModeActive={isLinkModeActive}
           isLinked={isLinked}
           onRemove={onRemove}
         />
-      
 
         {hoveredCol != null && hoveredPanelId === id && (
-        <MSATooltip x={tooltipPos.x} y={tooltipPos.y}>
-          <div className="flex flex-col items-center">
-            <span className="font-bold">
-              {codonMode
-                ? `Codon ${hoveredCol + 1}`
-                : `Site ${hoveredCol + 1}`}
-            </span>
-            {hoveredRow != null && msaData[hoveredRow] && (
-              <span className="text-gray-700 font-mono text-xs">{msaData[hoveredRow].id}</span>
-            )}
-          </div>
-        </MSATooltip>
+          <MSATooltip x={tooltipPos.x} y={tooltipPos.y}>
+            <div className="flex flex-col items-center">
+              <span className="font-bold">
+                {codonMode ? `Codon ${hoveredCol + 1}` : `Site ${hoveredCol + 1}`}
+              </span>
+              {hoveredRow != null && msaData[hoveredRow] && (
+                <span className="text-gray-700 font-mono text-xs">{msaData[hoveredRow].id}</span>
+              )}
+            </div>
+          </MSATooltip>
         )}
 
         {highlightedSite != null &&
           linkedTo === highlightOrigin &&
           id !== highlightOrigin && (
             <MSATooltip x={tooltipPos.x} y={tooltipPos.y}>
-          <span>
-            {codonMode ? 'Codon ' : 'Site '}
-            <span className="font-bold">{highlightedSite + 1}</span>
-          </span>
+              <span>
+                {codonMode ? 'Codon ' : 'Site '}
+                <span className="font-bold">{highlightedSite + 1}</span>
+              </span>
             </MSATooltip>
           )}
 
         <div
           ref={gridContainerRef}
           className="flex-1 flex overflow-hidden font-mono text-sm"
+          // event delegation lives on the same wrapper that contains the Grid
+          onMouseMove={handleGridMouseMove}
+          onClick={handleGridClick}
         >
-        <div
-          style={{
-            width: LABEL_WIDTH * 1.9,
-            height: dims.height,
-            overflow: 'hidden',
-            position: 'relative'
-          }}
-        >
-        <div
-          style={{
-            transform: `translateY(-${scrollTop || 0}px)`,
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0
-          }}
-        >
-        {sequenceLabels.map(({ index, rawId, shortId, id: seqId}) => {
-        const isrowhovered = (msaData[hoveredRow]?.id === seqId) ? hoveredRow : false;
-        const isNameHighlight = isrowhovered || (highlightedSequenceId === seqId && hoveredPanelId === linkedTo)
+          {/* Left labels (unchanged) */}
+          <div
+            style={{
+              width: LABEL_WIDTH * 1.9,
+              height: dims.height,
+              overflow: 'hidden',
+              position: 'relative'
+            }}
+          >
+            <div
+              style={{
+                transform: `translateY(-${scrollTop || 0}px)`,
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0
+              }}
+            >
+              {sequenceLabels.map(({ index, rawId, shortId, id: seqId }) => {
+                const isrowhovered = msaData[hoveredRow]?.id === seqId ? hoveredRow : false;
+                const isNameHighlight =
+                  isrowhovered || (highlightedSequenceId === seqId && hoveredPanelId === linkedTo);
+                return (
+                  <div
+                    key={index}
+                    style={{ height: CELL_SIZE, lineHeight: `${CELL_SIZE}px` }}
+                    className={`flex items-center pr-2 pl-2 text-right font-bold truncate ${
+                      isNameHighlight ? 'bg-yellow-100' : ''
+                    }`}
+                    title={rawId}
+                    onMouseEnter={() => {
+                      if (linkedTo) setHighlightedSequenceId(seqId);
+                    }}
+                    onMouseLeave={() => {
+                      if (linkedTo) setHighlightedSequenceId(null);
+                    }}
+                  >
+                    {shortId}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
 
-  return (
-    <div
-      key={index}
-      style={{
-        height: CELL_SIZE,
-        lineHeight: `${CELL_SIZE}px`
-      }}
-      className={`flex items-center pr-2 pl-2 text-right font-bold truncate ${
-        isNameHighlight ? 'bg-yellow-100' : ''
-      }`}
-      title={rawId}
-      onMouseEnter={() => {
-        if (linkedTo) setHighlightedSequenceId(seqId);
-      }}
-      onMouseLeave={() => {
-        if (linkedTo) setHighlightedSequenceId(null);
-      }}
-    >
-      {shortId}
-    </div>
-  );
-})}
-        </div>
-        </div>
-
+          {/* Virtualized grid */}
           <Grid
             ref={gridRef}
             columnCount={colCount}
