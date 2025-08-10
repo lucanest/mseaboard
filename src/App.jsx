@@ -128,7 +128,7 @@ function MSATooltip({ x, y, children }) {
     if (Math.abs(r.width - size.w) > 0.5 || Math.abs(r.height - size.h) > 0.5) {
       setSize({ w: r.width, h: r.height });
     }
-  }, [children, x, y]); // re-measure when content or anchor changes
+ }, [x, y, size.w, size.h]);
 
   const GAP = 12; // distance from pointer
   const vw = window.innerWidth;
@@ -319,7 +319,7 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
   if (!labels || !matrix) {
     return (
       <PanelContainer id={id} hoveredPanelId={hoveredPanelId} setHoveredPanelId={setHoveredPanelId}>
-        <PanelHeader {...{id, filename, setPanelData, onDuplicate, onLinkClick, isLinkModeActive, isLinked, onRemove, editing:false, setEditing:()=>{}, filenameInput:filename, setFilenameInput:()=>{} }}/>
+        <PanelHeader {...{id, filename, setPanelData, onDuplicate, onLinkClick, isLinkModeActive, isLinked, onRemove,}}/>
         <div className="flex-1 flex items-center justify-center text-gray-400">No data</div>
       </PanelContainer>
     );
@@ -813,8 +813,8 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
             rowHeight={CELL_SIZE}
             width={Math.max(dims.width - LABEL_WIDTH, 0)}
             onScroll={throttledOnScroll}
-            overscanRowCount={2}
-            overscanColumnCount={2}
+            overscanRowCount={6}
+            overscanColumnCount={6}
           >
             {Cell}
           </Grid>
@@ -831,7 +831,7 @@ const TreePanel = React.memo(function TreePanel({
   onLinkClick, isLinkModeActive, isLinked,hoveredPanelId,
   setHoveredPanelId, setPanelData
 }) {
-  const { data: newick, filename, isNhx,RadialMode=true } = data;
+  const { data: newick, filename, isNhx, RadialMode= true } = data || {};
 
   const handleRadialToggle = useCallback(() => {
     setPanelData(pd => ({
