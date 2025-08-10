@@ -291,7 +291,7 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
   highlightOrigin, onHighlight, 
 }) {
   const { labels, matrix, filename } = data || {};
-  const [containerRef, dims] = useElementSize({ debounceMs: 150 });
+  const [containerRef, dims] = useElementSize({ debounceMs: 90 });
 
   const handleCellClick = (cell, id) => {
     setPanelData(prev => {
@@ -467,7 +467,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const msaData = useMemo(() => data.data, [data.data]);
   const filename = data.filename;
   const containerRef = useRef(null);
-  const [gridContainerRef, dims] = useElementSize({ debounceMs: 150 });
+  const [gridContainerRef, dims] = useElementSize({ debounceMs: 90 });
   const gridRef = useRef(null);
 
   const [hoveredCol, setHoveredCol] = useState(null);
@@ -490,7 +490,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
     }
   }, [linkedTo, highlightedSite, id, highlightOrigin, codonMode, dims.height]);
 
-  // throttle highlight to once every 150ms
+  // throttle highlight to once every 90ms
   const throttledHighlight = useMemo(
     () =>
       throttle((col, row, originId, clientX, clientY) => {
@@ -498,18 +498,18 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
         setHoveredRow(row);
         setTooltipPos({ x: clientX, y: clientY });
         onHighlight(col, originId);
-      }, 150),
+      }, 90),
     [onHighlight]
   );
 
-  // throttle scroll handler to once every 150ms
+  // throttle scroll handler to once every 90ms
   const throttledOnScroll = useCallback(
     throttle(({ scrollTop, scrollLeft }) => {
       setScrollTop(scrollTop);
       if (linkedTo != null && scrollLeft != null) {
         onSyncScroll(scrollLeft, id);
       }
-    }, 150),
+    }, 90),
     [onSyncScroll, linkedTo, id]
   );
 
@@ -1005,7 +1005,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
     }
     return data.xValues || data.data.map((_, i) => i + 1);
   }, [isTabular, selectedXCol, data]);
-  const [chartContainerRef, { height }] = useElementSize({ debounceMs: 150 });
+  const [chartContainerRef, { height }] = useElementSize({ debounceMs: 90 });
   return (
   <PanelContainer
     id={id}
