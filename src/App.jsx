@@ -1110,6 +1110,55 @@ function App() {
   const pendingTypeRef = useRef(null);
   const pendingPanelRef = useRef(null);
   const [titleFlipKey, setTitleFlipKey] = useState(() => Date.now());
+
+  const addPanel = useCallback((config) => {
+    const { type, data, basedOnId, layoutHint = {} } = config;
+    const newId = `${type}-${Date.now()}`;
+
+    setPanelData(prev => ({ ...prev, [newId]: data }));
+
+    setPanels(prev => {
+      const withoutFooter = prev.filter(p => p.i !== '__footer');
+      return [...withoutFooter, { i: newId, type }, { i: '__footer', type: 'footer' }];
+    });
+
+    setLayout(prevLayout => {
+      const layoutWithoutFooter = prevLayout.filter(l => l.i !== '__footer');
+      const footer = prevLayout.find(l => l.i === '__footer');
+      
+      let newLayoutItem;
+      const originalLayout = basedOnId ? layoutWithoutFooter.find(l => l.i === basedOnId) : null;
+
+      if (originalLayout) {
+        // Position relative to the original panel
+        const rightX = originalLayout.x + originalLayout.w;
+        const fitsRight = rightX + originalLayout.w <= 12;
+        const newX = fitsRight ? rightX : originalLayout.x;
+        const newY = fitsRight ? originalLayout.y : originalLayout.y + originalLayout.h;
+        newLayoutItem = {
+          i: newId,
+          x: newX,
+          y: newY,
+          w: layoutHint.w || originalLayout.w,
+          h: layoutHint.h || 10,
+          minW: 3,
+          minH: 5,
+          ...layoutHint,
+        };
+      } else {
+        // Position at the bottom of the grid
+        const maxY = layoutWithoutFooter.reduce((max, l) => Math.max(max, l.y + l.h), 0);
+        newLayoutItem = { i: newId, x: (layoutWithoutFooter.length * 4) % 12, y: maxY, w: 4, h: 20, minW: 3, minH: 5, ...layoutHint };
+      }
+      
+      const nextLayout = [...layoutWithoutFooter, newLayoutItem];
+      const newMaxY = nextLayout.reduce((max, l) => Math.max(max, l.y + l.h), 0);
+      const newFooter = { ...(footer || {}), i: '__footer', x: 0, y: newMaxY, w: 12, h: 2, static: true };
+
+      return [...nextLayout, newFooter];
+    });
+  }, []);
+
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
@@ -1150,105 +1199,46 @@ function App() {
     const data = panelData[id];
     if (!panel || !data) return;
 
-    const newId = `${panel.type}-${Date.now()}`;
-    const newPanel = { ...panel, i: newId };
-
-    const originalLayout = layout.find(l => l.i === id);
-    let newX = (originalLayout.x + originalLayout.w);
-    if (newX + originalLayout.w > 12) {
-      newX = originalLayout.x;
-    } 
-    const newLayout = {
-      ...originalLayout,
-      i: newId,
-      x: newX,
-      y: originalLayout.y + 1
-    };
-
-
-  setPanels(prev => [...prev.filter(p => p.i !== '__footer'), newPanel, { i: '__footer', type: 'footer' }]);
-  setLayout(prev => {
-    const withoutFooter = prev.filter(l => l.i !== '__footer');
-    const footer = prev.find(l => l.i === '__footer');
-    return [...withoutFooter, newLayout, footer];
-  });
-  setPanelData(prev => ({ ...prev, [newId]: JSON.parse(JSON.stringify(data)) }));
-  }, [panels, panelData, layout]);
-
-  const handleDuplicateTranslate = useCallback((id) => {
-    const panel = panels.find(p => p.i === id);
-    const data = panelData[id];
-    if (!panel || !data) return;
-
-    const translatedMsa = translateNucToAmino(data.data)
-
-    const newId = `alignment-aa-${Date.now()}`;
-    const newPanel = { ...panel, i: newId };
-
-    const originalLayout = layout.find(l => l.i === id);
-    let newX = (originalLayout.x + originalLayout.w);
-    if (newX + originalLayout.w > 12) {
-      newX = originalLayout.x;
-    }
-    const newLayout = {
-      ...originalLayout,
-      i: newId,
-      x: newX,
-      y: originalLayout.y + 1
-    };
-
-    setPanels(prev => [...prev.filter(p => p.i !== '__footer'), newPanel, { i: '__footer', type: 'footer' }]);
-    setLayout(prev => {
-      const withoutFooter = prev.filter(l => l.i !== '__footer');
-      const footer = prev.find(l => l.i === '__footer');
-      return [...withoutFooter, newLayout, footer];
+    addPanel({
+      type: panel.type,
+      data: JSON.parse(JSON.stringify(data)), // Deep copy
+      basedOnId: id,
     });
-    setPanelData(prev => ({
-      ...prev,
-      [newId]: {
+  }, [panels, panelData, addPanel]);
+
+    const handleDuplicateTranslate = useCallback((id) => {
+    const data = panelData[id];
+    if (!data) return;
+
+    const translatedMsa = translateNucToAmino(data.data);
+    const newFilename = (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'alignment') + '_protein.fasta';
+
+    addPanel({
+      type: 'alignment',
+      data: {
         ...data,
         data: translatedMsa,
-        filename: (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'alignment') + '_protein.fasta',
-        codonMode: false
-      }
-    }));
-  }, [panels, panelData, layout, setPanels, setLayout, setPanelData]);
-
-  const handleCreateSeqLogo = useCallback((id) => {
-    const panel = panels.find(p => p.i === id);
-    const data = panelData[id];
-    if (!panel || !data) return;
-
-    const newId = `seqlogo-${Date.now()}`;
-    const newPanel = { i: newId, type: 'seqlogo' };
-
-    const originalLayout = layout.find(l => l.i === id);
-    const newLayout = {
-      ...originalLayout,
-      h:8,
-      i: newId,
-      x: originalLayout.x,
-      y: originalLayout.y + 1
-    };
-
-    setPanels(prev => [
-      ...prev.filter(p => p.i !== '__footer'),
-      newPanel,
-      { i: '__footer', type: 'footer' }
-    ]);
-    setLayout(prev => {
-      const withoutFooter = prev.filter(l => l.i !== '__footer');
-      const footer = prev.find(l => l.i === '__footer');
-      return [...withoutFooter, newLayout, footer];
+        filename: newFilename,
+        codonMode: false,
+      },
+      basedOnId: id,
     });
-    setPanelData(prev => ({
-      ...prev,
-      [newId]: {
+  }, [panelData, addPanel]);
+
+    const handleCreateSeqLogo = useCallback((id) => {
+    const data = panelData[id];
+    if (!data) return;
+
+    addPanel({
+      type: 'seqlogo',
+      data: {
         msa: data.data,
-        filename: (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'alignment')
-      }
-    }));
-  }, [panels, panelData, layout]);
+        filename: (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'alignment'),
+      },
+      basedOnId: id,
+      layoutHint: { h: 8 },
+    });
+  }, [panelData, addPanel]);
 
 
 const handleCreateSequenceFromStructure = useCallback((id) => {
@@ -1257,7 +1247,7 @@ const handleCreateSequenceFromStructure = useCallback((id) => {
 
   // --- minimal per-chain PDB parser (proteins via CA atoms) ---
 
-  // We’ll collect unique (chain, resSeq, iCode) via CA atoms in order
+  // We collect unique (chain, resSeq, iCode) via CA atoms in order
   const chains = new Map(); // chainId -> array of one-letter residues in order
   const seen = new Set();   // key: chain|resSeq|iCode to avoid duplicates
 
@@ -1826,22 +1816,14 @@ if (sourcePanel?.type === 'structure' && targetPanel?.type === 'alignment') {
         }
 
       // Update or add panel data
-      setPanelData(prev => ({ ...prev, [id]: panelPayload }));
-
-      if (!isReupload) {
-        // Add new panel in layout
-        setPanels(prev => {
-          const withoutFooter = prev.filter(p => p.i !== '__footer');
-          return [
-            ...withoutFooter,
-            { i: id, type },
-            { i: '__footer', type: 'footer' }
-          ];
+      if (isReupload) {
+      setPanelData(prev => ({ ...prev, [id]: panelPayload }));}
+      else {
+        addPanel({
+          type,
+          data: panelPayload,
+          layoutHint: { w: 4, h: 20 }
         });
-        const layoutWithoutFooter = layout.filter(l => l.i !== '__footer');
-        const maxY = layoutWithoutFooter.reduce((max, l) => Math.max(max, l.y + l.h), 0);
-        const newPanelLayout = { i: id, x: (layoutWithoutFooter.length * 4) % 12, y: maxY, w: 4, h: 20, minW: 1, minH: 5 };
-        setLayout([...layoutWithoutFooter, newPanelLayout, { i: '__footer', x: 0, y: maxY + 1, w: 12, h: 2, static: true }]);
       }
 
       // Reset input
@@ -1967,24 +1949,12 @@ if (sourcePanel?.type === 'structure' && targetPanel?.type === 'alignment') {
   </div>
 </div>
   <button
-    onClick={() => {
-      const id = `notepad-${Date.now()}`;
-      setPanels(prev => [
-        ...prev.filter(p => p.i !== '__footer'),
-        { i: id, type: 'notepad' },
-        { i: '__footer', type: 'footer' }
-      ]);
-      const layoutWithoutFooter = layout.filter(l => l.i !== '__footer');
-      const maxY = layoutWithoutFooter.reduce((max, l) => Math.max(max, l.y + l.h), 0);
-      setLayout([
-        ...layoutWithoutFooter,
-        { i: id, x: (layoutWithoutFooter.length * 4) % 12, y: maxY, w: 4, h: 10, minW: 1, minH: 5 },
-        { i: '__footer', x: 0, y: maxY + 1, w: 12, h: 2, static: true }
-      ]);
-      setPanelData(prev => ({
-        ...prev,
-        [id]: { filename: "Notes", text: "" }
-      }));
+  onClick={() => {
+      addPanel({
+        type: 'notepad',
+        data: { filename: "Notes", text: "" },
+        layoutHint: { w: 4, h: 10 }
+      });
     }}
     className="w-40 h-20 bg-yellow-100 text-black px-4 py-2 rounded-xl hover:bg-yellow-200 shadow-lg hover:shadow-xl"
   >
