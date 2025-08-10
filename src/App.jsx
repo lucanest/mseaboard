@@ -41,6 +41,35 @@ const logocolors = {
   '-': 'bg-white', O : 'bg-purple-300', U: 'bg-gray-300', B : 'bg-red-300'
 };
 
+function TitleFlip({ text }) {
+  return (
+    <div className="flex items-center justify-start w-full gap-0">
+      {text.split('').map((ch, i) => {
+        const color = logocolors[ch] || 'bg-gray-200';
+        return (
+          <div key={i} className="flip-card w-16 h-16">
+            <div
+              className="flip-inner h-full w-full animate-tileFlip"
+              style={{
+                animation: 'tileFlip 650ms ease-out forwards',
+                animationDelay: `${i * 80}ms`
+              }}
+            >
+              {/* FRONT: blank colored tile */}
+              <span className={`flip-face flip-front ${color} block w-full h-full rounded-none`} />
+              {/* BACK: same color, but with the letter */}
+              <span
+                className={`flip-face flip-back ${color} block w-full h-full flex items-center justify-center text-5xl font-bold leading-none`}
+              >
+                {ch}
+              </span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
 
 const MSACell = React.memo(function MSACell({
    style, char, isHoverHighlight, isLinkedHighlight,
@@ -1158,7 +1187,7 @@ function App() {
   const fileInputRefWorkspace = useRef(null);
   const pendingTypeRef = useRef(null);
   const pendingPanelRef = useRef(null);
-
+  const [titleFlipKey, setTitleFlipKey] = useState(() => Date.now());
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
     window.addEventListener('resize', handleResize);
@@ -1936,6 +1965,7 @@ if (sourcePanel?.type === 'structure' && targetPanel?.type === 'alignment') {
       alert('Invalid workspace file');
     }
     fileInputRefWorkspace.current.value = null;
+    setTitleFlipKey(Date.now());
   };
 
   const handleSaveWorkspace = () => {
@@ -1987,11 +2017,7 @@ if (sourcePanel?.type === 'structure' && targetPanel?.type === 'alignment') {
     return (
       <div className="h-screen w-screen flex flex-col overflow-hidden bg-white text-black">
         <div className="p-4 flex justify-between items-center">
-          <div className="flex items-center justify-start w-full">
-            {'MSEABOARD'.split('').map((char, i) => (
-              <span key={i} className={`w-16 h-16 flex items-center justify-center text-5xl font-bold leading-none ${logocolors[char]} `}>{char}</span>
-            ))}
-          </div>
+          <TitleFlip key={titleFlipKey} text="MSEABOARD" />
 <div className="flex items-center gap-4">
   <div className="flex items-center gap-2 mr-8">
   {/* Save Workspace Button */}
