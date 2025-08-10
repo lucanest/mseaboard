@@ -992,19 +992,25 @@ const NotepadPanel = React.memo(function NotepadPanel({
         onRemove={onRemove}
       />
       <div className="flex-1 p-2">
-        <textarea
-          className="w-full h-full border rounded-xl p-2 resize-none"
-          value={text}
-          onChange={e => {
-            setText(e.target.value);
-            setPanelData(prev => ({
-              ...prev,
-              [id]: { ...prev[id], text: e.target.value }
-            }));
-          }}
-          placeholder="Write your notes here..."
-          style={{ minHeight: 120 }}
-        />
+<textarea
+  className="w-full h-full border rounded-xl p-2 resize-none font-mono tracking-normal"
+  value={text}
+  onChange={e => {
+    setText(e.target.value);
+    setPanelData(prev => ({
+      ...prev,
+      [id]: { ...prev[id], text: e.target.value }
+    }));
+  }}
+  placeholder="Write your notes here..."
+  spellCheck={false}
+  wrap="soft"
+  style={{
+    minHeight: 120,
+    tabSize: 2,                 
+    fontVariantLigatures: 'none'
+  }}
+/>
       </div>
     </PanelContainer>
   );
