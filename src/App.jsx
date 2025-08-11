@@ -1109,7 +1109,7 @@ function App() {
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [hoveredPanelId, setHoveredPanelId] = useState(null);
   const fileInputRef = useRef(null);
-  const fileInputRefWorkspace = useRef(null);
+  const fileInputRefBoard = useRef(null);
   const pendingTypeRef = useRef(null);
   const pendingPanelRef = useRef(null);
   const [titleFlipKey, setTitleFlipKey] = useState(() => Date.now());
@@ -1876,35 +1876,35 @@ if (sourcePanel?.type === 'structure' && targetPanel?.type === 'alignment') {
     }
   }, [panelData, highlightOrigin]);
 
-    const handleLoadWorkspace = async (e) => {
+    const handleLoadBoard = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const text = await file.text();
     try {
-      const workspace = JSON.parse(text);
-      setPanels(workspace.panels || []);
-      setLayout(workspace.layout || []);
-      setPanelData(workspace.panelData || {});
-      setPanelLinks(workspace.panelLinks || {});
+      const board = JSON.parse(text);
+      setPanels(board.panels || []);
+      setLayout(board.layout || []);
+      setPanelData(board.panelData || {});
+      setPanelLinks(board.panelLinks || {});
     } catch (err) {
-      alert('Invalid workspace file');
+      alert('Invalid board file');
     }
-    fileInputRefWorkspace.current.value = null;
+    fileInputRefBoard.current.value = null;
     setTitleFlipKey(Date.now());
   };
 
-  const handleSaveWorkspace = () => {
-    const workspace = {
+  const handleSaveBoard = () => {
+    const board = {
       panels,
       layout,
       panelData,
       panelLinks
     };
-    const blob = new Blob([JSON.stringify(workspace, null, 2)], { type: 'application/json' });
+    const blob = new Blob([JSON.stringify(board, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = 'mseaboard-workspace.json';
+    a.download = 'mseaboard.json';
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -1943,30 +1943,34 @@ if (sourcePanel?.type === 'structure' && targetPanel?.type === 'alignment') {
       <div className="h-screen w-screen flex flex-col overflow-hidden bg-white text-black">
         <div className="p-4 flex justify-between items-center">
           <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors}/>
-<div className="flex items-center gap-4">
+<div className="flex items-center gap-5">
   <div className="flex items-center gap-2 mr-8">
-  {/* Save Workspace Button */}
+  {/* Save Board Button */}
   <div className="relative group">
     <button
-      onClick={handleSaveWorkspace}
+      onClick={handleSaveBoard}
       className="w-12 h-12 bg-gray-200 text-black rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center"
     >
       <ArrowDownTrayIcon className="w-8 h-8" />
     </button>
-    <span className="absolute left-1/2 -translate-x-1/2 top-16 z-10 px-1 rounded bg-gray-300 text-black text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap">
-      Save Workspace
+    <span className="absolute text-center left-1/2 -translate-x-1/2 top-16 z-10 px-2 py-1 rounded-xl bg-gray-300 text-black text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap">
+      <b>Save Board</b>
+      <br />
+      Save this board layout, data<br /> and links to a file
     </span>
   </div>
-  {/* Load Workspace Button */}
+  {/* Load Board Button */}
   <div className="relative group">
     <button
-      onClick={() => fileInputRefWorkspace.current.click()}
+      onClick={() => fileInputRefBoard.current.click()}
       className="w-12 h-12 bg-gray-200 text-black rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center"
     >
       <ArrowUpTrayIcon className="w-8 h-8" />
     </button>
-    <span className="absolute left-1/2 -translate-x-1/2 top-16 z-10 px-1 rounded bg-gray-300 text-black text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap">
-      Load Workspace
+        <span className="absolute text-center left-1/2 -translate-x-1/2 top-16 z-10 px-2 py-1 rounded-xl bg-gray-300 text-black text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap">
+      <b>Load Board</b>
+      <br />
+      Load a saved board <br /> from a file
     </span>
   </div>
 </div>
@@ -1983,10 +1987,10 @@ if (sourcePanel?.type === 'structure' && targetPanel?.type === 'alignment') {
     New Notepad
   </button>
   <input
-    ref={fileInputRefWorkspace}
+    ref={fileInputRefBoard}
     type="file"
     accept=".json"
-    onChange={handleLoadWorkspace}
+    onChange={handleLoadBoard}
     style={{ display: 'none' }}
   />
             <button onClick={() => triggerUpload('alignment')} className="w-40 h-20 bg-green-200 text-black px-4 py-2 rounded-xl hover:bg-green-300 shadow-lg hover:shadow-xl leading-tight">
