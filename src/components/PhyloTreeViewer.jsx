@@ -12,6 +12,7 @@ const PhyloTreeViewer = ({
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [debugInfo, setDebugInfo] = useState('');
   const [highlightedNode, setHighlightedNode] = useState(null);
+  const [highlightedLink, setHighlightedLink] = useState(null);
   
   const parseNewick = (newickString) => {
     let pos = 0;
@@ -166,7 +167,10 @@ const tooltip = d3.select(container).select(".tooltip").empty()
       .style("border-radius", "28px")
       .style("pointer-events", "none")
       .style("font-size", "12px")
-      .style("display", "none")
+      .style("display", "block")
+      .style("bottom", "10px")
+      .style("left", "10px")
+      .html('')
   : d3.select(container).select(".tooltip");
 
 //  Count field frequencies and values
@@ -249,6 +253,24 @@ const g = svg.append('g')
 
 const links = root.links();  // Each is { source, target }
 
+// Path generator based on layout mode
+const linkPathGen = radial
+  ? d3.linkRadial().angle(d => d.x).radius(d => d.y)
+  : d3.linkHorizontal().x(d => d.y).y(d => d.x);
+
+// Visible branches (no pointer events)
+const branchPaths = g.append('g')
+  .selectAll('path.branch')
+  .data(links)
+  .join('path')
+  .attr('class', 'branch')
+  .attr('fill', 'none')
+  .style('pointer-events', 'none')
+  .attr('stroke', '#ccc')
+  .attr('stroke-width', 2)
+  .attr('d', linkPathGen);
+
+// Invisible, thick hover targets for the same links
 g.append('g')
   .selectAll('path.invisible-hover')
   .data(links)
@@ -257,37 +279,27 @@ g.append('g')
   .attr('fill', 'none')
   .attr('stroke', 'transparent')
   .attr('stroke-width', 13)
-.attr('d', radial
-  ? d3.linkRadial().angle(d => d.x).radius(d => d.y)
-  : d3.linkHorizontal().x(d => d.y).y(d => d.x))
-  .on('mouseover', function (event, index) {
-  const link = links[index];
-  const length = link?.target?.data?.length;
+  .attr('d', linkPathGen)
+  .on('mouseenter', function (event, d) {
+    // highlight the matching visible path without triggering React state
+    const idx = links.indexOf(event);
+    if (idx > -1) d3.select(branchPaths.nodes()[idx]).attr('stroke', 'red');
 
-  tooltip
-    .style("display", "block")
-    .html(`Branch length: ${length !== undefined ? d3.format(".4f")(length) : 'N/A'}`);
-})
-  .on('mousemove', function (event) {
+    const length = event?.target?.data?.length;
+    tooltip
+      .style("display", "block")
+      .html(`Branch length: ${length !== undefined ? d3.format(".4f")(length) : 'N/A'}`);
+  })
+  .on('mousemove', function () {
     tooltip
       .style("bottom", `10px`)
       .style("left", `10px`);
   })
-  .on('mouseout', function () {
-    tooltip.style("display", "none");
+  .on('mouseleave', function (event, d) {
+    const idx = links.indexOf(event);
+    if (idx > -1) d3.select(branchPaths.nodes()[idx]).attr('stroke', '#ccc');
+    tooltip.html('').style("display", "none");
   });
-
-  g.append('g')
-  .selectAll('path.branch')
-  .data(links)
-  .join('path')
-  .attr('class', 'branch')
-  .attr('fill', 'none')
-  .attr('stroke', '#ccc')
-  .attr('stroke-width', 2)
-  .attr('d', radial
-  ? d3.linkRadial().angle(d => d.x).radius(d => d.y)
-  : d3.linkHorizontal().x(d => d.y).y(d => d.x));
 
 // Invisible hover arcs for radial mode
 if (radial) {
@@ -312,6 +324,13 @@ if (radial) {
       const nodeName = event.data?.name;
       onHoverTip?.(nodeName || '', id);
       setHighlightedNode(nodeName || null);
+    })
+    .on('mousemove', function (event) {
+      setHighlightedNode(event.data?.name || null);
+      tooltip
+        .style("display", "block")
+        .style("bottom", `10px`)
+        .style("left", `10px`);
     })
     .on('mouseleave', (event, d) => {
       const toElement = event.relatedTarget;
@@ -510,6 +529,7 @@ g.append('g')
       onMouseLeave={() => {
         onHoverTip?.(null, null);
         setHighlightedNode(null);
+        setHighlightedLink(null);
       }}
     />
   );
