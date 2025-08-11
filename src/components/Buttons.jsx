@@ -1,5 +1,5 @@
 // Buttons.jsx
-import { LinkIcon, ChartBarIcon , DocumentDuplicateIcon, XMarkIcon, Bars3Icon, EyeIcon, LanguageIcon, CodeBracketIcon } from '@heroicons/react/24/outline';
+import { LinkIcon, ChartBarIcon , Squares2X2Icon, DocumentDuplicateIcon, XMarkIcon, Bars3Icon, EyeIcon, LanguageIcon, CodeBracketIcon } from '@heroicons/react/24/outline';
 
 export function DuplicateButton({ onClick }) {
   return (
@@ -144,6 +144,21 @@ export function SequenceButton({ onClick }) {
     >
       <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-yellow-200">
         <CodeBracketIcon className="w-5 h-5" />
+      </span>
+    </button>
+  );
+}
+
+export function DistanceMatrixButton({ onClick, title = "Build distance matrix from tree" }) {
+  return (
+    <button
+      type="button"
+      className="p-0.5"
+      onClick={onClick}
+      title={title}
+    >
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-purple-300">
+        <Squares2X2Icon className="w-5 h-5" />
       </span>
     </button>
   );

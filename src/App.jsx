@@ -3,10 +3,10 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import throttle from 'lodash.throttle'
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SurfaceToggleButton,
-SeqlogoButton, SequenceButton, GitHubButton} from './components/Buttons.jsx';
+SeqlogoButton, SequenceButton, DistanceMatrixButton, GitHubButton} from './components/Buttons.jsx';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, threeToOne,
-   parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick} from './components/Utils.jsx';
+   parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick, newickToDistanceMatrix} from './components/Utils.jsx';
 import { residueColors, logoColors } from './constants/colors.js';
 import { FixedSizeGrid as Grid } from 'react-window';
 import GridLayout from 'react-grid-layout';
@@ -825,7 +825,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
 });
 
 const TreePanel = React.memo(function TreePanel({
-  id, data, onRemove, onReupload, onDuplicate,
+  id, data, onRemove, onReupload, onDuplicate, onGenerateDistance,
   highlightedSequenceId, onHoverTip,
   linkedTo, highlightOrigin,
   onLinkClick, isLinkModeActive, isLinked,hoveredPanelId,
@@ -863,6 +863,9 @@ const TreePanel = React.memo(function TreePanel({
           <RadialToggleButton
             onClick={handleRadialToggle}
             isActive={RadialMode}
+          />,
+          <DistanceMatrixButton
+            onClick={() => onGenerateDistance(id)}
           />
         ]}
       isLinked={isLinked}
@@ -1355,6 +1358,25 @@ const handleCreateSequenceFromStructure = useCallback((id) => {
     ...newPanelDataEntries
   }));
 }, [panelData, layout, setPanels, setLayout, setPanelData]);
+
+const handleTreeToDistance = useCallback((id) => {
+  const treeData = panelData[id];
+  if (!treeData?.data) return;
+  try {
+    const { labels, matrix } = newickToDistanceMatrix(treeData.data);
+    const base = (treeData.filename ? treeData.filename.replace(/\.[^.]+$/, '') : 'tree');
+    addPanel({
+      type: 'heatmap',
+      data: { labels, matrix, filename: `${base}_distmatrix` },
+      basedOnId: id,
+      layoutHint: { w: 4, h: 20 }
+    });
+
+  } catch (e) {
+    alert('Failed to build distance matrix from this tree.');
+    console.error(e);
+  }
+}, [panelData, addPanel]);
 
   const handleLinkClick = useCallback((id) => {
     if (!linkMode) {
@@ -2050,6 +2072,7 @@ if (sourcePanel?.type === 'structure' && targetPanel?.type === 'alignment') {
           setPanelData={setPanelData}
           highlightedSequenceId={highlightedSequenceId}
           onHoverTip={setHighlightedSequenceId}
+          onGenerateDistance={handleTreeToDistance}
         />
       ) : panel.type === 'histogram' ? (
         <HistogramPanel
