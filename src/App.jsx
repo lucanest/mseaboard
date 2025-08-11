@@ -3,10 +3,11 @@ import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import throttle from 'lodash.throttle'
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SurfaceToggleButton,
-SeqlogoButton, SequenceButton, DistanceMatrixButton, GitHubButton} from './components/Buttons.jsx';
+SeqlogoButton, SequenceButton, DistanceMatrixButton, DownloadButton, GitHubButton} from './components/Buttons.jsx';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, threeToOne,
-   parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick, newickToDistanceMatrix} from './components/Utils.jsx';
+   parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick, newickToDistanceMatrix,
+  downloadSVGElement, downloadText, toFasta, toPhylip} from './components/Utils.jsx';
 import { residueColors, logoColors } from './constants/colors.js';
 import { FixedSizeGrid as Grid } from 'react-window';
 import GridLayout from 'react-grid-layout';
@@ -200,50 +201,53 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
   }, [data.msa]);
 
   const scrollContainerRef = useRef();
+  const logoContainerRef = useRef(null);
+
   const Highlighted = (
-  highlightedSite != null &&
-  (
-    highlightOrigin === id ||
-    linkedTo === highlightOrigin
-  )
-)
-  useEffect(() => {
-  if (
     highlightedSite != null &&
-    linkedTo === highlightOrigin &&
-    highlightOrigin !== id &&
-    scrollContainerRef.current
-  ) {
-    const colWidth = 24;
-    const container = scrollContainerRef.current;
-    const containerWidth = container.offsetWidth;
-    const currentScroll = container.scrollLeft;
-    const maxScroll = container.scrollWidth - containerWidth;
+    (highlightOrigin === id || linkedTo === highlightOrigin)
+  );
 
-    const colLeft = highlightedSite * colWidth;
-    const colRight = colLeft + colWidth;
+  useEffect(() => {
+    // scroll-into-view logic
+    if (
+      highlightedSite != null &&
+      linkedTo === highlightOrigin &&
+      highlightOrigin !== id &&
+      scrollContainerRef.current
+    ) {
+      const colWidth = 24;
+      const container = scrollContainerRef.current;
+      const containerWidth = container.offsetWidth;
+      const currentScroll = container.scrollLeft;
+      const maxScroll = container.scrollWidth - containerWidth;
 
-    // Use a dynamic padding: 1/3 of container width
-    const padding = containerWidth / 3;
+      const colLeft = highlightedSite * colWidth;
+      const colRight = colLeft + colWidth;
+      const padding = containerWidth / 3;
 
-    let targetScroll = null;
+      let targetScroll = null;
+      if (colLeft < currentScroll) targetScroll = colLeft - padding;
+      else if (colRight > currentScroll + containerWidth) targetScroll = colRight - containerWidth + padding;
 
-    if (colLeft < currentScroll) {
-      targetScroll = colLeft - padding;
-    } else if (colRight > currentScroll + containerWidth) {
-      targetScroll = colRight - containerWidth + padding;
+      if (targetScroll != null) {
+        targetScroll = Math.max(0, Math.min(maxScroll, targetScroll));
+        container.scrollTo({ left: targetScroll, behavior: "smooth" });
+      }
     }
+  }, [highlightedSite, highlightOrigin, linkedTo, id]);
 
-    if (targetScroll != null) {
-      // Clamp between 0 and maxScroll
-      targetScroll = Math.max(0, Math.min(maxScroll, targetScroll));
-      container.scrollTo({
-        left: targetScroll,
-        behavior: "smooth",
-      });
+  // download handler for SVG
+  const handleDownloadSVG = useCallback(() => {
+    const svg = logoContainerRef.current?.querySelector('svg');
+    const base = (data?.filename || 'sequence_logo');
+    if (!svg) {
+      alert('No SVG to download yet.');
+      return;
     }
-  }
-}, [highlightedSite, highlightOrigin, linkedTo, id]);
+    downloadSVGElement(svg, base);
+  }, [data]);
+
   return (
     <PanelContainer
       id={id}
@@ -261,24 +265,29 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
         onLinkClick={onLinkClick}
         isLinkModeActive={isLinkModeActive}
         isLinked={isLinked}
+        extraButtons={[
+          // add the download button here:
+          <DownloadButton key="dl" onClick={handleDownloadSVG} title="Download SVG" />
+        ]}
       />
-      <div ref={scrollContainerRef}
-      className="flex-1 p-2 bg-white overflow-x-auto">
+      <div
+        ref={scrollContainerRef}
+        className="flex-1 p-2 bg-white overflow-x-auto"
+      >
         {sequences.length === 0 ? (
           <div className="text-gray-400 text-center">
             No data to render sequence logo.
           </div>
         ) : (
-          
-        <SequenceLogoSVG
-          sequences={sequences}
-          height={200}
-          highlightedSite={Highlighted ? highlightedSite : null}
-          onHighlight={siteIdx => {
-            // Only send highlight if panel is linked, or user is hovering here
-            if (onHighlight) onHighlight(siteIdx, id);
-          }} 
-        />
+          // wrap the logo so we can query the <svg> node
+          <div ref={logoContainerRef}>
+            <SequenceLogoSVG
+              sequences={sequences}
+              height={200}
+              highlightedSite={Highlighted ? highlightedSite : null}
+              onHighlight={siteIdx => { if (onHighlight) onHighlight(siteIdx, id); }}
+            />
+          </div>
         )}
       </div>
     </PanelContainer>
@@ -292,7 +301,11 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
 }) {
   const { labels, matrix, filename } = data || {};
   const [containerRef, dims] = useElementSize({ debounceMs: 90 });
-
+  const handleDownload = useCallback(() => {
+  const base = (filename?.replace(/\.[^.]+$/, '') || 'distmatrix');
+  const content = toPhylip(labels, matrix);
+  downloadText(`${base}.phy`, content);
+}, [filename, labels, matrix]);
   const handleCellClick = (cell, id) => {
     setPanelData(prev => {
       const current = prev[id] || {};
@@ -342,6 +355,8 @@ return (
           isLinkModeActive={isLinkModeActive}
           isLinked={isLinked}
           onRemove={onRemove}
+          extraButtons={[
+            <DownloadButton onClick={handleDownload} />,]}
     />
     {/* Add padding container around the heatmap */}
     <div ref={containerRef} className="flex-1 p-2 pb-4 pr-4 overflow-hidden">
@@ -380,6 +395,11 @@ const StructurePanel = React.memo(function StructurePanel({
       }
     }));
   }, [id, setPanelData, surface]);
+  const handleDownload = useCallback(() => {
+    if (!pdb) return;
+    const base = (filename?.replace(/\.[^.]+$/, '') || 'structure');
+    downloadText(`${base}.pdb`, pdb);
+}, [pdb, filename]);
   return (
     <PanelContainer
       id={id}
@@ -403,6 +423,7 @@ extraButtons={[
             isActive={surface}
           />,
           <SequenceButton onClick={() => onCreateSequenceFromStructure(id)} />,
+          <DownloadButton onClick={handleDownload} />
         ]}
       />
       <div className="flex-1 p-2 bg-white overflow-hidden">
@@ -476,6 +497,12 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [codonMode, setCodonModeState] = useState(data.codonMode || false);
   const [scrollTop, setScrollTop] = useState(0);
   const isNuc = useMemo(() => isNucleotide(msaData), [msaData]);
+  const handleDownload = useCallback(() => {
+    const msa = data?.data || [];
+    const content = toFasta(msa);
+    const base = (data?.filename?.replace(/\.[^.]+$/, '') || 'alignment');
+    downloadText(`${base}.fasta`, content);
+}, [data]);
 
   useEffect(() => {
     if (linkedTo && highlightedSite != null && id !== highlightOrigin) {
@@ -711,15 +738,16 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
           setPanelData={setPanelData}
           extraButtons={
             isNuc
-              ? [
+              ? [  
                   <CodonToggleButton
                     onClick={() => setCodonMode(m => !m)}
                     isActive={codonMode}
                   />,
                   <TranslateButton onClick={() => onDuplicateTranslate(id)} />,
-                  <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />
+                  <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />,
+                  <DownloadButton onClick={handleDownload} />
                 ]
-              : [<SeqlogoButton onClick={() => onCreateSeqLogo(id)} />]
+              : [  <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />,<DownloadButton onClick={handleDownload} />]
           }
           onDuplicate={onDuplicate}
           onLinkClick={onLinkClick}
@@ -842,6 +870,12 @@ const TreePanel = React.memo(function TreePanel({
       }
     }));
   }, [id, setPanelData, RadialMode]);
+  const handleDownload = useCallback(() => {
+  const text = data?.data || '';
+  const base = (data?.filename?.replace(/\.[^.]+$/, '') || 'tree');
+  const ext = data?.isNhx ? 'nhx' : 'nwk';
+  downloadText(`${base}.${ext}`, text);
+}, [data]);
 
   return (
     <PanelContainer
@@ -866,7 +900,8 @@ const TreePanel = React.memo(function TreePanel({
           />,
           <DistanceMatrixButton
             onClick={() => onGenerateDistance(id)}
-          />
+          />,
+          <DownloadButton onClick={handleDownload} />
         ]}
       isLinked={isLinked}
       onRemove={onRemove}
@@ -904,6 +939,10 @@ const NotepadPanel = React.memo(function NotepadPanel({
 }) {
   const [filenameInput, setFilenameInput] = useState(data.filename || "Notes");
   const [text, setText] = useState(data.text || "");
+  const handleDownload = useCallback(() => {
+  const base = (filenameInput?.toString() || 'notes');
+  downloadText(`${base}.txt`, text || '');
+}, [filenameInput, text]);
 
   useEffect(() => {
     setText(data.text || "");
@@ -923,6 +962,7 @@ const NotepadPanel = React.memo(function NotepadPanel({
         setPanelData={setPanelData}
         onDuplicate={onDuplicate}
         onRemove={onRemove}
+        extraButtons={[ <DownloadButton onClick={handleDownload} /> ]}
       />
       <div className="flex-1 p-2">
 <textarea
@@ -969,6 +1009,22 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
         data.data.headers.find(h => typeof data.data.rows[0][h] === 'number'))
       : null
   );
+
+  const handleDownload = useCallback(() => {
+    const base = (filename?.replace(/\.[^.]+$/, '') || 'data');
+    if (isTabular) {
+      const { headers, rows } = data.data;
+      const csv = [
+        headers.join(','),
+        ...rows.map(r => headers.map(h => r[h]).join(','))
+      ].join('\n');
+      downloadText(`${base}.csv`, csv, 'text/csv;charset=utf-8');
+    } else {
+      const values = data.data || [];
+      const txt = values.join('\n');
+      downloadText(`${base}.txt`, txt);
+    }
+  }, [data, filename, isTabular]);
 
   useEffect(() => {
     if (isTabular) {
@@ -1027,6 +1083,8 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
       isLinkModeActive={isLinkModeActive}
       isLinked={isLinked}
       onRemove={onRemove}
+      extraButtons={[
+        <DownloadButton onClick={handleDownload} />]}
     />
     <div className="p-2">
       {isTabular && (
@@ -1113,6 +1171,7 @@ function App() {
   const pendingTypeRef = useRef(null);
   const pendingPanelRef = useRef(null);
   const [titleFlipKey, setTitleFlipKey] = useState(() => Date.now());
+
 
   const addPanel = useCallback((config) => {
     const { type, data, basedOnId, layoutHint = {} } = config;

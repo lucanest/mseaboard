@@ -263,3 +263,74 @@ export function newickToDistanceMatrix(newickText) {
   }
   return { labels, matrix };
 }
+
+// --- Download utilities ---
+
+/** Ensures the <svg> has proper namespaces, serializes, and downloads it as SVG. */
+export function downloadSVGElement(svgEl, filenameBase = 'sequence_logo') {
+  if (!svgEl) return;
+
+  if (!svgEl.getAttribute('xmlns')) {
+    svgEl.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+  }
+  if (!svgEl.getAttribute('xmlns:xlink')) {
+    svgEl.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
+  }
+
+  const serializer = new XMLSerializer();
+  let source = serializer.serializeToString(svgEl);
+
+  if (!source.startsWith('<?xml')) {
+    source = `<?xml version="1.0" encoding="UTF-8"?>\n` + source;
+  }
+
+  const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${filenameBase}.svg`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/** Download arbitrary text as a file. */
+export function downloadText(filename, text, mime = 'text/plain;charset=utf-8') {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/** FASTA stringify helper (arrays of {id, sequence} or string sequences). */
+export function toFasta(entries) {
+  if (!entries || !entries.length) return '';
+  if (typeof entries[0] === 'string') {
+    return entries.map((seq, i) => `>seq${i + 1}\n${seq}`).join('\n');
+  }
+  return entries
+    .map(e => `>${(e.id || 'seq').toString()}\n${e.sequence || ''}`)
+    .join('\n');
+}
+
+/** PHYLIP distance matrix writer. */
+export function toPhylip(labels, matrix) {
+  const n = labels?.length || 0;
+  if (!n || !matrix?.length) return '';
+  const namePad = (s, width = 10) => (s + ' '.repeat(width)).slice(0, width);
+  const lines = [`${n}`];
+  for (let i = 0; i < n; i++) {
+    const row = matrix[i] || [];
+    const nums = row
+      .map(v => (typeof v === 'number' ? v : Number(v) || 0))
+      .map(v => v.toFixed(5));
+    lines.push(`${namePad(labels[i] || `tax${i + 1}`, 10)} ${nums.join(' ')}`);
+  }
+  return lines.join('\n');
+}

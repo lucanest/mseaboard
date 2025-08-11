@@ -1,5 +1,5 @@
 // Buttons.jsx
-import { LinkIcon, ChartBarIcon , Squares2X2Icon, DocumentDuplicateIcon, XMarkIcon, Bars3Icon, EyeIcon, LanguageIcon, CodeBracketIcon } from '@heroicons/react/24/outline';
+import { LinkIcon, ChartBarIcon , Squares2X2Icon, DocumentDuplicateIcon, XMarkIcon, Bars3Icon, EyeIcon, LanguageIcon, CodeBracketIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
 
 export function DuplicateButton({ onClick }) {
   return (
@@ -159,6 +159,21 @@ export function DistanceMatrixButton({ onClick, title = "Build distance matrix f
     >
       <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-purple-300">
         <Squares2X2Icon className="w-5 h-5" />
+      </span>
+    </button>
+  );
+}
+
+export function DownloadButton({ onClick, title = "Download" }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className='p-0.5'
+      title={title}
+    >
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-cyan-200">
+        <ArrowDownTrayIcon className="w-5 h-5" />
       </span>
     </button>
   );
