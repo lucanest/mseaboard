@@ -164,13 +164,16 @@ function MSATooltip({ x, y, children }) {
   );
 }
 
-function PanelContainer({ id, linkedTo, hoveredPanelId, setHoveredPanelId, children, onDoubleClick }) {
+function PanelContainer({ id, linkedTo, hoveredPanelId, setHoveredPanelId, children, onDoubleClick, isSelected = false, onSelect = () => {} }) {
   return (
     <div
       className={`border rounded-2xl overflow-hidden h-full flex flex-col bg-white
         shadow-lg
         ${hoveredPanelId === id || (linkedTo && hoveredPanelId === linkedTo) ? 'shadow-blue-400/50' : ''}
       `}
+      tabIndex={0}                            
+      onClick={() => onSelect(id)}             
+      onFocus={() => onSelect(id)}             
       onMouseEnter={() => setHoveredPanelId(id)}
       onMouseLeave={() => {
         setHoveredPanelId(null);
