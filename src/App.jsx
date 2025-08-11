@@ -7,7 +7,7 @@ SeqlogoButton, SequenceButton, DistanceMatrixButton, DownloadButton, GitHubButto
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, threeToOne,
    parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick, newickToDistanceMatrix,
-  downloadSVGElement, downloadText, toFasta, toPhylip} from './components/Utils.jsx';
+  downloadSVGElement, downloadText, detectFileType, toFasta, toPhylip} from './components/Utils.jsx';
 import { residueColors, logoColors } from './constants/colors.js';
 import { FixedSizeGrid as Grid } from 'react-window';
 import GridLayout from 'react-grid-layout';
@@ -266,7 +266,6 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
         isLinkModeActive={isLinkModeActive}
         isLinked={isLinked}
         extraButtons={[
-          // add the download button here:
           <DownloadButton key="dl" onClick={handleDownloadSVG} title="Download SVG" />
         ]}
       />
@@ -910,7 +909,6 @@ const TreePanel = React.memo(function TreePanel({
           <PhyloTreeViewer
             newick={newick}
             isNhx={isNhx}
-            //highlightedSequenceId={highlightedSequenceId} //commenting this still doesn't resolve the issue but it simplifies the code
             onHoverTip={onHoverTip}
             linkedTo={linkedTo}
             highlightOrigin={highlightOrigin}
@@ -1973,39 +1971,6 @@ if (sourcePanel?.type === 'structure' && targetPanel?.type === 'alignment') {
 const [isDragging, setIsDragging] = useState(false);
 const dragCounter = useRef(0); // helps ignore child enter/leave flicker
 
-// quick filetype detector (ext + sniff)
-const detectFileType = (filename, text) => {
-  const lower = filename.toLowerCase();
-
-  // by extension first
-  if (lower.endsWith('.json')) return 'board';
-  if (/\.(fasta|fas|fa)$/.test(lower)) return 'alignment';
-  if (/\.(nwk|nhx)$/.test(lower)) return 'tree';
-  if (/\.(tsv|csv|txt)$/.test(lower)) return 'histogram';
-  if (/\.(phy|phylip|dist)$/.test(lower)) return 'heatmap';
-  if (lower.endsWith('.pdb')) return 'structure';
-
-  // by quick content sniff as fallback
-  const head = text.slice(0, 2000);
-
-  // FASTA
-  if (/^>\S/m.test(head)) return 'alignment';
-
-  // Newick / NHX
-  if (head.trim().startsWith('(') && head.includes(';')) return 'tree';
-  if (head.includes('[&&NHX')) return 'tree';
-
-  // PDB
-  if (/^(ATOM|HETATM|HEADER)\b/m.test(head)) return 'structure';
-
-  // PHYLIP-ish distmat (first line looks like an integer count)
-  if (/^\s*\d+\s*$/m.test(head.split(/\r?\n/)[0] || '')) return 'heatmap';
-
-  // numeric columns -> histogram-ish
-  if (/[\d\.\-eE]+[,\t][\d\.\-eE]/.test(head)) return 'histogram';
-
-  return 'unknown';
-};
 
 // --- build panel payload from file  ---
 const buildPanelPayloadFromFile = async (file) => {

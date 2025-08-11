@@ -334,3 +334,37 @@ export function toPhylip(labels, matrix) {
   }
   return lines.join('\n');
 }
+
+// quick filetype detector (ext + sniff)
+export function detectFileType(filename, text){
+  const lower = filename.toLowerCase();
+
+  // by extension first
+  if (lower.endsWith('.json')) return 'board';
+  if (/\.(fasta|fas|fa)$/.test(lower)) return 'alignment';
+  if (/\.(nwk|nhx)$/.test(lower)) return 'tree';
+  if (/\.(tsv|csv|txt)$/.test(lower)) return 'histogram';
+  if (/\.(phy|phylip|dist)$/.test(lower)) return 'heatmap';
+  if (lower.endsWith('.pdb')) return 'structure';
+
+  // by quick content sniff as fallback
+  const head = text.slice(0, 2000);
+
+  // FASTA
+  if (/^>\S/m.test(head)) return 'alignment';
+
+  // Newick / NHX
+  if (head.trim().startsWith('(') && head.includes(';')) return 'tree';
+  if (head.includes('[&&NHX')) return 'tree';
+
+  // PDB
+  if (/^(ATOM|HETATM|HEADER)\b/m.test(head)) return 'structure';
+
+  // PHYLIP-ish distmat (first line looks like an integer count)
+  if (/^\s*\d+\s*$/m.test(head.split(/\r?\n/)[0] || '')) return 'heatmap';
+
+  // numeric columns -> histogram-ish
+  if (/[\d\.\-eE]+[,\t][\d\.\-eE]/.test(head)) return 'histogram';
+
+  return 'unknown';
+};
