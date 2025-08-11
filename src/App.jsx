@@ -380,25 +380,62 @@ return (
 
 const StructurePanel = React.memo(function StructurePanel({
   id, data, onRemove, onDuplicate, hoveredPanelId, setHoveredPanelId, setPanelData, onReupload,
-  onCreateSequenceFromStructure, onLinkClick, isLinkModeActive, isLinked,
-  linkedTo, highlightedSite, highlightOrigin, onHighlight,
-  linkedPanelData
+  onCreateSequenceFromStructure, onGenerateDistance, onLinkClick, isLinkModeActive, isLinked,
+  linkedTo, highlightedSite, highlightOrigin, onHighlight, linkedPanelData
 }) {
   const { pdb, filename, surface = false } = data || {};
-  const handleSurfaceToggle = useCallback(() => {
-    setPanelData(pd => ({
-      ...pd,
-      [id]: {
-        ...pd[id],
-        surface: !surface
-      }
-    }));
+
+  // Local UI state: show picker when user clicks the matrix button
+  const [showChainPicker, setShowChainPicker] = React.useState(false);
+
+  // Parse available chains (by CA presence)
+  const chainIds = React.useMemo(() => {
+    if (!pdb) return [];
+    const seen = new Set(); const ids = [];
+    for (const line of pdb.split(/\r?\n/)) {
+      if (!line.startsWith('ATOM')) continue;
+      if (line.slice(12,16).trim() !== 'CA') continue;
+      const cid = (line[21] || 'A').trim() || 'A';
+      if (!seen.has(cid)) { seen.add(cid); ids.push(cid); }
+    }
+    return ids;
+  }, [pdb]);
+
+  // Color helper for distinct buttons (to fix)
+  const colorFor = React.useCallback((key) => {
+    // simple hash -> hue
+    let h = 0; for (let i=0;i<key.length;i++) h = (h*31 + key.charCodeAt(i)) % 360;
+    return `hsl(${h}, 70%, 65%)`;
+  }, []);
+
+  const handleSurfaceToggle = React.useCallback(() => {
+    setPanelData(pd => ({ ...pd, [id]: { ...pd[id], surface: !surface }}));
   }, [id, setPanelData, surface]);
-  const handleDownload = useCallback(() => {
+
+  const handleDownload = React.useCallback(() => {
     if (!pdb) return;
     const base = (filename?.replace(/\.[^.]+$/, '') || 'structure');
     downloadText(`${base}.pdb`, pdb);
-}, [pdb, filename]);
+  }, [pdb, filename]);
+
+  // When the matrix button is clicked
+  const handleMatrixClick = React.useCallback(() => {
+    if (!chainIds.length) { alert('No chains detected.'); return; }
+    if (chainIds.length === 1) {
+      // directly generate for the single chain
+      onGenerateDistance(id, chainIds[0]);
+    } else {
+      // show picker with “ALL” + per-chain buttons
+      setShowChainPicker(true);
+    }
+  }, [chainIds, id, onGenerateDistance]);
+
+  // Click a button -> generate & close
+  const pickChain = React.useCallback((choice) => {
+    onGenerateDistance(id, choice);
+    setShowChainPicker(false);
+  }, [id, onGenerateDistance]);
+
   return (
     <PanelContainer
       id={id}
@@ -416,24 +453,67 @@ const StructurePanel = React.memo(function StructurePanel({
         isLinked={isLinked}
         onDuplicate={onDuplicate}
         onRemove={onRemove}
-extraButtons={[
-          <SurfaceToggleButton
-            onClick={handleSurfaceToggle}
-            isActive={surface}
-          />,
-          <SequenceButton onClick={() => onCreateSequenceFromStructure(id)} />,
-          <DownloadButton onClick={handleDownload} />
+        extraButtons={[
+          <SurfaceToggleButton key="surf" onClick={handleSurfaceToggle} isActive={surface} />,
+          <SequenceButton key="seq" onClick={() => onCreateSequenceFromStructure(id)} />,
+          <DistanceMatrixButton key="dm" onClick={handleMatrixClick} />,
+          <DownloadButton key="dl" onClick={handleDownload} />
         ]}
       />
-      <div className="flex-1 p-2 bg-white overflow-hidden">
+
+      {/* picker overlay (only when requested) */}
+      {showChainPicker && (
+        <div
+          className="absolute inset-0 z-[1000] bg-black/20 flex items-center justify-center rounded-2xl"
+          onClick={() => setShowChainPicker(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl p-4 max-w-lg w-[min(90vw,36rem)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-sm text-gray-600 mb-2">Choose chain for distance map</div>
+            <div className="flex flex-wrap gap-2">
+              {/* ALL option appears only if multiple chains */}
+              {chainIds.length > 1 && (
+                <button
+                  className="px-3 py-2 rounded-xl text-sm font-semibold shadow"
+                  style={{ background: colorFor('ALL'), color: '#1f2937' }}
+                  onClick={() => pickChain('ALL')}
+                >
+                  All chains
+                </button>
+              )}
+              {chainIds.map(cid => (
+                <button
+                  key={cid}
+                  className="px-3 py-2 rounded-xl text-sm font-semibold shadow"
+                  style={{ background: colorFor(cid), color: '#1f2937' }}
+                  onClick={() => pickChain(cid)}
+                  title={`Chain ${cid}`}
+                >
+                  {cid}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 p-2 bg-white overflow-hidden relative">
         {pdb ? (
           <div className="h-full w-full">
-            <StructureViewer pdb={pdb} panelId={id} surface = {surface} data={data} setPanelData={setPanelData}
-            linkedTo={linkedTo}
-      highlightedSite={highlightedSite}
-      highlightOrigin={highlightOrigin}
-      onHighlight={onHighlight}
-      linkedPanelData={linkedPanelData} />
+            <StructureViewer
+              pdb={pdb}
+              panelId={id}
+              surface={surface}
+              data={data}
+              setPanelData={setPanelData}
+              linkedTo={linkedTo}
+              highlightedSite={highlightedSite}
+              highlightOrigin={highlightOrigin}
+              onHighlight={onHighlight}
+              linkedPanelData={linkedPanelData}
+            />
           </div>
         ) : (
           <div className="text-gray-400 text-center">
@@ -1416,6 +1496,73 @@ const handleCreateSequenceFromStructure = useCallback((id) => {
   }));
 }, [panelData, layout, setPanels, setLayout, setPanelData]);
 
+const handleStructureToDistance = useCallback((id, forcedChoice) => {
+  const s = panelData[id];
+  if (!s?.pdb) { alert('No PDB found in this panel.'); return; }
+
+  // Parse CA atoms grouped by chain
+  const chains = new Map();
+  const seen = new Set();
+  for (const line of s.pdb.split(/\r?\n/)) {
+    if (!line.startsWith('ATOM')) continue;
+    const atomName = line.slice(12,16).trim();
+    if (atomName !== 'CA') continue;
+
+    const chainId = (line[21] || 'A').trim() || 'A';
+    const resSeq  = line.slice(22,26).trim();
+    const iCode   = (line[26] || '').trim();
+    const key = `${chainId}|${resSeq}|${iCode}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+
+    const x = Number(line.slice(30,38));
+    const y = Number(line.slice(38,46));
+    const z = Number(line.slice(46,54));
+    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue;
+
+    if (!chains.has(chainId)) chains.set(chainId, []);
+    chains.get(chainId).push({ label: `${chainId}:${resSeq}${iCode||''}`, x,y,z });
+  }
+  if (chains.size === 0) { alert('No CA atoms found to build a distance map.'); return; }
+
+  // Choice: explicit from picker > panel-saved > default
+  const first = Array.from(chains.keys())[0];
+  const choice = forcedChoice ?? s.chainChoice ?? (chains.size > 1 ? 'ALL' : first);
+
+  // Collect residues
+  let residues = [];
+  if (choice === 'ALL') {
+    for (const cid of chains.keys()) residues = residues.concat(chains.get(cid));
+  } else {
+    residues = chains.get(choice) || [];
+    if (residues.length === 0) { alert(`No residues found for chain ${choice}.`); return; }
+  }
+
+  const N = residues.length;
+  if (N < 2) { alert('Not enough residues to build a distance map.'); return; }
+
+  const labels = residues.map(r => r.label);
+  const matrix = Array.from({ length: N }, () => Array(N).fill(0));
+  for (let i=0;i<N;i++){
+    for (let j=i;j<N;j++){
+      const dx = residues[i].x - residues[j].x;
+      const dy = residues[i].y - residues[j].y;
+      const dz = residues[i].z - residues[j].z;
+      const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      matrix[i][j]=d; matrix[j][i]=d;
+    }
+  }
+
+  const base = (s.filename ? s.filename.replace(/\.[^.]+$/, '') : 'structure');
+  const suffix = choice === 'ALL' ? 'ALL' : choice;
+  addPanel({
+    type: 'heatmap',
+    data: { labels, matrix, filename: `${base}_distmap_${suffix}` },
+    basedOnId: id,
+    layoutHint: { w: 4, h: 20 }
+  });
+}, [panelData, addPanel]);
+
 const handleTreeToDistance = useCallback((id) => {
   const treeData = panelData[id];
   if (!treeData?.data) return;
@@ -2327,6 +2474,7 @@ const handleDrop = async (e) => {
     {...commonProps}
 setPanelData={setPanelData}
   onCreateSequenceFromStructure={handleCreateSequenceFromStructure}
+  onGenerateDistance={handleStructureToDistance} 
   linkedPanelData={panelLinks[panel.i] ? panelData[panelLinks[panel.i]] : null}
    
   />
