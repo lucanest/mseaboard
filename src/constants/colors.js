@@ -31,3 +31,12 @@ export const chainColors = [
   '#E5E7EB', '#FEF08A', '#DBEAFE', '#FECACA', '#99F6E4', '#BBF7D0',
   '#C4B5FD', '#FECACA', '#FDBA74', '#BBF7D0', '#DBEAFE', '#DDD6FE'
 ];
+
+export const residueSvgColors = {
+  A: '#22c55e', C: '#facc15', D: '#ef4444', E: '#ef4444',
+  F: '#a855f7', G: '#6b7280', H: '#ec4899', I: '#3b82f6',
+  K: '#f97316', L: '#3b82f6', M: '#60a5fa', N: '#fca5a5',
+  P: '#14b8a6', Q: '#fca5a5', R: '#fb923c', S: '#86efac',
+  T: '#86efac', V: '#60a5fa', W: '#c084fc', Y: '#e9d5ff',
+  '-': '#ffffff'
+};
