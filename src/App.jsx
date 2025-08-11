@@ -1248,9 +1248,9 @@ const handleCreateSequenceFromStructure = useCallback((id) => {
   const data = panelData[id];
   if (!data || !data.pdb) return;
 
-  // --- minimal per-chain PDB parser (proteins via CA atoms) ---
+  // minimal per-chain PDB parser (proteins via CA atoms)
 
-  // We collect unique (chain, resSeq, iCode) via CA atoms in order
+  // collect unique (chain, resSeq, iCode) via CA atoms in order
   const chains = new Map(); // chainId -> array of one-letter residues in order
   const seen = new Set();   // key: chain|resSeq|iCode to avoid duplicates
 
@@ -1701,7 +1701,7 @@ const getSeqForChain = (alignmentData, preferChainId, structureChainsLengths) =>
 if (sourcePanel?.type === 'alignment' && targetPanel?.type === 'structure') {
   const alnData = panelData[originId];
   const structId = targetId;
-  const structData = panelData[structId];
+
 
   // we don’t know chain lengths here; let viewer deduce by name/length too,
   // but we’ll try to pull a chainId from sequence id for better UX:
@@ -1908,6 +1908,178 @@ if (sourcePanel?.type === 'structure' && targetPanel?.type === 'alignment') {
     a.click();
     URL.revokeObjectURL(url);
   };
+
+// Drag-and-drop file upload
+
+const [isDragging, setIsDragging] = useState(false);
+const dragCounter = useRef(0); // helps ignore child enter/leave flicker
+
+// quick filetype detector (ext + sniff)
+const detectFileType = (filename, text) => {
+  const lower = filename.toLowerCase();
+
+  // by extension first
+  if (lower.endsWith('.json')) return 'board';
+  if (/\.(fasta|fas|fa)$/.test(lower)) return 'alignment';
+  if (/\.(nwk|nhx)$/.test(lower)) return 'tree';
+  if (/\.(tsv|csv|txt)$/.test(lower)) return 'histogram';
+  if (/\.(phy|phylip|dist)$/.test(lower)) return 'heatmap';
+  if (lower.endsWith('.pdb')) return 'structure';
+
+  // by quick content sniff as fallback
+  const head = text.slice(0, 2000);
+
+  // FASTA
+  if (/^>\S/m.test(head)) return 'alignment';
+
+  // Newick / NHX
+  if (head.trim().startsWith('(') && head.includes(';')) return 'tree';
+  if (head.includes('[&&NHX')) return 'tree';
+
+  // PDB
+  if (/^(ATOM|HETATM|HEADER)\b/m.test(head)) return 'structure';
+
+  // PHYLIP-ish distmat (first line looks like an integer count)
+  if (/^\s*\d+\s*$/m.test(head.split(/\r?\n/)[0] || '')) return 'heatmap';
+
+  // numeric columns -> histogram-ish
+  if (/[\d\.\-eE]+[,\t][\d\.\-eE]/.test(head)) return 'histogram';
+
+  return 'unknown';
+};
+
+// --- build panel payload from file  ---
+const buildPanelPayloadFromFile = async (file) => {
+  const filename = file.name;
+  const text = await file.text();
+  const kind = detectFileType(filename, text);
+
+  if (kind === 'board') {
+    // caller will handle board specially
+    return { type: 'board', payload: text, filename };
+  }
+
+  if (kind === 'alignment') {
+    const parsed = parseFasta(text);
+    return { type: 'alignment', payload: { data: parsed, filename } };
+  }
+
+  if (kind === 'tree') {
+    const isNhx = /\.nhx$/i.test(filename) || text.includes('[&&NHX');
+    return { type: 'tree', payload: { data: text, filename, isNhx } };
+  }
+
+  if (kind === 'histogram') {
+    const lines = text.trim().split(/\r?\n/);
+    const lower = filename.toLowerCase();
+    if ((lower.endsWith('.tsv') && lines[0]?.includes('\t')) ||
+        (lower.endsWith('.csv') && lines[0]?.includes(','))) {
+      const isTSV = lower.endsWith('.tsv');
+      const delimiter = isTSV ? '\t' : ',';
+      const headers = lines[0].split(delimiter).map(h => h.trim());
+      const rows = lines.slice(1).map(line => {
+        const cols = line.split(delimiter);
+        const obj = {};
+        headers.forEach((h, i) => {
+          const v = cols[i]?.trim();
+          const n = Number(v);
+          obj[h] = Number.isFinite(n) && v !== '' ? n : v;
+        });
+        return obj;
+      });
+      return { type: 'histogram', payload: { data: { headers, rows }, filename } };
+    } else {
+      const values = lines.map(s => Number(s.trim())).filter(n => Number.isFinite(n));
+      return { type: 'histogram', payload: { data: values, filename, xValues: values.map((_, i) => i + 1) } };
+    }
+  }
+
+  if (kind === 'heatmap') {
+    try {
+      const parsed = parsePhylipDistanceMatrix(text);
+      return { type: 'heatmap', payload: { ...parsed, filename } };
+    } catch {
+      // fall back to unknown
+    }
+  }
+
+  if (kind === 'structure') {
+    return { type: 'structure', payload: { pdb: text, filename } };
+  }
+
+  return { type: 'unknown', payload: { filename } };
+};
+
+// drop handlers
+const handleDragEnter = (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dragCounter.current += 1;
+  setIsDragging(true);
+};
+const handleDragOver = (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  if (!isDragging) setIsDragging(true);
+};
+const handleDragLeave = (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  dragCounter.current -= 1;
+  if (dragCounter.current <= 0) {
+    setIsDragging(false);
+  }
+};
+const resetDrag = () => { dragCounter.current = 0; setIsDragging(false); };
+
+const handleDrop = async (e) => {
+  e.preventDefault();
+  e.stopPropagation();
+  const files = Array.from(e.dataTransfer?.files || []);
+  resetDrag();
+  if (!files.length) return;
+
+  // if exactly one JSON => treat as board load
+  const onlyFile = files.length === 1 ? files[0] : null;
+  if (onlyFile && onlyFile.name.toLowerCase().endsWith('.json')) {
+    try {
+      const text = await onlyFile.text();
+      const board = JSON.parse(text);
+      setPanels(board.panels || []);
+      setLayout(board.layout || []);
+      setPanelData(board.panelData || {});
+      setPanelLinks(board.panelLinks || {});
+      setTitleFlipKey(Date.now());
+      return;
+    } catch {
+      alert('Invalid board file (.json). Opening nothing.');
+      return;
+    }
+  }
+
+  // otherwise, open each supported file in its panel
+  for (const f of files) {
+    try {
+      const built = await buildPanelPayloadFromFile(f);
+      if (built.type === 'unknown') {
+        console.warn(`Unsupported or unrecognized file: ${f.name}`);
+        continue;
+      }
+      if (built.type === 'board') {
+        // when mixed files include json, skip board load to avoid clobbering current work
+        console.warn(`Skipping board file ${f.name} in multi-file drop to avoid overwriting current board.`);
+        continue;
+      }
+      addPanel({
+        type: built.type,
+        data: built.payload,
+        layoutHint: { w: 4, h: built.type === 'seqlogo' ? 8 : 20 }
+      });
+    } catch (err) {
+      console.error('Failed to open dropped file', f.name, err);
+    }
+  }
+};
   const makeCommonProps = useCallback((panel) => {
     return {
       id: panel.i,
@@ -1940,7 +2112,23 @@ if (sourcePanel?.type === 'structure' && targetPanel?.type === 'alignment') {
     panelData
   ]);
     return (
-      <div className="h-screen w-screen flex flex-col overflow-hidden bg-white text-black">
+      <div
+  className="h-screen w-screen flex flex-col overflow-hidden bg-white text-black"
+  onDragEnter={handleDragEnter}
+  onDragOver={handleDragOver}
+  onDragLeave={handleDragLeave}
+  onDrop={handleDrop}
+>
+  {isDragging && (
+  <div className="pointer-events-none fixed inset-0 z-[10000] bg-black/30 flex items-center justify-center">
+    <div className="pointer-events-none bg-white rounded-2xl shadow-xl px-6 py-4 text-center">
+      <div className="text-2xl font-bold">Drop files to open</div>
+      <div className="text-sm text-gray-600 mt-1">
+        • JSON: Load board • FASTA/NWK/PDB/PHY/TSV/CSV/TXT: Open in a panel
+      </div>
+    </div>
+  </div>
+)}
         <div className="p-4 flex justify-between items-center">
           <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors}/>
 <div className="flex items-center gap-5">
