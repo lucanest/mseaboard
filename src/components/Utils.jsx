@@ -141,3 +141,125 @@ export function getLeafOrderFromNewick(newick) {
   // Simple regex to parse leaf names (assuming they do not contain parentheses, colons, commas, or semicolons)
   return (newick.match(/[\w\.\-\|]+(?=[,\)\:])/g) || []);
 }
+
+// Strip NHX annotations like [&&NHX:foo=bar]
+const stripNhx = (s) => s.replace(/\[&&NHX[^\]]*\]/g, '');
+
+// Very small Newick parser that preserves branch lengths
+export function parseNewickToTree(newickRaw) {
+  const s = stripNhx(newickRaw).trim().replace(/;$/, '');
+  let i = 0;
+
+  const readName = () => {
+    let start = i;
+    // names can include underscores, dots, numbers, etc. stop at ,:() whitespace
+    while (i < s.length && !",:()".includes(s[i])) i++;
+    return s.slice(start, i).trim();
+  };
+
+  const readNumber = () => {
+    const m = s.slice(i).match(/^([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)/);
+    if (!m) return null;
+    i += m[0].length;
+    return parseFloat(m[0]);
+  };
+
+  const node = () => {
+    let n = { name: '', length: 0, children: [] };
+
+    if (s[i] === '(') {
+      i++; // consume '('
+      while (true) {
+        n.children.push(node());
+        if (s[i] === ',') { i++; continue; }
+        if (s[i] === ')') { i++; break; }
+        // tolerate whitespace
+        if (/\s/.test(s[i])) { i++; continue; }
+        throw new Error('Newick parse error near ' + s.slice(i, i+20));
+      }
+      // optional node name
+      if (s[i] && !",:)".includes(s[i])) n.name = readName();
+    } else {
+      n.name = readName(); // leaf name
+    }
+
+    if (s[i] === ':') {
+      i++;
+      const len = readNumber();
+      n.length = (len != null ? len : 0);
+    }
+
+    return n;
+  };
+
+  const root = node();
+  return root;
+}
+
+export function collectLeaves(root) {
+  const leaves = [];
+  const dfs = (n) => {
+    if (!n.children || n.children.length === 0) {
+      if (!n.name) {
+        // unnamed leaf — give it something stable
+        n.name = `leaf_${leaves.length+1}`;
+      }
+      leaves.push(n);
+      return;
+    }
+    n.children.forEach(dfs);
+  };
+  dfs(root);
+  return leaves;
+}
+
+// Build parent/depth maps so we can compute LCA-style distances
+function indexTree(root) {
+  const parent = new Map();
+  const depth = new Map();          // distance from root (sum of branch lengths)
+  const byName = new Map();
+
+  const stack = [{ node: root, d: 0, p: null }];
+  while (stack.length) {
+    const { node, d, p } = stack.pop();
+    depth.set(node, d);
+    if (p) parent.set(node, p);
+    if (!node.children || node.children.length === 0) {
+      byName.set(node.name, node);
+    }
+    (node.children || []).forEach(ch =>
+      stack.push({ node: ch, d: d + ch.length, p: node })
+    );
+  }
+  return { parent, depth, byName };
+}
+
+// distance(u,v) = depth(u)+depth(v) - 2*depth(lca)
+function lcaDistance(u, v, parent, depth) {
+  const seen = new Set();
+  let a = u, b = v;
+  while (a) { seen.add(a); a = parent.get(a) || null; }
+  while (b && !seen.has(b)) { b = parent.get(b) || null; }
+  const lca = b || null;
+  const du = depth.get(u) || 0;
+  const dv = depth.get(v) || 0;
+  const dl = lca ? (depth.get(lca) || 0) : 0;
+  return du + dv - 2 * dl;
+}
+
+export function newickToDistanceMatrix(newickText) {
+  const root = parseNewickToTree(newickText);
+  const { parent, depth, byName } = indexTree(root);
+  const labels = Array.from(byName.keys());
+  const nodes = labels.map(n => byName.get(n));
+
+  const N = labels.length;
+  const matrix = Array.from({ length: N }, () => Array(N).fill(0));
+  for (let i = 0; i < N; i++) {
+    for (let j = i+1; j < N; j++) {
+      const d = lcaDistance(nodes[i], nodes[j], parent, depth);
+      matrix[i][j] = matrix[j][i] = d;
+    }
+  }
+  return { labels, matrix };
+}
