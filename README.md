@@ -1,6 +1,6 @@
-# MSEAVIEW
+# MSEABOARD
 
-**MSEAVIEW** is an interactive web application for uploading, visualizing, and exploring multiple sequence alignments (MSA), phylogenetic trees, and tabular or numeric datasets. It provides linked, customizable panels for in-depth sequence and evolutionary analysis—all in your browser.
+**MSEABOARD** is an interactive web application for uploading, visualizing, and exploring multiple sequence alignments (MSA), phylogenetic trees, and tabular or numeric datasets. It provides linked, customizable panels for in-depth sequence and evolutionary analysis—all in your browser.
 
 ## Features
 
