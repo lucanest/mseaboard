@@ -183,7 +183,7 @@ export function GitHubButton() {
   return (
     <div className="relative group">
       <a
-        href="https://github.com/lucanest/mseaview"
+        href="https://github.com/lucanest/mseaboard"
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center px-2 py-1 rounded hover:bg-gray-200"
