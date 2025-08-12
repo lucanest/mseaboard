@@ -30,7 +30,7 @@
 - Load previously saved workspaces for seamless continuation.
 
  **No installation required**
-- Available online at [https://mseaview.com](https://mseaview.com)
+- Available online at [https://mseaboard.com](https://mseaboard.com)
 
 ---
 
@@ -43,7 +43,7 @@ npm install
 npm run dev
 ```
 
-Visit `http://localhost:5173` and upload your files. Alternatively head directly to https://mseaview.com
+Visit `http://localhost:5173` and upload your files. Alternatively head directly to https://mseaboard.com
 
 ## Project structure
 
