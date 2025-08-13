@@ -1,6 +1,10 @@
 // App.jsx
+import 'react-grid-layout/css/styles.css';
+import 'react-resizable/css/styles.css';
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import throttle from 'lodash.throttle'
+import GridLayout from 'react-grid-layout';
+import ReactDOM from 'react-dom';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SurfaceToggleButton,
 SeqlogoButton, SequenceButton, DistanceMatrixButton, DownloadButton, GitHubButton} from './components/Buttons.jsx';
@@ -9,17 +13,13 @@ import { translateNucToAmino, isNucleotide, threeToOne,
    parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick, newickToDistanceMatrix,
   downloadSVGElement, downloadText, detectFileType, toFasta, toPhylip} from './components/Utils.jsx';
 import { residueColors, logoColors } from './constants/colors.js';
+import { TitleFlip, AnimatedList } from './components/Animations.jsx';
 import { FixedSizeGrid as Grid } from 'react-window';
-import GridLayout from 'react-grid-layout';
-import 'react-grid-layout/css/styles.css';
-import 'react-resizable/css/styles.css';
-import ReactDOM from 'react-dom';
 import PhyloTreeViewer from './components/PhyloTreeViewer.jsx';
 import PhylipHeatmap from "./components/Heatmap";
 import Histogram from './components/Histogram.jsx';
 import SequenceLogoSVG from './components/Seqlogo.jsx';
 import StructureViewer from './components/StructureViewer.jsx';
-import { TitleFlip } from './components/Animations.jsx';
 import useElementSize from './hooks/useElementSize.js'
 
 const LABEL_WIDTH = 66;
@@ -392,7 +392,7 @@ const StructurePanel = React.memo(function StructurePanel({
   const [showChainPicker, setShowChainPicker] = React.useState(false);
 
   // Parse available chains (by CA presence)
-  const chainIds = React.useMemo(() => {
+const chainIds = React.useMemo(() => {
     if (!pdb) return [];
     const seen = new Set(); const ids = [];
     for (const line of pdb.split(/\r?\n/)) {
@@ -404,12 +404,15 @@ const StructurePanel = React.memo(function StructurePanel({
     return ids;
   }, [pdb]);
 
-  // Color helper for distinct buttons (to fix)
-  const colorFor = React.useCallback((key) => {
-    // simple hash -> hue
-    let h = 0; for (let i=0;i<key.length;i++) h = (h*31 + key.charCodeAt(i)) % 360;
-    return `hsl(${h}, 70%, 65%)`;
-  }, []);
+  const pickerItems = React.useMemo(() => {
+    const items = [];
+    if (chainIds.length > 1) {
+      items.push('All chains');
+    }
+    chainIds.forEach(cid => items.push(`Chain ${cid}`));
+    return items;
+  }, [chainIds]);
+
 
   const handleSurfaceToggle = React.useCallback(() => {
     setPanelData(pd => ({ ...pd, [id]: { ...pd[id], surface: !surface }}));
@@ -433,12 +436,19 @@ const StructurePanel = React.memo(function StructurePanel({
     }
   }, [chainIds, id, onGenerateDistance]);
 
-  // Click a button -> generate & close
-  const pickChain = React.useCallback((choice) => {
+const pickChain = React.useCallback((choice) => {
     onGenerateDistance(id, choice);
     setShowChainPicker(false);
   }, [id, onGenerateDistance]);
 
+  const handleChainSelect = React.useCallback((item) => {
+    if (item === 'All chains') {
+      pickChain('ALL');
+    } else {
+      const cid = item.replace('Chain ', '');
+      pickChain(cid);
+    }
+  }, [pickChain]);
   return (
     <PanelContainer
       id={id}
@@ -459,44 +469,30 @@ const StructurePanel = React.memo(function StructurePanel({
         extraButtons={[
           <SurfaceToggleButton key="surf" onClick={handleSurfaceToggle} isActive={surface} />,
           <SequenceButton key="seq" onClick={() => onCreateSequenceFromStructure(id)} />,
-          <DistanceMatrixButton key="dm" onClick={handleMatrixClick} />,
+          <DistanceMatrixButton key="dm" onClick={handleMatrixClick} title='Build distance matrix from structure' />,
           <DownloadButton key="dl" onClick={handleDownload} />
         ]}
       />
 
-      {/* picker overlay (only when requested) */}
+      {/* picker overlay */}
       {showChainPicker && (
         <div
-          className="absolute inset-0 z-[1000] bg-black/20 flex items-center justify-center rounded-2xl"
+          className="absolute inset-0 z-[1000] bg-black/40 flex items-center justify-center rounded-2xl"
           onClick={() => setShowChainPicker(false)}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl p-4 max-w-lg w-[min(90vw,36rem)]"
+            className="max-w-lg w-[min(90vw,36rem)] h-full flex flex-col items-center justify-center"
             onClick={(e) => e.stopPropagation()}
+            style={{ height: 'min(120vh, 28rem)' }}
           >
-            <div className="text-sm text-gray-600 mb-2">Choose chain for distance map</div>
-            <div className="flex flex-wrap gap-2">
-              {/* ALL option appears only if multiple chains */}
-              {chainIds.length > 1 && (
-                <button
-                  className="px-3 py-2 rounded-xl text-sm font-semibold shadow"
-                  style={{ background: colorFor('ALL'), color: '#1f2937' }}
-                  onClick={() => pickChain('ALL')}
-                >
-                  All chains
-                </button>
-              )}
-              {chainIds.map(cid => (
-                <button
-                  key={cid}
-                  className="px-3 py-2 rounded-xl text-sm font-semibold shadow"
-                  style={{ background: colorFor(cid), color: '#1f2937' }}
-                  onClick={() => pickChain(cid)}
-                  title={`Chain ${cid}`}
-                >
-                  {cid}
-                </button>
-              ))}
+            <div className="text-lg font-bold text-white mb-4 flex-shrink-0 text-center">Choose chain for distance map</div>
+            <div className="flex-1 flex items-center justify-center w-full max-w-xs">
+              <AnimatedList
+                items={pickerItems}
+                onItemSelect={handleChainSelect}
+                itemClassName="text-center font-semibold !py-3"
+                className="h-full"
+              />
             </div>
           </div>
         </div>
