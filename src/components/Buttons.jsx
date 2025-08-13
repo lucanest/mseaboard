@@ -119,16 +119,34 @@ export function TranslateButton({ onClick }) {
   );
 }
 
-export function SeqlogoButton({ onClick }) {
+// A tiny “sequence logo” glyph: 4 stacks with varying heights.
+// Uses currentColor so it inherits text color.
+function SeqLogoGlyph(props: React.SVGProps<SVGSVGElement>) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
+      {/* letter outlines */}
+      <text x="1"  y="20" fill="gray" fontSize="18" >A</text>
+      <text x="14" y="13" fill="gray" fontSize="14">C</text>
+      <text x="16" y="22" fill="gray" fontSize="4">G</text>
+    </svg>
+  );
+}
+
+export function SeqlogoButton({
+  onClick,
+}: {
+  onClick?: React.MouseEventHandler<HTMLButtonElement>;
+}) {
   return (
     <button
       type="button"
-      className="p-0.5"
+      className="p-0.5 focus:outline-none focus:ring-2 focus:ring-pink-400 rounded"
       onClick={onClick}
       title="Generate sequence logo"
+      aria-label="Generate sequence logo"
     >
       <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-pink-200">
-        <ChartBarIcon className="w-5 h-5" />
+        <SeqLogoGlyph className="w-5 h-5 text-gray-700" />
       </span>
     </button>
   );
