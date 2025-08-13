@@ -35,6 +35,7 @@ function PanelHeader({
   onDuplicate,
   onLinkClick,
   isLinkModeActive,
+  isEligibleLinkTarget,
   isLinked,
   onRemove,
 }) {
@@ -52,12 +53,16 @@ function PanelHeader({
       <div className="flex items-center gap-1">
         {extraButtons.map((btn, i) => <React.Fragment key={i}>{btn}</React.Fragment>)}
         <DuplicateButton onClick={() => onDuplicate(id)} />
-        {onLinkClick && (
-          <LinkButton
-            onClick={() => onLinkClick(id)}
-            isLinked={isLinked}
-            isLinkModeActive={isLinkModeActive}
-          />
+ {onLinkClick && (
+          <div
+  className={`inline-flex items-center justify-center ${isEligibleLinkTarget ? 'ring-2 ring-blue-400' : ''}`}
+  style={{ width: 28, height: 28, borderRadius: 4, top: 0, right: 0 }}>
+            <LinkButton
+              onClick={() => onLinkClick(id)}
+              isLinked={isLinked}
+              isLinkModeActive={isLinkModeActive}
+            />
+          </div>
         )}
         <RemoveButton onClick={() => onRemove(id)} />
       </div>
@@ -164,16 +169,35 @@ function MSATooltip({ x, y, children }) {
   );
 }
 
-function PanelContainer({ id, linkedTo, hoveredPanelId, setHoveredPanelId, children, onDoubleClick, isSelected = false, onSelect = () => {} }) {
+function PanelContainer({
+  id,
+  linkedTo,
+  hoveredPanelId,
+  setHoveredPanelId,
+  children,
+  onDoubleClick,
+  isSelected = false,
+  onSelect = () => {},
+  isEligibleLinkTarget = false, 
+  justLinkedPanels = [],            
+}) {
+  const isJustLinked = justLinkedPanels.includes(id);
   return (
     <div
-      className={`border rounded-2xl overflow-hidden h-full flex flex-col bg-white
+className={`border rounded-2xl overflow-hidden h-full flex flex-col bg-white
         shadow-lg
-        ${hoveredPanelId === id || (linkedTo && hoveredPanelId === linkedTo) ? 'shadow-blue-400/50' : ''}
+        ${
+          isJustLinked
+            ? 'shadow-green-400/80'
+            : hoveredPanelId === id || (linkedTo && hoveredPanelId === linkedTo)
+            ? 'shadow-blue-400/50'
+            : ''
+        }
+        ${isEligibleLinkTarget ? 'ring-2 ring-blue-400' : ''}
       `}
-      tabIndex={0}                            
-      onClick={() => onSelect(id)}             
-      onFocus={() => onSelect(id)}             
+      tabIndex={0}
+      onClick={() => onSelect(id)}
+      onFocus={() => onSelect(id)}
       onMouseEnter={() => setHoveredPanelId(id)}
       onMouseLeave={() => {
         setHoveredPanelId(null);
@@ -192,7 +216,7 @@ function PanelContainer({ id, linkedTo, hoveredPanelId, setHoveredPanelId, child
 const SeqLogoPanel = React.memo(function SeqLogoPanel({
   id, data, onRemove, onDuplicate, hoveredPanelId, setHoveredPanelId, setPanelData,
   highlightedSite, highlightOrigin, onHighlight, linkedTo,
-  onLinkClick, isLinkModeActive, isLinked
+  onLinkClick, isLinkModeActive,isEligibleLinkTarget, isLinked,justLinkedPanels,
 }) {
   const sequences = useMemo(() => {
     if (!data?.msa) return [];
@@ -257,6 +281,8 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
       hoveredPanelId={hoveredPanelId}
       setHoveredPanelId={setHoveredPanelId}
       linkedTo={linkedTo}
+      isEligibleLinkTarget={isEligibleLinkTarget}
+      justLinkedPanels={justLinkedPanels}
     >
       <PanelHeader
         id={id}
@@ -267,6 +293,7 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
         onRemove={onRemove}
         onLinkClick={onLinkClick}
         isLinkModeActive={isLinkModeActive}
+        isEligibleLinkTarget={isEligibleLinkTarget}
         isLinked={isLinked}
         extraButtons={[
           <DownloadButton key="dl" onClick={handleDownloadSVG} title="Download SVG" />
@@ -297,9 +324,9 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
 });
 
 const HeatmapPanel = React.memo(function HeatmapPanel({
-  id, data, onRemove, onDuplicate, onLinkClick, isLinkModeActive, isLinked,
+  id, data, onRemove, onDuplicate, onLinkClick, isLinkModeActive,isEligibleLinkTarget, isLinked,
   hoveredPanelId, setHoveredPanelId, setPanelData, onReupload, highlightedSite,
-  highlightOrigin, onHighlight, 
+  highlightOrigin, onHighlight, justLinkedPanels,
 }) {
   const { labels, matrix, filename } = data || {};
   const [containerRef, dims] = useElementSize({ debounceMs: 90 });
@@ -346,6 +373,8 @@ return (
     hoveredPanelId={hoveredPanelId}
     setHoveredPanelId={setHoveredPanelId}
     onDoubleClick={() => onReupload(id)}
+    isEligibleLinkTarget={isEligibleLinkTarget}
+    justLinkedPanels={justLinkedPanels}
   >
     <PanelHeader
           id={id}
@@ -354,6 +383,7 @@ return (
           setPanelData={setPanelData}
           onDuplicate={onDuplicate}
           onLinkClick={onLinkClick}
+          isEligibleLinkTarget={isEligibleLinkTarget}
           isLinkModeActive={isLinkModeActive}
           isLinked={isLinked}
           onRemove={onRemove}
@@ -383,8 +413,8 @@ return (
 
 const StructurePanel = React.memo(function StructurePanel({
   id, data, onRemove, onDuplicate, hoveredPanelId, setHoveredPanelId, setPanelData, onReupload,
-  onCreateSequenceFromStructure, onGenerateDistance, onLinkClick, isLinkModeActive, isLinked,
-  linkedTo, highlightedSite, highlightOrigin, onHighlight, linkedPanelData
+  onCreateSequenceFromStructure, onGenerateDistance, onLinkClick, isLinkModeActive,isEligibleLinkTarget, isLinked,
+  linkedTo, highlightedSite, highlightOrigin, onHighlight, linkedPanelData, justLinkedPanels,
 }) {
   const { pdb, filename, surface = false } = data || {};
 
@@ -455,6 +485,8 @@ const pickChain = React.useCallback((choice) => {
       hoveredPanelId={hoveredPanelId}
       setHoveredPanelId={setHoveredPanelId}
       onDoubleClick={() => onReupload(id)}
+      isEligibleLinkTarget={isEligibleLinkTarget}
+      justLinkedPanels={justLinkedPanels}
     >
       <PanelHeader
         id={id}
@@ -463,6 +495,7 @@ const pickChain = React.useCallback((choice) => {
         setPanelData={setPanelData}
         onLinkClick={onLinkClick}
         isLinkModeActive={isLinkModeActive}
+        isEligibleLinkTarget={isEligibleLinkTarget}
         isLinked={isLinked}
         onDuplicate={onDuplicate}
         onRemove={onRemove}
@@ -557,11 +590,11 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   id,
   data,
   onRemove, onReupload, onDuplicate, onDuplicateTranslate, onCreateSeqLogo, onCreateSiteStatsHistogram,
-  onLinkClick, isLinkModeActive, isLinked, linkedTo,
+  onLinkClick, isLinkModeActive, isLinked, isEligibleLinkTarget, linkedTo,
   highlightedSite, highlightOrigin, onHighlight,
   onSyncScroll, externalScrollLeft,
   highlightedSequenceId, setHighlightedSequenceId,
-  hoveredPanelId, setHoveredPanelId, setPanelData,
+  hoveredPanelId, setHoveredPanelId, setPanelData, justLinkedPanels,
 }) {
   const msaData = useMemo(() => data.data, [data.data]);
   const filename = data.filename;
@@ -803,6 +836,8 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
       hoveredPanelId={hoveredPanelId}
       setHoveredPanelId={setHoveredPanelId}
       onDoubleClick={() => onReupload(id)}
+      isEligibleLinkTarget={isEligibleLinkTarget}
+      justLinkedPanels={justLinkedPanels}
     >
       <div
         ref={containerRef}
@@ -832,6 +867,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
           onDuplicate={onDuplicate}
           onLinkClick={onLinkClick}
           isLinkModeActive={isLinkModeActive}
+          isEligibleLinkTarget={isEligibleLinkTarget}
           isLinked={isLinked}
           onRemove={onRemove}
         />
@@ -936,8 +972,8 @@ const TreePanel = React.memo(function TreePanel({
   id, data, onRemove, onReupload, onDuplicate, onGenerateDistance,
   highlightedSequenceId, onHoverTip,
   linkedTo, highlightOrigin,
-  onLinkClick, isLinkModeActive, isLinked,hoveredPanelId,
-  setHoveredPanelId, setPanelData
+  onLinkClick, isLinkModeActive,isEligibleLinkTarget,isLinked,hoveredPanelId,
+  setHoveredPanelId, setPanelData,justLinkedPanels,
 }) {
   const { data: newick, filename, isNhx, RadialMode= true } = data || {};
 
@@ -964,6 +1000,8 @@ const TreePanel = React.memo(function TreePanel({
     hoveredPanelId={hoveredPanelId}
     setHoveredPanelId={setHoveredPanelId}
     onDoubleClick={() => onReupload(id)}
+    isEligibleLinkTarget={isEligibleLinkTarget}
+    justLinkedPanels={justLinkedPanels}
     >
       <PanelHeader
       id={id}
@@ -972,6 +1010,7 @@ const TreePanel = React.memo(function TreePanel({
       setPanelData={setPanelData}
       onDuplicate={onDuplicate}
       onLinkClick={onLinkClick}
+      isEligibleLinkTarget={isEligibleLinkTarget}
       isLinkModeActive={isLinkModeActive}
       extraButtons={[
           <RadialToggleButton
@@ -1014,7 +1053,7 @@ const TreePanel = React.memo(function TreePanel({
 
 const NotepadPanel = React.memo(function NotepadPanel({
   id, data, onRemove, onDuplicate, hoveredPanelId,
-  setHoveredPanelId, setPanelData
+  setHoveredPanelId, setPanelData,isEligibleLinkTarget, justLinkedPanels,
 }) {
   const [filenameInput, setFilenameInput] = useState(data.filename || "Notes");
   const [text, setText] = useState(data.text || "");
@@ -1033,6 +1072,8 @@ const NotepadPanel = React.memo(function NotepadPanel({
       id={id}
       hoveredPanelId={hoveredPanelId}
       setHoveredPanelId={setHoveredPanelId}
+      isEligibleLinkTarget={isEligibleLinkTarget}
+      justLinkedPanels={justLinkedPanels}
     >
       <PanelHeader
         id={id}
@@ -1069,8 +1110,8 @@ const NotepadPanel = React.memo(function NotepadPanel({
 });
 
 const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, onReupload, onDuplicate,
-  onLinkClick, isLinkModeActive, isLinked, linkedTo,
-  highlightedSite, highlightOrigin, onHighlight, hoveredPanelId,
+  onLinkClick, isLinkModeActive, isEligibleLinkTarget,isLinked, linkedTo,
+  highlightedSite, highlightOrigin, onHighlight, hoveredPanelId, justLinkedPanels,
   setHoveredPanelId, setPanelData, syncId,
 }) {
   const { filename } = data;
@@ -1151,6 +1192,8 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
     hoveredPanelId={hoveredPanelId}
     setHoveredPanelId={setHoveredPanelId}
     onDoubleClick={() => onReupload(id)}
+    isEligibleLinkTarget={isEligibleLinkTarget}
+    justLinkedPanels={justLinkedPanels}
   >
     <PanelHeader
       id={id}
@@ -1160,6 +1203,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
       onDuplicate={onDuplicate}
       onLinkClick={onLinkClick}
       isLinkModeActive={isLinkModeActive}
+      isEligibleLinkTarget={isEligibleLinkTarget}
       isLinked={isLinked}
       onRemove={onRemove}
       extraButtons={[
@@ -1238,6 +1282,7 @@ function App() {
   const [layout, setLayout] = useState([]);
   const [linkMode, setLinkMode] = useState(null);
   const [panelLinks, setPanelLinks] = useState({});
+  const [justLinkedPanels, setJustLinkedPanels] = useState([]);
   const [scrollPositions, setScrollPositions] = useState({});
   const [highlightSite, setHighlightSite] = useState(null);
   const [highlightOrigin, setHighlightOrigin] = useState(null);
@@ -1440,7 +1485,7 @@ const handleCreateSequenceFromStructure = useCallback((id) => {
   const originalLayout = layout.find(l => l.i === id);
   const baseY = originalLayout ? (originalLayout.y + originalLayout.h) : 0;
 
-  // We’ll add panels and layout in a single batch
+  // add panels and layout in a single batch
   const newPanels = [];
   const newLayouts = [];
   const newPanelDataEntries = {};
@@ -1635,6 +1680,10 @@ const handleTreeToDistance = useCallback((id) => {
             copy[b] = a;
             return copy;
           });
+
+        setJustLinkedPanels([linkMode, id]);
+        setTimeout(() => setJustLinkedPanels([]), 1000); // 1 second green
+
 
           // Reorder MSA rows to match tree leaf order if the two are linked
           const panelA = panels.find(p => p.i === a);
@@ -2274,37 +2323,64 @@ const handleDrop = async (e) => {
     }
   }
 };
-  const makeCommonProps = useCallback((panel) => {
-    return {
-      id: panel.i,
-      data: panelData[panel.i],
-      onRemove: removePanel,
-      onReupload: id => triggerUpload(panel.type, id),
-      onDuplicate: duplicatePanel,
-      onLinkClick: handleLinkClick,
-      isLinkModeActive: linkMode === panel.i,
-      isLinked: !!panelLinks[panel.i],
-      linkedTo: panelLinks[panel.i] || null,
-      highlightedSite: highlightSite,
-      highlightOrigin: highlightOrigin,
-      onHighlight: handleHighlight,
-      hoveredPanelId,
-      setHoveredPanelId
-    };
-  }, [
-    removePanel,
-    triggerUpload,
-    duplicatePanel,
-    handleLinkClick,
-    linkMode,
-    panelLinks,
-    highlightSite,
-    highlightOrigin,
-    handleHighlight,
+
+const LINK_COMPAT = {
+  alignment: new Set(['alignment','seqlogo','histogram','structure','tree']),
+  seqlogo:   new Set(['alignment','histogram','seqlogo']),
+  histogram: new Set(['alignment','histogram','seqlogo']),
+  heatmap:   new Set(['tree','heatmap','alignment','structure']),
+  tree:      new Set(['alignment','heatmap','tree']),
+  structure: new Set(['alignment','heatmap']),
+  notepad:   new Set([]),
+};
+
+const canLink = (typeA, typeB) =>
+  !!(LINK_COMPAT[typeA] && LINK_COMPAT[typeA].has(typeB));
+
+const makeCommonProps = useCallback((panel) => {
+  const originId = linkMode;
+  const originPanel = originId ? panels.find(p => p.i === originId) : null;
+
+  const isEligibleLinkTarget =
+    !!(
+      originPanel &&
+      originPanel.i !== panel.i &&                     // not the origin
+      canLink(originPanel.type, panel.type)            // compatible types
+    );
+
+  return {
+    id: panel.i,
+    data: panelData[panel.i],
+    onRemove: removePanel,
+    onReupload: id => triggerUpload(panel.type, id),
+    onDuplicate: duplicatePanel,
+    onLinkClick: handleLinkClick,
+    isLinkModeActive: linkMode === panel.i,
+    isLinked: !!panelLinks[panel.i],
+    linkedTo: panelLinks[panel.i] || null,
+    highlightedSite: highlightSite,
+    highlightOrigin: highlightOrigin,
+    onHighlight: handleHighlight,
     hoveredPanelId,
     setHoveredPanelId,
-    panelData
-  ]);
+    isEligibleLinkTarget,    
+    justLinkedPanels,                          
+  };
+}, [
+  removePanel,
+  triggerUpload,
+  duplicatePanel,
+  handleLinkClick,
+  linkMode,
+  panelLinks,
+  highlightSite,
+  highlightOrigin,
+  handleHighlight,
+  hoveredPanelId,
+  setHoveredPanelId,
+  panelData,
+  panels
+]);
     return (
       <div
   className="h-screen w-screen flex flex-col overflow-hidden bg-white text-black"
@@ -2445,6 +2521,7 @@ const handleDrop = async (e) => {
       <AlignmentPanel
         {...commonProps}
         setPanelData={setPanelData}
+        justLinkedPanels={justLinkedPanels}
         onSyncScroll={onSyncScroll}
         externalScrollLeft={scrollPositions[panel.i]}
         highlightedSequenceId={highlightedSequenceId}
@@ -2457,6 +2534,7 @@ const handleDrop = async (e) => {
         <TreePanel
           {...commonProps}
           setPanelData={setPanelData}
+          justLinkedPanels={justLinkedPanels}
           highlightedSequenceId={highlightedSequenceId}
           onHoverTip={setHighlightedSequenceId}
           onGenerateDistance={handleTreeToDistance}
@@ -2465,24 +2543,28 @@ const handleDrop = async (e) => {
         <HistogramPanel
           {...commonProps}
           setPanelData={setPanelData}
+          justLinkedPanels={justLinkedPanels}
           syncId={syncId}
         />
       ) : panel.type === 'notepad' ? (
         <NotepadPanel
           {...commonProps}
           setPanelData={setPanelData}
+          justLinkedPanels={justLinkedPanels}
         />
       ) : panel.type === 'heatmap' ? (
         <HeatmapPanel
         {...commonProps}
         onHighlight={handleHighlight}
         setPanelData={setPanelData}
+        justLinkedPanels={justLinkedPanels}
 
       />
       ) :panel.type === 'seqlogo' ? (
     <SeqLogoPanel
       {...commonProps}
       setPanelData={setPanelData}
+      justLinkedPanels={justLinkedPanels}
       highlightedSite={highlightSite}
       highlightOrigin={highlightOrigin}
       onHighlight={handleHighlight}
@@ -2497,6 +2579,7 @@ const handleDrop = async (e) => {
   <StructurePanel
     {...commonProps}
 setPanelData={setPanelData}
+justLinkedPanels={justLinkedPanels}
   onCreateSequenceFromStructure={handleCreateSequenceFromStructure}
   onGenerateDistance={handleStructureToDistance} 
   linkedPanelData={panelLinks[panel.i] ? panelData[panelLinks[panel.i]] : null}
