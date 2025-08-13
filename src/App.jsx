@@ -589,7 +589,7 @@ const MSACell = React.memo(function MSACell({
 const AlignmentPanel = React.memo(function AlignmentPanel({
   id,
   data,
-  onRemove, onReupload, onDuplicate, onDuplicateTranslate, onCreateSeqLogo, onCreateSiteStatsHistogram,
+  onRemove, onReupload, onDuplicate, onDuplicateTranslate, onCreateSeqLogo, onCreateSiteStatsHistogram, onGenerateDistance,
   onLinkClick, isLinkModeActive, isLinked, isEligibleLinkTarget, linkedTo,
   highlightedSite, highlightOrigin, onHighlight,
   onSyncScroll, externalScrollLeft,
@@ -859,10 +859,11 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
                   <TranslateButton onClick={() => onDuplicateTranslate(id)} />,
                   <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />,
                   <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />,
+                  <DistanceMatrixButton onClick={() => onGenerateDistance(id)} title="Build matrix with normalized hamming distance" />,
                   <DownloadButton onClick={handleDownload} />
                 ]
               : [  <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />,
-          <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />,<DownloadButton onClick={handleDownload} />]
+          <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />,<DistanceMatrixButton onClick={() => onGenerateDistance(id)} title="Build matrix with normalized hamming distance" />,<DownloadButton onClick={handleDownload} />]
           }
           onDuplicate={onDuplicate}
           onLinkClick={onLinkClick}
@@ -1628,6 +1629,61 @@ const handleTreeToDistance = useCallback((id) => {
   }
 }, [panelData, addPanel]);
 
+const handleAlignmentToDistance = useCallback((id) => {
+  const a = panelData[id];
+  if (!a || !Array.isArray(a.data) || a.data.length < 2) {
+    alert('Need at least two sequences in the MSA to build a distance matrix.');
+    return;
+  }
+
+  // Prepare labels and uppercase sequences
+  const seqs = a.data.map(s => ({
+    id: s.id,
+    seq: (s.sequence || '').toUpperCase()
+  }));
+  const labels = seqs.map(s => s.id);
+
+  const N = seqs.length;
+  const matrix = Array.from({ length: N }, () => Array(N).fill(0));
+
+  // Pairwise normalized Hamming distance with pairwise gap deletion
+  // - Count only positions where BOTH sequences are not gaps ('-' or '.')
+  // - distance = mismatches / comparable_positions  (0 if none)
+  const isGap = (c) => c === '-' || c === '.';
+
+  for (let i = 0; i < N; i++) {
+    matrix[i][i] = 0;
+    for (let j = i + 1; j < N; j++) {
+      const A = seqs[i].seq;
+      const B = seqs[j].seq;
+      const L = Math.min(A.length, B.length);
+
+      let comparable = 0;
+      let mismatches = 0;
+
+      for (let k = 0; k < L; k++) {
+        const aChar = A[k];
+        const bChar = B[k];
+        if (isGap(aChar) || isGap(bChar)) continue;
+        comparable++;
+        if (aChar !== bChar) mismatches++;
+      }
+
+      const d = comparable > 0 ? (mismatches / comparable) : 0;
+      matrix[i][j] = d;
+      matrix[j][i] = d;
+    }
+  }
+
+  const base = (a.filename ? a.filename.replace(/\.[^.]+$/, '') : 'alignment');
+  addPanel({
+    type: 'heatmap',
+    data: { labels, matrix, filename: `${base}_dist` },
+    basedOnId: id,
+    layoutHint: { w: 4, h: 20 }
+  });
+}, [panelData, addPanel]);
+
   const handleLinkClick = useCallback((id) => {
     if (!linkMode) {
       // no panel selected yet
@@ -2325,7 +2381,7 @@ const handleDrop = async (e) => {
 };
 
 const LINK_COMPAT = {
-  alignment: new Set(['alignment','seqlogo','histogram','structure','tree']),
+  alignment: new Set(['alignment','seqlogo','histogram','structure','tree', 'heatmap']),
   seqlogo:   new Set(['alignment','histogram','seqlogo']),
   histogram: new Set(['alignment','histogram','seqlogo']),
   heatmap:   new Set(['tree','heatmap','alignment','structure']),
@@ -2529,6 +2585,7 @@ const makeCommonProps = useCallback((panel) => {
         onDuplicateTranslate={handleDuplicateTranslate} 
         onCreateSeqLogo={handleCreateSeqLogo}
         onCreateSiteStatsHistogram={handleCreateSiteStatsHistogram}
+        onGenerateDistance={handleAlignmentToDistance} 
       />
   ) : panel.type === 'tree' ? (
         <TreePanel
