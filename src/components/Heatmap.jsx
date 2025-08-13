@@ -21,11 +21,11 @@ function PhylipHeatmap({
   onCellClick,
 }) {
   const containerRef = useRef();
-  const gridRef = useRef();
+  const canvasRef = useRef();
   const rafIdRef = useRef(null);
   const lastHoverRef = useRef({ row: null, col: null }); // avoid redundant updates
 
-  const [dims, setDims] = useState({ width: 400, height: 300 });
+  const [dims, setDims] = useState({ width: 500, height: 500 });
   const [hoverCell, setHoverCell] = useState(null);
   const [tooltip, setTooltip] = useState({
     visible: false,
@@ -67,6 +67,7 @@ function PhylipHeatmap({
   const cellSize = Math.min(availableWidth / n, availableHeight / n);
   const gridWidth = cellSize * n;
   const gridHeight = cellSize * n;
+  const showGridLines = cellSize > 10; // Don't render grid lines for tiny cells
 
   const { min, max } = useMemo(() => {
     const values = matrix.flat();
@@ -75,7 +76,7 @@ function PhylipHeatmap({
 
   // ----- Event delegation handlers on the grid -----
   const computeCellFromEvent = (event) => {
-    const gridEl = gridRef.current;
+    const gridEl = canvasRef.current;
     if (!gridEl) return null;
     const rect = gridEl.getBoundingClientRect();
     const x = event.clientX - rect.left;
@@ -154,6 +155,81 @@ function PhylipHeatmap({
     if (!cell) return;
     onCellClick?.({ row: cell.row, col: cell.col }, id);
   };
+
+  // ----- Canvas Drawing Effect -----
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext("2d");
+
+    // Handle High-DPI displays
+    const dpr = window.devicePixelRatio || 1;
+    if (canvas.width !== gridWidth * dpr || canvas.height !== gridHeight * dpr) {
+      canvas.width = gridWidth * dpr;
+      canvas.height = gridHeight * dpr;
+      canvas.style.width = `${gridWidth}px`;
+      canvas.style.height = `${gridHeight}px`;
+      ctx.scale(dpr, dpr);
+    }
+
+    ctx.clearRect(0, 0, gridWidth, gridHeight);
+
+    // Draw cells
+    for (let i = 0; i < n; i++) {
+      for (let j = 0; j < n; j++) {
+        ctx.fillStyle = valueToColor(matrix[i][j], min, max);
+        ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
+      }
+    }
+
+    // Draw grid lines
+    if (showGridLines) {
+      ctx.strokeStyle = "rgba(220,220,220,0.5)";
+      ctx.lineWidth = 1 / dpr; // Keep lines sharp on high-dpi
+      for (let i = 1; i < n; i++) {
+        // Vertical
+        ctx.beginPath();
+        ctx.moveTo(i * cellSize, 0);
+        ctx.lineTo(i * cellSize, gridHeight);
+        ctx.stroke();
+        // Horizontal
+        ctx.beginPath();
+        ctx.moveTo(0, i * cellSize);
+        ctx.lineTo(gridWidth, i * cellSize);
+        ctx.stroke();
+      }
+    }
+
+    // Draw highlighted cells
+    ctx.strokeStyle = "#cc0066";
+    ctx.lineWidth = 2;
+    highlightedCells.forEach(({ row, col }) => {
+      ctx.strokeRect(col * cellSize, row * cellSize, cellSize, cellSize);
+    });
+
+    // Draw hover highlight
+    if (hoverCell) {
+      ctx.strokeStyle = "rgb(13, 245, 241)";
+      ctx.lineWidth = 2;
+      ctx.strokeRect(
+        hoverCell.col * cellSize,
+        hoverCell.row * cellSize,
+        cellSize,
+        cellSize
+      );
+    }
+  }, [
+    matrix,
+    gridWidth,
+    gridHeight,
+    cellSize,
+    n,
+    min,
+    max,
+    hoverCell,
+    highlightedCells,
+    showGridLines,
+  ]);
 
   return (
     <div ref={containerRef} className="flex-1 relative overflow-hidden w-full h-full">
@@ -242,10 +318,8 @@ function PhylipHeatmap({
             ))}
           </div>
         )}
-
-        {/* Heatmap grid */}
-        <div
-          ref={gridRef}
+    {/* Heatmap grid - a canvas */}
+    <div
           onMouseMove={handleGridMouseMove}
           onMouseLeave={handleGridMouseLeave}
           onClick={handleGridClick}
@@ -255,50 +329,11 @@ function PhylipHeatmap({
             top: labelSpace,
             width: gridWidth,
             height: gridHeight,
-            display: "grid",
-            gridTemplateColumns: `repeat(${n}, ${cellSize}px)`,
-            gridTemplateRows: `repeat(${n}, ${cellSize}px)`,
             border: "1px solid #eee",
+            cursor: "crosshair",
           }}
         >
-          {matrix.map((row, i) =>
-            row.map((val, j) => {
-              const isHighlighted = highlightedCells.some(
-                (cell) => cell.row === i && cell.col === j
-              );
-              const isHover = hoverCell?.row === i && hoverCell?.col === j;
-              return (
-                <div
-                  key={i + "," + j}
-                  style={{
-                    background: valueToColor(val, min, max),
-                    width: cellSize,
-                    height: cellSize,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    fontWeight: "bold",
-                    fontSize: cellSize < 38 ? "0.7em" : "1em",
-                    color:
-                      i === j
-                        ? "#222"
-                        : val > (min + max) / 2
-                        ? "#222"
-                        : "#fff",
-                    border: isHover
-                      ? "2px solid rgb(13, 245, 241)"
-                      : isHighlighted
-                      ? "2px solid #cc0066"
-                      : "1px solid rgba(220,220,220,0.5)",
-                    zIndex: isHover ? 10 : isHighlighted ? 5 : 1,
-                    position: isHover || isHighlighted ? "relative" : "static",
-                  }}
-                >
-                  {cellSize > 65 ? val.toFixed(3) : ""}
-                </div>
-              );
-            })
-          )}
+          <canvas ref={canvasRef} />
         </div>
       </div>
 
