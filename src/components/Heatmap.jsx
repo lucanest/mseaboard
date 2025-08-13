@@ -68,6 +68,7 @@ function PhylipHeatmap({
   const gridWidth = cellSize * n;
   const gridHeight = cellSize * n;
   const showGridLines = cellSize > 10; // Don't render grid lines for tiny cells
+  const showHoverHighlight = cellSize > 6; // Show hover highlight only for larger cells
 
   const { min, max } = useMemo(() => {
     const values = matrix.flat();
@@ -208,7 +209,7 @@ function PhylipHeatmap({
     });
 
     // Draw hover highlight
-    if (hoverCell) {
+    if (hoverCell && showHoverHighlight) {
       ctx.strokeStyle = "rgb(13, 245, 241)";
       ctx.lineWidth = 2;
       ctx.strokeRect(
