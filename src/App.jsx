@@ -6,7 +6,7 @@ import throttle from 'lodash.throttle'
 import GridLayout from 'react-grid-layout';
 import ReactDOM from 'react-dom';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
-CodonToggleButton, TranslateButton, SurfaceToggleButton,
+CodonToggleButton, TranslateButton, SurfaceToggleButton, SiteStatsButton,
 SeqlogoButton, SequenceButton, DistanceMatrixButton, DownloadButton, GitHubButton} from './components/Buttons.jsx';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, threeToOne,
@@ -556,12 +556,12 @@ const MSACell = React.memo(function MSACell({
 const AlignmentPanel = React.memo(function AlignmentPanel({
   id,
   data,
-  onRemove, onReupload, onDuplicate, onDuplicateTranslate, onCreateSeqLogo,
+  onRemove, onReupload, onDuplicate, onDuplicateTranslate, onCreateSeqLogo, onCreateSiteStatsHistogram,
   onLinkClick, isLinkModeActive, isLinked, linkedTo,
   highlightedSite, highlightOrigin, onHighlight,
   onSyncScroll, externalScrollLeft,
   highlightedSequenceId, setHighlightedSequenceId,
-  hoveredPanelId, setHoveredPanelId, setPanelData
+  hoveredPanelId, setHoveredPanelId, setPanelData,
 }) {
   const msaData = useMemo(() => data.data, [data.data]);
   const filename = data.filename;
@@ -823,9 +823,11 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
                   />,
                   <TranslateButton onClick={() => onDuplicateTranslate(id)} />,
                   <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />,
+                  <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />,
                   <DownloadButton onClick={handleDownload} />
                 ]
-              : [  <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />,<DownloadButton onClick={handleDownload} />]
+              : [  <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />,
+          <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />,<DownloadButton onClick={handleDownload} />]
           }
           onDuplicate={onDuplicate}
           onLinkClick={onLinkClick}
@@ -2180,6 +2182,83 @@ const buildPanelPayloadFromFile = async (file) => {
   return { type: 'unknown', payload: { filename } };
 };
 
+const computeSiteStats = (msa, codonMode = false) => {
+  if (!Array.isArray(msa) || msa.length === 0) {
+    const siteHeader = codonMode ? "codon" : "site";
+    return { headers: [siteHeader, "conservation", "gap_fraction"], rows: [] };
+  }
+
+  const seqs = msa.map(s => (typeof s === 'string' ? s : s.sequence) || '');
+  const L = (typeof msa[0] === 'string' ? msa[0] : msa[0].sequence)?.length || 0;
+
+  const rows = [];
+
+  if (!codonMode) {
+    for (let col = 0; col < L; col++) {
+      const chars = seqs.map(s => s[col] || '-');
+      const nonGap = chars.filter(c => c && c !== '-');
+      const gapFraction = chars.length ? (chars.length - nonGap.length) / chars.length : 0;
+
+      let conservation = 0;
+      if (nonGap.length) {
+        const counts = new Map();
+        for (const c of nonGap) counts.set(c, (counts.get(c) || 0) + 1);
+        const max = Math.max(...counts.values());
+        conservation = max / nonGap.length; // fraction of most frequent non-gap residue
+      }
+
+      rows.push({ site: col, conservation, gap_fraction: gapFraction });
+    }
+  } else {
+    const codonCount = Math.floor(L / 3);
+    for (let i = 0; i < codonCount; i++) {
+      const c0 = i * 3, c1 = c0 + 1, c2 = c0 + 2;
+      // Build triplets; if any position missing treat as gap
+      const triplets = seqs.map(s => {
+        const a = s[c0] || '-', b = s[c1] || '-', c = s[c2] || '-';
+        return (a === '-' || b === '-' || c === '-') ? '---' : (a + b + c);
+      });
+
+      const nonGap = triplets.filter(t => t !== '---');
+      const gapFraction = triplets.length ? (triplets.length - nonGap.length) / triplets.length : 0;
+
+      let conservation = 0;
+      if (nonGap.length) {
+        const counts = new Map();
+        for (const t of nonGap) counts.set(t, (counts.get(t) || 0) + 1);
+        const max = Math.max(...counts.values());
+        conservation = max / nonGap.length; // fraction of most frequent non-gap codon
+      }
+
+      rows.push({ codon: i, conservation, gap_fraction: gapFraction });
+    }
+  }
+
+  const siteHeader = codonMode ? "codon" : "site";
+  return { headers: [siteHeader, "conservation", "gap_fraction"], rows };
+};
+
+const handleCreateSiteStatsHistogram = useCallback((id) => {
+  const data = panelData[id];
+  if (!data || !Array.isArray(data.data)) return;
+
+  const isCodon = !!data.codonMode;
+  const table = computeSiteStats(data.data, isCodon);
+
+  const baseName = (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'alignment');
+  addPanel({
+    type: 'histogram',
+    data: {
+      data: table,
+      filename: `${baseName}_site_stats${isCodon ? '_codon' : ''}.csv`,
+      selectedXCol: isCodon ? 'codon' : 'site',
+      selectedCol: 'conservation'
+    },
+    basedOnId: id,
+    layoutHint: { w: 4, h: 14 }
+  });
+}, [panelData, addPanel]);
+
 // drop handlers
 const handleDragEnter = (e) => {
   e.preventDefault();
@@ -2427,6 +2506,7 @@ const handleDrop = async (e) => {
         setHighlightedSequenceId={setHighlightedSequenceId}
         onDuplicateTranslate={handleDuplicateTranslate} 
         onCreateSeqLogo={handleCreateSeqLogo}
+        onCreateSiteStatsHistogram={handleCreateSiteStatsHistogram}
       />
   ) : panel.type === 'tree' ? (
         <TreePanel

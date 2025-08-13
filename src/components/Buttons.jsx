@@ -86,6 +86,21 @@ export function CodonToggleButton({ onClick, isActive }) {
   );
 }
 
+export function SiteStatsButton({ onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="p-0.5"
+      title="Compute per-site conservation and gap fraction"
+    >
+      <span className="inline-flex items-center justify-center w-6 h-6
+       rounded bg-gray-200 border border-gray-400 hover:bg-orange-300">
+       <ChartBarIcon className="w-5 h-5 text-gray-700" />
+      </span>
+    </button>
+  );
+}
+
 export function SurfaceToggleButton({ onClick, isActive }) {
   return (
     <button
