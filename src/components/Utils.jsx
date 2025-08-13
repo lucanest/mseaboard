@@ -368,3 +368,60 @@ export function detectFileType(filename, text){
 
   return 'unknown';
 };
+
+
+export function computeSiteStats(msa, codonMode = false){
+  if (!Array.isArray(msa) || msa.length === 0) {
+    const siteHeader = codonMode ? "codon" : "site";
+    return { headers: [siteHeader, "conservation", "gap_fraction"], rows: [] };
+  }
+
+  const seqs = msa.map(s => (typeof s === 'string' ? s : s.sequence) || '');
+  const L = (typeof msa[0] === 'string' ? msa[0] : msa[0].sequence)?.length || 0;
+
+  const rows = [];
+
+  if (!codonMode) {
+    for (let col = 0; col < L; col++) {
+      const chars = seqs.map(s => s[col] || '-');
+      const nonGap = chars.filter(c => c && c !== '-');
+      const gapFraction = chars.length ? (chars.length - nonGap.length) / chars.length : 0;
+
+      let conservation = 0;
+      if (nonGap.length) {
+        const counts = new Map();
+        for (const c of nonGap) counts.set(c, (counts.get(c) || 0) + 1);
+        const max = Math.max(...counts.values());
+        conservation = max / nonGap.length; // fraction of most frequent non-gap residue
+      }
+
+      rows.push({ site: col, conservation, gap_fraction: gapFraction });
+    }
+  } else {
+    const codonCount = Math.floor(L / 3);
+    for (let i = 0; i < codonCount; i++) {
+      const c0 = i * 3, c1 = c0 + 1, c2 = c0 + 2;
+      // Build triplets; if any position missing treat as gap
+      const triplets = seqs.map(s => {
+        const a = s[c0] || '-', b = s[c1] || '-', c = s[c2] || '-';
+        return (a === '-' || b === '-' || c === '-') ? '---' : (a + b + c);
+      });
+
+      const nonGap = triplets.filter(t => t !== '---');
+      const gapFraction = triplets.length ? (triplets.length - nonGap.length) / triplets.length : 0;
+
+      let conservation = 0;
+      if (nonGap.length) {
+        const counts = new Map();
+        for (const t of nonGap) counts.set(t, (counts.get(t) || 0) + 1);
+        const max = Math.max(...counts.values());
+        conservation = max / nonGap.length; // fraction of most frequent non-gap codon
+      }
+
+      rows.push({ codon: i, conservation, gap_fraction: gapFraction });
+    }
+  }
+
+  const siteHeader = codonMode ? "codon" : "site";
+  return { headers: [siteHeader, "conservation", "gap_fraction"], rows };
+};
