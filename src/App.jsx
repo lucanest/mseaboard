@@ -591,7 +591,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   data,
   onRemove, onReupload, onDuplicate, onDuplicateTranslate, onCreateSeqLogo, onCreateSiteStatsHistogram, onGenerateDistance,
   onLinkClick, isLinkModeActive, isLinked, isEligibleLinkTarget, linkedTo,
-  highlightedSite, highlightOrigin, onHighlight,
+  highlightedSite, highlightOrigin, onHighlight, highlightOriginType,
   onSyncScroll, externalScrollLeft,
   highlightedSequenceId, setHighlightedSequenceId,
   hoveredPanelId, setHoveredPanelId, setPanelData, justLinkedPanels,
@@ -886,14 +886,17 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
           </MSATooltip>
         )}
 
-        {highlightedSite != null &&
-          linkedTo === highlightOrigin &&
-          id !== highlightOrigin && (
+ {highlightedSite != null &&
+   linkedTo === highlightOrigin &&
+   id !== highlightOrigin &&
+   highlightOriginType !== 'heatmap' && (
             <MSATooltip x={tooltipPos.x} y={tooltipPos.y}>
-              <span>
-                {codonMode ? 'Codon ' : 'Site '}
-                <span className="font-bold">{highlightedSite + 1}</span>
-              </span>
+       <span>
+         {codonMode ? 'Codon ' : 'Site '}
+         <span className="font-bold">
+           {typeof highlightedSite === 'number' ? highlightedSite + 1 : ''}
+         </span>
+       </span>
             </MSATooltip>
           )}
 
@@ -924,8 +927,11 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
             >
               {sequenceLabels.map(({ index, rawId, shortId, id: seqId }) => {
                 const isrowhovered = msaData[hoveredRow]?.id === seqId ? hoveredRow : false;
-                const isNameHighlight =
-                  isrowhovered || (highlightedSequenceId === seqId && hoveredPanelId === linkedTo);
+                const linkedNames = data?.linkedHighlights || [];
+             const isNameHighlight =
+                isrowhovered ||
+                (highlightedSequenceId === seqId && hoveredPanelId === linkedTo) ||
+                linkedNames.includes(seqId);
                 return (
                   <div
                     key={index}
@@ -1861,6 +1867,16 @@ const handleAlignmentToDistance = useCallback((id) => {
           }
         }));
       }
+      if (sourcePanel?.type === 'heatmap' && targetPanel?.type === 'alignment') {
+  setPanelData(prev => ({
+    ...prev,
+    [targetId]: { 
+      ...prev[targetId], 
+      linkedHighlights: [] 
+    }
+  }));
+  return;
+}
  if (sourcePanel?.type === 'alignment' && targetPanel?.type === 'structure') {
     setPanelData(prev => ({
       ...prev,
@@ -1890,6 +1906,24 @@ const handleAlignmentToDistance = useCallback((id) => {
       }
       return;
     }
+
+    // Heatmap -> Alignment
+if (sourcePanel?.type === 'heatmap' && targetPanel?.type === 'alignment') {
+  const { labels } = panelData[originId] || {};
+  if (labels && site && typeof site.row === 'number' && typeof site.col === 'number') {
+    const leaf1 = labels[site.row];
+    const leaf2 = labels[site.col];
+    setPanelData(prev => ({
+      ...prev,
+      [targetId]: {
+        ...prev[targetId],
+        // store both sequence IDs so AlignmentPanel can highlight both rows
+        linkedHighlights: [leaf1, leaf2],
+      }
+    }));
+  }
+  return;
+}
 
     // SequenceLogo <-> Alignment
     if (
@@ -2396,6 +2430,7 @@ const canLink = (typeA, typeB) =>
 const makeCommonProps = useCallback((panel) => {
   const originId = linkMode;
   const originPanel = originId ? panels.find(p => p.i === originId) : null;
+  const highlightOriginType = highlightOrigin ? (panels.find(p => p.i === highlightOrigin)?.type || null) : null;
 
   const isEligibleLinkTarget =
     !!(
@@ -2416,6 +2451,7 @@ const makeCommonProps = useCallback((panel) => {
     linkedTo: panelLinks[panel.i] || null,
     highlightedSite: highlightSite,
     highlightOrigin: highlightOrigin,
+    highlightOriginType,
     onHighlight: handleHighlight,
     hoveredPanelId,
     setHoveredPanelId,
