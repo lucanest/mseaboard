@@ -1877,6 +1877,17 @@ const handleAlignmentToDistance = useCallback((id) => {
   }));
   return;
 }
+    if (sourcePanel?.type === 'heatmap' && targetPanel?.type === 'structure') {
+      //console.log('[HM→Struct] clear highlight for', { targetId });
+      setPanelData(prev => ({
+        ...prev,
+        [targetId]: {
+          ...prev[targetId],
+          linkedResiduesByKey: [],
+        }
+      }));
+      return;
+    }
  if (sourcePanel?.type === 'alignment' && targetPanel?.type === 'structure') {
     setPanelData(prev => ({
       ...prev,
@@ -1924,7 +1935,48 @@ if (sourcePanel?.type === 'heatmap' && targetPanel?.type === 'alignment') {
   }
   return;
 }
+  // Heatmap -> Structure
+  if (sourcePanel?.type === 'heatmap' && targetPanel?.type === 'structure') {
+    const { labels } = panelData[originId] || {};
+        if (!labels || !site || typeof site.row !== 'number' || typeof site.col !== 'number') {
+      console.log('[HM→Struct] Missing labels or invalid site:', { labels, site });
+      return;
+    }
 
+    const parseLabel = (lbl) => {
+      // expected from handleStructureToDistance: `${chain}:${resSeq}${iCode?}`
+      // supports e.g. "A:123" or "B:45A"
+      const text = String(lbl).trim();
+      const m = text.match(/^([A-Za-z0-9]):(\d+)([A-Za-z]?)$/);
+      if (!m) {
+        console.log('[HM→Struct] Label did not match expected pattern <Chain:Resi[Icode]>:', { lbl: text });
+      }
+      if (!m) return null;
+      const [, chainId, resiStr, icode] = m;
+      return { chainId, resi: Number(resiStr), icode: icode || '' };
+    };
+
+    const rawA = labels[site.row];
+    const rawB = labels[site.col];
+    const a = parseLabel(rawA);
+    const b = parseLabel(rawB);
+    const list = [a, b].filter(Boolean);
+
+    //console.log('[HM→Struct] hover site:', site, 'raw labels:', { rawA, rawB }, 'parsed:', list, 'targetId:', targetId);
+
+
+    setPanelData(prev => ({
+      ...prev,
+      [targetId]: {
+        ...prev[targetId],
+        // StructureViewer will map these to CA indices via its own chain map
+        linkedResiduesByKey: list,
+        // optionally hint a chain (use the first valid one)
+        linkedChainId: list[0]?.chainId || prev[targetId]?.linkedChainId,
+      }
+    }));
+    return;
+  }
     // SequenceLogo <-> Alignment
     if (
     (sourcePanel.type === 'seqlogo' && targetPanel.type === 'alignment') ||

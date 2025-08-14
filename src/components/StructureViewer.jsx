@@ -47,8 +47,28 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData,link
 
   // 3Dmol handles
   const modelRef = useRef(null);
-  const hoverShapeRef = useRef(null); // inexpensive overlay for hover
+  const hoverShapeRef = useRef(null);     // needed for the hover halo
+  const linkedShapesRef = useRef([]);     // shapes for multi-highlights
+    const _clearLinkedShapes = () => {
+    const v = viewerRef.current;
+    if (!v) return;
+    for (const sh of linkedShapesRef.current) {
+      try { v.removeShape(sh); } catch {}
+    }
+    linkedShapesRef.current = [];
+  };
 
+  const _addLinkedSphere = (atom) => {
+    const v = viewerRef.current;
+    if (!v || !atom) return null;
+    const sh = v.addSphere({
+      center: { x: atom.x, y: atom.y, z: atom.z },
+      radius: 1.8,
+      color: 'red',
+      opacity: 1
+    });
+    return sh;
+  };
   // throttle window in ms when perfMode = true
   const HOVER_THROTTLE_MS = 60; // tuned a bit higher for giant structures
 
@@ -64,7 +84,8 @@ function buildChainInfo(model) {
   for (const a of atoms) {
     const chain = (a.chain || 'A').trim() || 'A';
     const resi = a.resi; // integer
-    const icode = a.inscode || a.icode || ''; // 3Dmol uses inscode
+       // normalize insertion code: treat blank/space the same
+   const icode = String(a.inscode ?? a.icode ?? '').trim();
     const key = `${chain}|${resi}|${icode}`;
 
     if (!byChain[chain]) {
@@ -145,7 +166,7 @@ function msaColToResidIndex(seqString, col) {
   const applyCartoonOnce = () => {
     const v = viewerRef.current;
     if (!v) return;
-    // Use per-atom colors (we pre-bake them via setColorByFunction)
+    // Use per-atom colors (pre-bake them via setColorByFunction)
     v.setStyle({}, { cartoon: {} });
   };
 
@@ -179,7 +200,7 @@ function msaColToResidIndex(seqString, col) {
     // Draw a small translucent sphere centered at the hovered CA
     hoverShapeRef.current = v.addSphere({
       center: { x: atom.x, y: atom.y, z: atom.z },
-      radius: 1.2,
+      radius: 1.8,
       color: 'red',
       opacity: 1
     });
@@ -219,7 +240,8 @@ const setupHoverStructureTooltip = () => {
       // Share highlight back to MSA if linked
       try {
         const chain = (atom.chain || 'A').trim() || 'A';
-        const key = `${chain}|${atom.resi}|${atom.inscode || atom.icode || ''}`;
+        const icode = String(atom.inscode ?? atom.icode ?? '').trim();
+        const key = `${chain}|${atom.resi}|${icode}`;
         const info = chainInfoRef.current.byChain[chain];
         const idx = info ? info.keyToIndex.get(key) : null;
         if (idx != null && typeof onHighlight === 'function') {
@@ -238,16 +260,23 @@ const setupHoverStructureTooltip = () => {
 };
 
 useEffect(() => {
+  // If multi-linked residues are present, don't override them here.
+  if (Array.isArray(data?.linkedResiduesByKey) && data.linkedResiduesByKey.length > 0) {
+    return;
+  }
+
   const v = viewerRef.current;
   const byChain = chainInfoRef.current.byChain;
   if (!v || !byChain) return;
 
   const chainId = data?.linkedChainId || guessLinkedChainId(linkedPanelData);
+  //console.log('[Structure] chosen chain for single-link (data.linkedChainId or guess):', chainId);
   const residIdx = data?.linkedResidueIndex;
 
   if (chainId && byChain[chainId] && Number.isInteger(residIdx)) {
     const a = byChain[chainId].caAtoms[residIdx];
     if (a) {
+      //console.log('[Structure] single-link highlight:', { chainId, residIdx, resi: a.resi, icode: a.inscode || a.icode || '' });
       // Show halo
       scheduleHalo(a);
 
@@ -260,14 +289,84 @@ useEffect(() => {
       showStructureTooltipText(label);
       return;
     }
+    //console.log('[Structure] single-link: atom not found for', { chainId, residIdx });
   }
+  //console.log('[Structure] single-link: no valid chain/residIdx:', { chainId, residIdx, chains: Object.keys(byChain) });
 
   // Clear if no valid linked highlight
   hideStructureTooltipText();
   scheduleHalo(null);
   // eslint-disable-next-line
 }, [data?.linkedResidueIndex, data?.linkedChainId, linkedPanelData]);
+// Render multiple persistent highlights from heatmap links
+  useEffect(() => {
+    const v = viewerRef.current;
+    const byChain = chainInfoRef.current.byChain;
+    if (!v || !byChain) return;
 
+    const list = data?.linkedResiduesByKey;
+    // If list is defined (even empty), it owns the persistent linked shapes
+    if (!Array.isArray(list)) return;
+    //console.log('[Structure] incoming linkedResiduesByKey:', list);
+
+    // Clear previous linked shapes
+    _clearLinkedShapes();
+
+     const fmt = (a) => {
+     const resn = (a.resn || '').trim().toUpperCase();
+     const one = threeToOne[resn] || '-';
+     const chain = (a.chain || '').trim();
+     // Keep existing UI convention (display resi-1)
+     const dispResi = (typeof a.resi === 'number') ? (a.resi - 1) : a.resi;
+     return `chain ${chain}, ${dispResi}:${one}`;
+   };
+
+    // Build and draw
+    const atomsToShow = [];
+    for (const item of list) {
+      if (!item) continue;
+      const chain = (item.chainId || 'A').trim() || 'A';
+      const resi = Number(item.resi);
+      const icode = (item.icode || '').trim();
+
+      const info = byChain[chain];
+      if (!info){
+       console.log('[Structure] no such chain in structure:', chain, 'available:', Object.keys(byChain));
+        continue;
+      }
+      const key = `${chain}|${resi}|${icode}`;
+      const idx = info.keyToIndex.get(key);
+      if (idx == null) {
+       // Try fallback without insertion code for visibility
+       const idxNoIcode = info.keyToIndex.get(`${chain}|${resi}|`);
+       console.log('[Structure] key miss:', { wanted: key, fallbackIdxNoIcode: idxNoIcode });
+        continue;
+      }
+      const atom = info.caAtoms[idx];
+      if (atom) atomsToShow.push(atom);
+    }
+
+    //console.log('[Structure] will draw spheres for N atoms =', atomsToShow.length);
+
+    for (const a of atomsToShow) {
+      const sh = _addLinkedSphere(a);
+      if (sh) linkedShapesRef.current.push(sh);
+    }
+
+    v.render();
+
+      // ---- Combined tooltip for multi-highlights ----
+   if (atomsToShow.length > 0) {
+     const tip = atomsToShow.map(fmt).join(' | ');
+     showStructureTooltipText(tip);
+   } else {
+     hideStructureTooltipText();
+   }
+
+    return () => {
+      _clearLinkedShapes();
+    };
+  }, [data?.linkedResiduesByKey]);
   const rebuildSurface = () => {
     const v = viewerRef.current;
     if (!v) return;
@@ -307,6 +406,25 @@ useEffect(() => {
       viewer.addModel(pdb, 'pdb');
       modelRef.current = viewer.getModel(0);
       buildChainInfo(modelRef.current);
+
+      // DIAG: list chains and a few keys
+      /*
+     try {
+       const byChain = chainInfoRef.current.byChain || {};
+       const summary = Object.fromEntries(
+         Object.entries(byChain).map(([cid, info]) => [cid, { length: info.length }])
+       );
+       console.log('[Structure] chain summary:', summary);
+       // show the first few keys we can accept
+       const sample = {};
+       for (const [cid, info] of Object.entries(byChain)) {
+         sample[cid] = Array.from(info.keyToIndex.keys()).slice(0, 5);
+       }
+       console.log('[Structure] sample keys (use <Chain|Resi|ICode>):', sample);
+     } catch (e) {
+       console.log('[Structure] failed to print chain summary:', e);
+     }
+       */
 
       // crude size check → enable perf mode for big structures
       let isPerf = false;
@@ -376,6 +494,7 @@ useEffect(() => {
       const v = viewerRef.current;
       if (v) {
         _removeHoverShape();
+        _clearLinkedShapes();
         v.removeAllSurfaces();
         try { v.clear(); } catch {}
       }
