@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import * as $3Dmol from '3dmol/build/3Dmol-min.js';
 import { threeToOne } from './Utils.jsx';
 import { residueColorHex,chainColors } from '../constants/colors.js';
 
