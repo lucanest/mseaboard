@@ -50,7 +50,7 @@ const HistogramTooltip = React.memo(function HistogramTooltip({
 
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white p-2 border border-gray-300 rounded shadow-md text-sm">
+      <div className="bg-white p-2 border border-gray-300 rounded-xl shadow-md text-sm">
         <p className="font-medium">{`${label}`}</p>
         <p className="text-blue-600">{`Value : ${payload[0].value}`}</p>
       </div>
