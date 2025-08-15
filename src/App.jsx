@@ -331,10 +331,10 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
   const { labels, matrix, filename } = data || {};
   const [containerRef, dims] = useElementSize({ debounceMs: 90 });
   const handleDownload = useCallback(() => {
-  const base = (filename?.replace(/\.[^.]+$/, '') || 'distmatrix');
-  const content = toPhylip(labels, matrix);
-  downloadText(`${base}.phy`, content);
-}, [filename, labels, matrix]);
+    const base = baseName(filename, 'distmatrix');
+    const content = toPhylip(labels, matrix);
+    mkDownload(base, content, 'phy')();
+  }, [filename, labels, matrix]);
   const handleCellClick = (cell, id) => {
     setPanelData(prev => {
       const current = prev[id] || {};
@@ -448,10 +448,10 @@ const chainIds = React.useMemo(() => {
     setPanelData(pd => ({ ...pd, [id]: { ...pd[id], surface: !surface }}));
   }, [id, setPanelData, surface]);
 
-  const handleDownload = React.useCallback(() => {
+  const handleDownload = useCallback(() => {
     if (!pdb) return;
-    const base = (filename?.replace(/\.[^.]+$/, '') || 'structure');
-    downloadText(`${base}.pdb`, pdb);
+    const base = baseName(filename, 'structure');
+    mkDownload(base, pdb, 'pdb')();
   }, [pdb, filename]);
 
   // When the matrix button is clicked
@@ -611,9 +611,9 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const handleDownload = useCallback(() => {
     const msa = data?.data || [];
     const content = toFasta(msa);
-    const base = (data?.filename?.replace(/\.[^.]+$/, '') || 'alignment');
-    downloadText(`${base}.fasta`, content);
-}, [data]);
+    const base = baseName(data?.filename, 'alignment');
+    mkDownload(base, content, 'fasta')();
+  }, [data]);
 
   useEffect(() => {
     if (linkedTo && highlightedSite != null && id !== highlightOrigin) {
@@ -994,11 +994,11 @@ const TreePanel = React.memo(function TreePanel({
     }));
   }, [id, setPanelData, RadialMode]);
   const handleDownload = useCallback(() => {
-  const text = data?.data || '';
-  const base = (data?.filename?.replace(/\.[^.]+$/, '') || 'tree');
-  const ext = data?.isNhx ? 'nhx' : 'nwk';
-  downloadText(`${base}.${ext}`, text);
-}, [data]);
+    const text = data?.data || '';
+    const base = baseName(data?.filename, 'tree');
+    const ext  = data?.isNhx ? 'nhx' : 'nwk';
+    mkDownload(base, text, ext)();
+  }, [data]);
 
   return (
     <PanelContainer
@@ -1065,9 +1065,9 @@ const NotepadPanel = React.memo(function NotepadPanel({
   const [filenameInput, setFilenameInput] = useState(data.filename || "Notes");
   const [text, setText] = useState(data.text || "");
   const handleDownload = useCallback(() => {
-  const base = (filenameInput?.toString() || 'notes');
-  downloadText(`${base}.txt`, text || '');
-}, [filenameInput, text]);
+    const base = baseName(filenameInput, 'notes');
+    mkDownload(base, text || '', 'txt')();
+  }, [filenameInput, text]);
 
   useEffect(() => {
     setText(data.text || "");
@@ -1136,22 +1136,24 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
         data.data.headers.find(h => typeof data.data.rows[0][h] === 'number'))
       : null
   );
-
   const handleDownload = useCallback(() => {
-    const base = (filename?.replace(/\.[^.]+$/, '') || 'data');
-    if (isTabular) {
+    const base = baseName(filename, 'data');
+
+    if (!Array.isArray(data.data)) {
+      // tabular: headers + rows -> CSV
       const { headers, rows } = data.data;
       const csv = [
         headers.join(','),
         ...rows.map(r => headers.map(h => r[h]).join(','))
       ].join('\n');
-      downloadText(`${base}.csv`, csv, 'text/csv;charset=utf-8');
+      mkDownload(base, csv, 'csv', 'text/csv;charset=utf-8')();
     } else {
+      // plain numeric list -> TXT
       const values = data.data || [];
       const txt = values.join('\n');
-      downloadText(`${base}.txt`, txt);
+      mkDownload(base, txt, 'txt')();
     }
-  }, [data, filename, isTabular]);
+  }, [data, filename]);
 
   useEffect(() => {
     if (isTabular) {
@@ -1283,7 +1285,18 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
 );
 });
 
-// --- Shared helpers ----------------------------------------------------------
+
+// --- download helpers -------------------------
+
+/** strip extension safely; fall back if empty */
+const baseName = (fname, fallback) =>
+  (fname && fname.replace(/\.[^.]+$/, '')) || fallback;
+
+/** curry a click handler that downloads `content` as a text file */
+const mkDownload = (base, content, ext, mime = 'text/plain;charset=utf-8') =>
+  () => downloadText(`${base}.${ext}`, content, mime);
+
+// --- Shared helpers ---------------------------
 
 /** Parse PDB once: returns chain -> { atomsCA: [{label,x,y,z,resSeq,iCode}], seq: "AA..."} */
 function parsePdbChains(pdb) {
@@ -2105,19 +2118,8 @@ const handleHighlight = useCallback((site, originId) => {
   };
 
   const handleSaveBoard = () => {
-    const board = {
-      panels,
-      layout,
-      panelData,
-      panelLinks
-    };
-    const blob = new Blob([JSON.stringify(board, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'mseaboard.json';
-    a.click();
-    URL.revokeObjectURL(url);
+    const board = { panels, layout, panelData, panelLinks };
+    mkDownload('mseaboard', JSON.stringify(board, null, 2), 'json', 'application/json')();
   };
 
 // Drag-and-drop file upload
