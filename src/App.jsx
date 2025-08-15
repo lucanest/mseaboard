@@ -607,6 +607,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [codonMode, setCodonModeState] = useState(data.codonMode || false);
   const [scrollTop, setScrollTop] = useState(0);
+  const [isSyncScrolling, setIsSyncScrolling] = useState(false);
   const isNuc = useMemo(() => isNucleotide(msaData), [msaData]);
   const handleDownload = useCallback(() => {
     const msa = data?.data || [];
@@ -616,7 +617,9 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   }, [data]);
 
   useEffect(() => {
-    if (linkedTo && highlightedSite != null && id !== highlightOrigin) {
+    // This effect is now only for initial highlight or non-scrolling updates.
+    // The main tooltip positioning during a sync-scroll is handled in throttledOnScroll.
+    if (linkedTo && highlightedSite != null && id !== highlightOrigin && !isSyncScrolling) {
       if (gridRef.current && gridRef.current._outerRef) {
         const rect = gridRef.current._outerRef.getBoundingClientRect();
         const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
@@ -641,14 +644,26 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   );
 
   // throttle scroll handler to once every 90ms
-  const throttledOnScroll = useCallback(
+const throttledOnScroll = useCallback(
     throttle(({ scrollTop, scrollLeft }) => {
       setScrollTop(scrollTop);
+
+      if (isSyncScrolling) {
+        if (gridRef.current?._outerRef && highlightedSite != null) {
+          const rect = gridRef.current._outerRef.getBoundingClientRect();
+          const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
+          const x = rect.left + (highlightedSite * itemWidth) - scrollLeft + (itemWidth / 2);
+          const y = rect.top + (rect.height / 2);
+          setTooltipPos({ x, y });
+        }
+        setIsSyncScrolling(false); // End of sync scroll
+      }
+
       if (linkedTo != null && scrollLeft != null && hoveredPanelId === id) {
         onSyncScroll(scrollLeft, id);
       }
     }, 90),
-    [onSyncScroll, linkedTo, id]
+    [onSyncScroll, linkedTo, id, isSyncScrolling, highlightedSite, codonMode]
   );
 
   const setCodonMode = useCallback(
@@ -686,7 +701,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
     if (linkedTo && hoveredPanelId === linkedTo) return;
   }, [hoveredPanelId, id, linkedTo, highlightOrigin, onHighlight, setHighlightedSequenceId]);
 
-  useEffect(() => {
+ useEffect(() => {
     if (!gridRef.current || typeof externalScrollLeft !== 'number') return;
     const viewportWidth = dims.width - LABEL_WIDTH;
     const outer = gridRef.current._outerRef;
@@ -706,6 +721,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
     }
 
     if (targetScroll !== null) {
+      setIsSyncScrolling(true); // Start of sync scroll
       gridRef.current.scrollTo({
         scrollLeft: Math.max(0, Math.min(maxScroll, targetScroll)),
       });
