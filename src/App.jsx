@@ -632,16 +632,17 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   }, [linkedTo, highlightedSite, id, highlightOrigin, codonMode, dims.height]);
 
   // throttle highlight to once every 90ms
-  const throttledHighlight = useMemo(
-    () =>
-      throttle((col, row, originId, clientX, clientY) => {
-        setHoveredCol(col);
-        setHoveredRow(row);
-        setTooltipPos({ x: clientX, y: clientY });
+const throttledHighlight = useMemo(
+  () =>
+    throttle(
+      (col, originId) => {
         onHighlight(col, originId);
-      }, 90),
-    [onHighlight]
-  );
+      },
+      0,
+      { leading: true, trailing: true }
+    ),
+  [onHighlight]
+);
 
   // throttle scroll handler to once every 90ms
 const throttledOnScroll = useCallback(
@@ -741,37 +742,38 @@ const throttledOnScroll = useCallback(
     return { rowIndex, columnIndex };
   }, []);
 
-  const handleGridMouseMove = useCallback(
-    (e) => {
-      const hit = pickCellFromEvent(e);
-      if (!hit) return;
-      const { rowIndex, columnIndex } = hit;
-      const codonIndex = Math.floor(columnIndex / 3);
-      const idx = codonMode ? codonIndex : columnIndex;
+const handleGridMouseMove = useCallback(
+  (e) => {
+    const hit = pickCellFromEvent(e);
+    if (!hit) return;
+    const { rowIndex, columnIndex } = hit;
+    const codonIndex = Math.floor(columnIndex / 3);
+    const idx = codonMode ? codonIndex : columnIndex;
 
-      // local UI state
-      setHoveredRow(rowIndex);
-      setHoveredCol(idx);
-      setTooltipPos({ x: e.clientX, y: e.clientY });
+    // immediate, per-frame UI updates
+    setHoveredRow(rowIndex);
+    setHoveredCol(idx);
+    setTooltipPos({ x: e.clientX, y: e.clientY });
 
-      // cross-panel highlight (throttled)
-      throttledHighlight(idx, rowIndex, id, e.clientX, e.clientY);
+    // cross-panel (throttled)
+    throttledHighlight(idx, id);
 
-      if (linkedTo && setHighlightedSequenceId) {
-        const seqId = msaData[rowIndex]?.id;
-        if (seqId) setHighlightedSequenceId(seqId);
-      }
-    },
-    [pickCellFromEvent, codonMode, throttledHighlight, id, linkedTo, setHighlightedSequenceId, msaData]
-  );
+    if (linkedTo && setHighlightedSequenceId) {
+      const seqId = msaData[rowIndex]?.id;
+      if (seqId) setHighlightedSequenceId(seqId);
+    }
+  },
+  [pickCellFromEvent, codonMode, throttledHighlight, id, linkedTo, setHighlightedSequenceId, msaData]
+);
 
-  const handleGridMouseLeave = useCallback(() => {
-    throttledHighlight.cancel();
-    setHoveredCol(null);
-    setHoveredRow(null);
-    if (id === highlightOrigin) onHighlight(null, id);
-    if (linkedTo && setHighlightedSequenceId) setHighlightedSequenceId(null);
-  }, [throttledHighlight, id, highlightOrigin, onHighlight, linkedTo, setHighlightedSequenceId]);
+
+const handleGridMouseLeave = useCallback(() => {
+  throttledHighlight.cancel();
+  setHoveredCol(null);
+  setHoveredRow(null);
+  if (id === highlightOrigin) onHighlight(null, id);
+  if (linkedTo && setHighlightedSequenceId) setHighlightedSequenceId(null);
+}, [throttledHighlight, id, highlightOrigin, onHighlight, linkedTo, setHighlightedSequenceId]);
 
   const handleGridClick = useCallback(
     (e) => {
