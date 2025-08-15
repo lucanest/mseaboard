@@ -1283,6 +1283,148 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
 );
 });
 
+// --- Shared helpers ----------------------------------------------------------
+
+/** Parse PDB once: returns chain -> { atomsCA: [{label,x,y,z,resSeq,iCode}], seq: "AA..."} */
+function parsePdbChains(pdb) {
+  const chains = new Map(); // chainId -> { atomsCA: [], seq: [] }
+  const seenCA = new Set(); // dedupe per (chain|resSeq|icode)
+
+  const get = (cid) => {
+    if (!chains.has(cid)) chains.set(cid, { atomsCA: [], seq: [] });
+    return chains.get(cid);
+  };
+
+  for (const line of pdb.split(/\r?\n/)) {
+    if (!line.startsWith('ATOM')) continue;
+
+    const atomName = line.slice(12, 16).trim();
+    const resName  = line.slice(17, 20).trim().toUpperCase();
+    const chainId  = (line[21] || 'A').trim() || 'A';
+    const resSeq   = line.slice(22, 26).trim();
+    const iCode    = (line[26] || '').trim();
+
+    if (atomName === 'CA') {
+      const key = `${chainId}|${resSeq}|${iCode}`;
+      if (seenCA.has(key)) continue;
+      seenCA.add(key);
+
+      const x = Number(line.slice(30, 38));
+      const y = Number(line.slice(38, 46));
+      const z = Number(line.slice(46, 54));
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue;
+
+      const label = `${chainId}:${resSeq}${iCode || ''}`;
+      get(chainId).atomsCA.push({ label, x, y, z, resSeq, iCode });
+      // sequence added once per residue (on CA)
+      const one = threeToOne[resName] || 'X';
+      get(chainId).seq.push(one);
+    }
+  }
+
+  // finalize
+  const result = new Map();
+  for (const [cid, { atomsCA, seq }] of chains.entries()) {
+    result.set(cid, { atomsCA, seq: seq.join('') });
+  }
+  return result;
+}
+
+/** Euclidean distance matrix from an ordered list of atoms with labels */
+function distanceMatrixFromAtoms(atoms) {
+  const N = atoms.length;
+  const labels = atoms.map(a => a.label);
+  const matrix = Array.from({ length: N }, () => Array(N).fill(0));
+  for (let i = 0; i < N; i++) {
+    for (let j = i; j < N; j++) {
+      const dx = atoms[i].x - atoms[j].x;
+      const dy = atoms[i].y - atoms[j].y;
+      const dz = atoms[i].z - atoms[j].z;
+      const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      matrix[i][j] = d; matrix[j][i] = d;
+    }
+  }
+  return { labels, matrix };
+}
+
+/** Reorder an MSA array by Newick leaf order, appending non-matches at end */
+function reorderMsaByLeafOrder(msaSeqs, leafOrder) {
+  const byId = Object.create(null);
+  msaSeqs.forEach(s => { byId[s.id] = s; });
+  const inTree = leafOrder.map(id => byId[id]).filter(Boolean);
+  const extras = msaSeqs.filter(s => !leafOrder.includes(s.id));
+  return [...inTree, ...extras];
+}
+
+/** Reorder a symmetric heatmap by Newick leaf order; append non-matches */
+function reorderHeatmapByLeafOrder(labels, matrix, leafOrder) {
+  const idx = Object.create(null);
+  labels.forEach((l, i) => { idx[l] = i; });
+
+  const newOrder = leafOrder.map(l => idx[l]).filter(i => i !== undefined);
+  const extras   = labels.map((_, i) => i).filter(i => !newOrder.includes(i));
+  const order    = [...newOrder, ...extras];
+
+  const newLabels = order.map(i => labels[i]);
+  const newMatrix = order.map(i => order.map(j => matrix[i][j]));
+  return { labels: newLabels, matrix: newMatrix };
+}
+
+/** MSA column -> (gap-skipping) residue index for a single sequence string */
+function msaColToResidueIndex(seq, col) {
+  let idx = -1;
+  for (let i = 0; i <= col && i < seq.length; i++) {
+    if (seq[i] !== '-') idx++;
+  }
+  return idx < 0 ? null : idx;
+}
+
+/** Residue index -> MSA column for a single sequence string */
+function residueIndexToMsaCol(seq, residIdx) {
+  if (residIdx == null) return null;
+  let idx = -1;
+  for (let i = 0; i < seq.length; i++) {
+    if (seq[i] !== '-') {
+      idx++;
+      if (idx === residIdx) return i;
+    }
+  }
+  return null;
+}
+
+/** Try to infer chainId from a sequence id like "..._chain_A" or "A" */
+function chainIdFromSeqId(id) {
+  if (!id) return null;
+  const m = id.match(/_chain_([A-Za-z0-9])\b/i);
+  if (m) return m[1];
+  if (/^[A-Za-z0-9]$/.test(id)) return id; // bare "A"
+  return null;
+}
+
+/** Given alignment data and an optional preferred chain id, pick best sequence */
+function pickAlignedSeqForChain(alnData, preferredChainId, structureChainsLengths) {
+  if (!alnData || !Array.isArray(alnData.data)) return { seq: null, chainId: null };
+
+  if (preferredChainId) {
+    const named = alnData.data.find(s => {
+      const cid = chainIdFromSeqId(s.id);
+      return cid === preferredChainId || s.id === preferredChainId;
+    });
+    if (named) return { seq: named, chainId: preferredChainId };
+  }
+
+  if (structureChainsLengths) {
+    for (const s of alnData.data) {
+      const len = (s.sequence || '').replace(/-/g, '').length;
+      const match = Object.entries(structureChainsLengths).find(([, L]) => L === len);
+      if (match) return { seq: s, chainId: match[0] };
+    }
+  }
+
+  return { seq: alnData.data[0] || null, chainId: preferredChainId || null };
+}
+
+
 
 function App() {
   const [panels, setPanels] = useState([]);
@@ -1436,178 +1578,74 @@ function App() {
 
 const handleCreateSequenceFromStructure = useCallback((id) => {
   const data = panelData[id];
-  if (!data || !data.pdb) return;
+  if (!data?.pdb) return;
 
-  // minimal per-chain PDB parser (proteins via CA atoms)
+  const chains = parsePdbChains(data.pdb);
+  if (chains.size === 0) { alert("Could not extract sequences (no CA atoms found)."); return; }
 
-  // collect unique (chain, resSeq, iCode) via CA atoms in order
-  const chains = new Map(); // chainId -> array of one-letter residues in order
-  const seen = new Set();   // key: chain|resSeq|iCode to avoid duplicates
-
-  const lines = data.pdb.split(/\r?\n/);
-  for (const line of lines) {
-    // Standard PDB columns:
-    // 1-6  "ATOM  "
-    // 13-16 atom name
-    // 18-20 resName
-    // 22   chainID
-    // 23-26 resSeq
-    // 27   iCode
-    if (!line.startsWith('ATOM')) continue;
-
-    const atomName = line.slice(12,16).trim(); // e.g., "CA"
-    if (atomName !== 'CA') continue; // use alpha carbons as residue representatives
-
-    const resName = line.slice(17,20).trim().toUpperCase();
-    const one = threeToOne[resName] || 'X';
-
-    const chainId = (line[21] || 'A').trim() || 'A';
-    const resSeq  = line.slice(22,26).trim();
-    const iCode   = (line[26] || '').trim();
-
-    const key = `${chainId}|${resSeq}|${iCode}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-
-    if (!chains.has(chainId)) chains.set(chainId, []);
-    chains.get(chainId).push(one);
-  }
-
-  if (chains.size === 0) {
-    alert("Could not extract any chains/sequences from PDB (no CA atoms found).");
-    return;
-  }
-
-  // Build sequences per chain
-  const chainSeqs = Array.from(chains.entries())
-    .map(([chainId, arr]) => ({ chainId, sequence: arr.join('') }))
-    .filter(s => s.sequence.length > 0);
-
-  if (chainSeqs.length === 0) {
-    alert("Could not extract sequence(s) from PDB.");
-    return;
-  }
-
-  // --- Create one Alignment panel per chain ---
+  const baseName = (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'structure');
   const originalLayout = layout.find(l => l.i === id);
   const baseY = originalLayout ? (originalLayout.y + originalLayout.h) : 0;
 
-  // add panels and layout in a single batch
   const newPanels = [];
   const newLayouts = [];
   const newPanelDataEntries = {};
 
-  chainSeqs.forEach((cs, idx) => {
-    const newId = `alignment-from-pdb-${cs.chainId}-${Date.now()}-${idx}`;
+  [...chains.entries()].forEach(([chainId, { seq }], idx) => {
+    if (!seq) return;
+    const newId = `alignment-from-pdb-${chainId}-${Date.now()}-${idx}`;
     newPanels.push({ i: newId, type: 'alignment' });
-
-    // Stack them under the structure panel, full width to be readable
-    const newLayout = {
-      i: newId,
-      x: 0,
-      y: baseY + idx * 3, // stagger rows a bit
-      h: 3,
-      w: 12,
-      minH: 3,
-      minW: 3
-    };
-    newLayouts.push(newLayout);
-
-    const baseName = (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'structure');
+    newLayouts.push({ i: newId, x: 0, y: baseY + idx * 3, h: 3, w: 12, minH: 3, minW: 3 });
     newPanelDataEntries[newId] = {
-      data: [{ id: `${baseName}_chain_${cs.chainId}`, sequence: cs.sequence }],
-      filename: `${baseName}_chain_${cs.chainId}.fasta`,
+      data: [{ id: `${baseName}_chain_${chainId}`, sequence: seq }],
+      filename: `${baseName}_chain_${chainId}.fasta`,
       codonMode: false
     };
   });
 
-  // Insert while keeping the __footer logic intact
   setPanels(prev => {
     const withoutFooter = prev.filter(p => p.i !== '__footer');
-    return [
-      ...withoutFooter,
-      ...newPanels,
-      { i: '__footer', type: 'footer' }
-    ];
+    return [...withoutFooter, ...newPanels, { i: '__footer', type: 'footer' }];
   });
 
   setLayout(prev => {
     const withoutFooter = prev.filter(l => l.i !== '__footer');
     const footer = prev.find(l => l.i === '__footer');
     const next = [...withoutFooter, ...newLayouts];
-
-    // Recompute footer y to appear after the last panel
     const maxY = next.reduce((m, l) => Math.max(m, l.y + l.h), 0);
     const fixedFooter = footer ? { ...footer, y: maxY } : { i: '__footer', x: 0, y: maxY, w: 12, h: 2, static: true };
-
     return [...next, fixedFooter];
   });
 
-  setPanelData(prev => ({
-    ...prev,
-    ...newPanelDataEntries
-  }));
+  setPanelData(prev => ({ ...prev, ...newPanelDataEntries }));
 }, [panelData, layout, setPanels, setLayout, setPanelData]);
+
 
 const handleStructureToDistance = useCallback((id, forcedChoice) => {
   const s = panelData[id];
   if (!s?.pdb) { alert('No PDB found in this panel.'); return; }
 
-  // Parse CA atoms grouped by chain
-  const chains = new Map();
-  const seen = new Set();
-  for (const line of s.pdb.split(/\r?\n/)) {
-    if (!line.startsWith('ATOM')) continue;
-    const atomName = line.slice(12,16).trim();
-    if (atomName !== 'CA') continue;
-
-    const chainId = (line[21] || 'A').trim() || 'A';
-    const resSeq  = line.slice(22,26).trim();
-    const iCode   = (line[26] || '').trim();
-    const key = `${chainId}|${resSeq}|${iCode}`;
-    if (seen.has(key)) continue;
-    seen.add(key);
-
-    const x = Number(line.slice(30,38));
-    const y = Number(line.slice(38,46));
-    const z = Number(line.slice(46,54));
-    if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue;
-
-    if (!chains.has(chainId)) chains.set(chainId, []);
-    chains.get(chainId).push({ label: `${chainId}:${resSeq}${iCode||''}`, x,y,z });
-  }
+  const chains = parsePdbChains(s.pdb);
   if (chains.size === 0) { alert('No CA atoms found to build a distance map.'); return; }
 
-  // Choice: explicit from picker > panel-saved > default
-  const first = Array.from(chains.keys())[0];
+  const first = [...chains.keys()][0];
   const choice = forcedChoice ?? s.chainChoice ?? (chains.size > 1 ? 'ALL' : first);
 
-  // Collect residues
-  let residues = [];
+  let atoms = [];
   if (choice === 'ALL') {
-    for (const cid of chains.keys()) residues = residues.concat(chains.get(cid));
+    for (const { atomsCA } of chains.values()) atoms = atoms.concat(atomsCA);
   } else {
-    residues = chains.get(choice) || [];
-    if (residues.length === 0) { alert(`No residues found for chain ${choice}.`); return; }
+    const picked = chains.get(choice);
+    if (!picked || picked.atomsCA.length === 0) { alert(`No residues for chain ${choice}.`); return; }
+    atoms = picked.atomsCA;
   }
 
-  const N = residues.length;
-  if (N < 2) { alert('Not enough residues to build a distance map.'); return; }
+  if (atoms.length < 2) { alert('Not enough residues to build a distance map.'); return; }
 
-  const labels = residues.map(r => r.label);
-  const matrix = Array.from({ length: N }, () => Array(N).fill(0));
-  for (let i=0;i<N;i++){
-    for (let j=i;j<N;j++){
-      const dx = residues[i].x - residues[j].x;
-      const dy = residues[i].y - residues[j].y;
-      const dz = residues[i].z - residues[j].z;
-      const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
-      matrix[i][j]=d; matrix[j][i]=d;
-    }
-  }
-
-  const base = (s.filename ? s.filename.replace(/\.[^.]+$/, '') : 'structure');
+  const { labels, matrix } = distanceMatrixFromAtoms(atoms);
+  const base  = (s.filename ? s.filename.replace(/\.[^.]+$/, '') : 'structure');
   const suffix = choice === 'ALL' ? 'ALL' : choice;
+
   addPanel({
     type: 'heatmap',
     data: { labels, matrix, filename: `${base}_distmap_${suffix}` },
@@ -1615,6 +1653,7 @@ const handleStructureToDistance = useCallback((id, forcedChoice) => {
     layoutHint: { w: 4, h: 20 }
   });
 }, [panelData, addPanel]);
+
 
 const handleTreeToDistance = useCallback((id) => {
   const treeData = panelData[id];
@@ -1690,486 +1729,262 @@ const handleAlignmentToDistance = useCallback((id) => {
   });
 }, [panelData, addPanel]);
 
-  const handleLinkClick = useCallback((id) => {
-    if (!linkMode) {
-      // no panel selected yet
-      if (panelLinks[id]) {
-        // currently linked: unlink both
-        const other = panelLinks[id];
-        setPanelLinks(pl => {
-          const copy = { ...pl };
-          delete copy[id]; delete copy[other];
-          return copy;
-        });
-      } else {
-        // start linking
-        setLinkMode(id);
+const handleLinkClick = useCallback((id) => {
+  const unlinkPair = (copy, a) => {
+    const b = copy[a];
+    if (b) { delete copy[b]; }
+    delete copy[a];
+  };
+
+  const reorderIfTreeLinked = (aId, bId) => {
+    const panelA = panels.find(p => p.i === aId);
+    const panelB = panels.find(p => p.i === bId);
+    if (!panelA || !panelB) return;
+
+    const treeId = panelA.type === 'tree' ? aId : panelB.type === 'tree' ? bId : null;
+    if (!treeId) return;
+
+    const leafOrder = getLeafOrderFromNewick(panelData[treeId]?.data || '');
+    if (!leafOrder?.length) return;
+
+    // MSA <-> Tree
+    const alnId = panelA.type === 'alignment' ? aId : (panelB.type === 'alignment' ? bId : null);
+    if (alnId) {
+      const msa = panelData[alnId];
+      if (msa?.data?.length) {
+        const reordered = reorderMsaByLeafOrder(msa.data, leafOrder);
+        setPanelData(prev => ({ ...prev, [alnId]: { ...prev[alnId], data: reordered }}));
       }
+    }
+
+    // Heatmap <-> Tree
+    const hmId = panelA.type === 'heatmap' ? aId : (panelB.type === 'heatmap' ? bId : null);
+    if (hmId) {
+      const hm = panelData[hmId];
+      if (hm?.labels && hm?.matrix) {
+        const { labels, matrix } = reorderHeatmapByLeafOrder(hm.labels, hm.matrix, leafOrder);
+        setPanelData(prev => ({ ...prev, [hmId]: { ...prev[hmId], labels, matrix }}));
+      }
+    }
+  };
+
+  if (!linkMode) {
+    // start/cancel or unlink single
+    if (panelLinks[id]) {
+      const other = panelLinks[id];
+      setPanelLinks(pl => {
+        const copy = { ...pl };
+        unlinkPair(copy, id);
+        unlinkPair(copy, other);
+        return copy;
+      });
     } else {
-      // linking in progress
-      if (linkMode === id) {
-        // cancelled
-        setLinkMode(null);
-      } else {
-        // link or unlink
-        const a = linkMode;
-        const b = id;
-        if (panelLinks[a] === b) {
-          // already linked: unlink
-          setPanelLinks(pl => {
-            const copy = { ...pl };
-            delete copy[a]; delete copy[b];
-            return copy;
-          });
-        } else {
-          // create new link: first unlink any existing
-          setPanelLinks(pl => {
-            const copy = { ...pl };
-            // Unlink any existing partner of “a”
-            const oldA = copy[a];
-            if (oldA) {
-              delete copy[a];
-              delete copy[oldA];
-            }
-            // Unlink any existing partner of “b”
-            const oldB = copy[b];
-            if (oldB) {
-              delete copy[b];
-              delete copy[oldB];
-            }
-            // Create new link
-            copy[a] = b;
-            copy[b] = a;
-            return copy;
-          });
-
-        setJustLinkedPanels([linkMode, id]);
-        setTimeout(() => setJustLinkedPanels([]), 1000); // 1 second green
-
-
-          // Reorder MSA rows to match tree leaf order if the two are linked
-          const panelA = panels.find(p => p.i === a);
-          const panelB = panels.find(p => p.i === b);
-          if (panelA && panelB) {
-            let alignmentId = null, treeId = null;
-            if (panelA.type === 'alignment' && panelB.type === 'tree') {
-              alignmentId = a; treeId = b;
-            } else if (panelA.type === 'tree' && panelB.type === 'alignment') {
-              alignmentId = b; treeId = a;
-            }
-            if (alignmentId && treeId) {
-              const treeData = panelData[treeId];
-              const msaData = panelData[alignmentId];
-              if (treeData && msaData && Array.isArray(msaData.data)) {
-                const leafOrder = getLeafOrderFromNewick(treeData.data);
-                if (leafOrder.length) {
-                  // Try to match MSA sequence IDs to tree leaf names
-                  const msaSeqs = msaData.data;
-                  // Map by id for fast lookup
-                  const msaById = {};
-                  msaSeqs.forEach(seq => {
-                    msaById[seq.id] = seq;
-                  });
-                  // Reorder, keeping only those present in tree
-                  const reordered = leafOrder
-                    .map(id => msaById[id])
-                    .filter(Boolean);
-                  // Append any MSA seqs not in tree at the end
-                  const extraSeqs = msaSeqs.filter(seq => !leafOrder.includes(seq.id));
-                  setPanelData(prev => ({
-                    ...prev,
-                    [alignmentId]: {
-                      ...prev[alignmentId],
-                      data: [...reordered, ...extraSeqs]
-                    }
-                  }));
-                }
-              }
-            }
-            let heatmapId = null;
-            if (panelA.type === 'heatmap' && panelB.type === 'tree') {
-              heatmapId = a; treeId = b;
-            } else if (panelA.type === 'tree' && panelB.type === 'heatmap') {
-              heatmapId = b; treeId = a;
-            }
-            // Reorder heatmap rows/columns to match tree leaf order if the two are linked
-                    if (heatmapId && treeId) {
-              const treeData = panelData[treeId];
-              const heatmapData = panelData[heatmapId];
-              if (treeData && heatmapData && heatmapData.labels && heatmapData.matrix) {
-                const leafOrder = getLeafOrderFromNewick(treeData.data);
-                if (leafOrder.length) {
-                  // Create mapping from old label to new index
-                  const labelToIndex = {};
-                  heatmapData.labels.forEach((label, idx) => {
-                    labelToIndex[label] = idx;
-                  });
-                  
-                  // Build new order based on tree leaf order
-                  const newOrder = leafOrder
-                    .map(label => labelToIndex[label])
-                    .filter(idx => idx !== undefined);
-                  
-                  // Add any labels not in tree at the end
-                  const extraIndices = heatmapData.labels
-                    .map((_, idx) => idx)
-                    .filter(idx => !newOrder.includes(idx));
-                  const finalOrder = [...newOrder, ...extraIndices];
-                  
-                  // Reorder labels and matrix
-                  const newLabels = finalOrder.map(idx => heatmapData.labels[idx]);
-                  const newMatrix = finalOrder.map(i => 
-                    finalOrder.map(j => heatmapData.matrix[i][j])
-                  );
-                  
-                  setPanelData(prev => ({
-                    ...prev,
-                    [heatmapId]: {
-                      ...prev[heatmapId],
-                      labels: newLabels,
-                      matrix: newMatrix
-                    }
-                  }));
-                }
-              }
-            }
-          
-          }
-        }
-        setLinkMode(null);
-      }
+      setLinkMode(id);
     }
-    // clear any existing highlights
-    setHighlightSite(null);
-    setHighlightOrigin(null);
-  }, [linkMode, panelLinks, panels, panelData, highlightSite, highlightOrigin]);
+  } else {
+    if (linkMode === id) {
+      setLinkMode(null);
+    } else {
+      const a = linkMode, b = id;
+      setPanelLinks(pl => {
+        const copy = { ...pl };
+        // unlink any existing
+        if (copy[a]) unlinkPair(copy, a);
+        if (copy[b]) unlinkPair(copy, b);
+        // link
+        copy[a] = b; copy[b] = a;
+        return copy;
+      });
 
-  const handleHighlight = useCallback((site, originId) => {
-    setHighlightSite(site);
-    setHighlightOrigin(originId);
-
-    // 1) must have a linked panel
-    const targetId = panelLinks[originId];
-    if (!targetId) return;
-
-    // 2) get types once, up front
-    const sourcePanel = panels.find(p => p.i === originId);
-    const targetPanel = panels.find(p => p.i === targetId);
-
-    // 3) hover-out: clear any heatmap→tree highlights
-    if (site === null) {
-      if (sourcePanel?.type === 'heatmap' && targetPanel?.type === 'tree') {
-        setPanelData(prev => ({
-          ...prev,
-          [targetId]: {
-            ...prev[targetId],
-            linkedHighlights: [],
-          }
-        }));
-      }
-      if (sourcePanel?.type === 'heatmap' && targetPanel?.type === 'alignment') {
-  setPanelData(prev => ({
-    ...prev,
-    [targetId]: { 
-      ...prev[targetId], 
-      linkedHighlights: [] 
+      setJustLinkedPanels([linkMode, id]);
+      setTimeout(() => setJustLinkedPanels([]), 1000);
+      reorderIfTreeLinked(a, b);
+      setLinkMode(null);
     }
-  }));
-  return;
-}
-    if (sourcePanel?.type === 'heatmap' && targetPanel?.type === 'structure') {
-      //console.log('[HM→Struct] clear highlight for', { targetId });
+  }
+
+  // clear any existing highlights
+  setHighlightSite(null);
+  setHighlightOrigin(null);
+}, [linkMode, panelLinks, panels, panelData]);
+
+
+const handleHighlight = useCallback((site, originId) => {
+  setHighlightSite(site);
+  setHighlightOrigin(originId);
+
+  const targetId = panelLinks[originId];
+  if (!targetId) return;
+
+  const sourcePanel = panels.find(p => p.i === originId);
+  const targetPanel = panels.find(p => p.i === targetId);
+  if (!sourcePanel || !targetPanel) return;
+
+  const clearDownstream = () => {
+    // clear heatmap -> tree/align/structure transient state on hover out
+    if (site !== null) return;
+    if (sourcePanel.type === 'heatmap' && targetPanel.type === 'tree') {
+      setPanelData(prev => ({ ...prev, [targetId]: { ...prev[targetId], linkedHighlights: [] }}));
+    }
+    if (sourcePanel.type === 'heatmap' && targetPanel.type === 'alignment') {
+      setPanelData(prev => ({ ...prev, [targetId]: { ...prev[targetId], linkedHighlights: [] }}));
+    }
+    if (sourcePanel.type === 'heatmap' && targetPanel.type === 'structure') {
+      setPanelData(prev => ({ ...prev, [targetId]: { ...prev[targetId], linkedResiduesByKey: [] }}));
+    }
+    if (sourcePanel.type === 'alignment' && targetPanel.type === 'structure') {
+      setPanelData(prev => ({ ...prev, [targetId]: { ...prev[targetId], linkedResidueIndex: undefined, linkedChainId: prev[targetId]?.linkedChainId }}));
+    }
+  };
+
+  if (site === null) { clearDownstream(); return; }
+
+  const S = sourcePanel.type, T = targetPanel.type;
+
+  const handlers = {
+    // Heatmap -> Tree
+    'heatmap->tree': () => {
+      const { labels } = panelData[originId] || {};
+      if (!labels || !site?.row?.toString || !site?.col?.toString) return;
+      const leaf1 = labels[site.row], leaf2 = labels[site.col];
+      setPanelData(prev => ({ ...prev, [targetId]: { ...prev[targetId], linkedHighlights: [leaf1, leaf2] }}));
+    },
+
+    // Heatmap -> Alignment (highlight 2 row labels)
+    'heatmap->alignment': () => {
+      const { labels } = panelData[originId] || {};
+      if (!labels || typeof site?.row !== 'number' || typeof site?.col !== 'number') return;
+      const leaf1 = labels[site.row], leaf2 = labels[site.col];
+      setPanelData(prev => ({ ...prev, [targetId]: { ...prev[targetId], linkedHighlights: [leaf1, leaf2] }}));
+    },
+
+    // Heatmap -> Structure (map labels like "A:123" to residues)
+    'heatmap->structure': () => {
+      const { labels } = panelData[originId] || {};
+      if (!labels || typeof site?.row !== 'number' || typeof site?.col !== 'number') return;
+      const parseLabel = (lbl) => {
+        const m = String(lbl).trim().match(/^([A-Za-z0-9]):(\d+)([A-Za-z]?)$/);
+        if (!m) return null;
+        const [, chainId, resiStr, icode] = m;
+        return { chainId, resi: Number(resiStr), icode: icode || '' };
+      };
+      const a = parseLabel(labels[site.row]);
+      const b = parseLabel(labels[site.col]);
+      const list = [a, b].filter(Boolean);
       setPanelData(prev => ({
         ...prev,
         [targetId]: {
           ...prev[targetId],
-          linkedResiduesByKey: [],
+          linkedResiduesByKey: list,
+          linkedChainId: list[0]?.chainId || prev[targetId]?.linkedChainId,
         }
       }));
-      return;
-    }
- if (sourcePanel?.type === 'alignment' && targetPanel?.type === 'structure') {
-    setPanelData(prev => ({
-      ...prev,
-      [targetId]: {
-        ...prev[targetId],
-        linkedResidueIndex: undefined,
-        linkedChainId: prev[targetId]?.linkedChainId // keep chain if you like
-      }
-    }));
-  }
-  return;
-}
+    },
 
-    // Heatmap -> tree
-    if (sourcePanel.type === 'heatmap' && targetPanel.type === 'tree') {
-      const { labels } = panelData[originId] || {};
-      if (labels) {
-        const { row, col } = site;
-        const leaf1 = labels[row], leaf2 = labels[col];
-        setPanelData(prev => ({
-          ...prev,
-          [targetId]: {
-            ...prev[targetId],
-            linkedHighlights: [leaf1, leaf2],
-          }
-        }));
-      }
-      return;
-    }
-
-    // Heatmap -> Alignment
-if (sourcePanel?.type === 'heatmap' && targetPanel?.type === 'alignment') {
-  const { labels } = panelData[originId] || {};
-  if (labels && site && typeof site.row === 'number' && typeof site.col === 'number') {
-    const leaf1 = labels[site.row];
-    const leaf2 = labels[site.col];
-    setPanelData(prev => ({
-      ...prev,
-      [targetId]: {
-        ...prev[targetId],
-        // store both sequence IDs so AlignmentPanel can highlight both rows
-        linkedHighlights: [leaf1, leaf2],
-      }
-    }));
-  }
-  return;
-}
-  // Heatmap -> Structure
-  if (sourcePanel?.type === 'heatmap' && targetPanel?.type === 'structure') {
-    const { labels } = panelData[originId] || {};
-        if (!labels || !site || typeof site.row !== 'number' || typeof site.col !== 'number') {
-      console.log('[HM→Struct] Missing labels or invalid site:', { labels, site });
-      return;
-    }
-
-    const parseLabel = (lbl) => {
-      // expected from handleStructureToDistance: `${chain}:${resSeq}${iCode?}`
-      // supports e.g. "A:123" or "B:45A"
-      const text = String(lbl).trim();
-      const m = text.match(/^([A-Za-z0-9]):(\d+)([A-Za-z]?)$/);
-      if (!m) {
-        console.log('[HM→Struct] Label did not match expected pattern <Chain:Resi[Icode]>:', { lbl: text });
-      }
-      if (!m) return null;
-      const [, chainId, resiStr, icode] = m;
-      return { chainId, resi: Number(resiStr), icode: icode || '' };
-    };
-
-    const rawA = labels[site.row];
-    const rawB = labels[site.col];
-    const a = parseLabel(rawA);
-    const b = parseLabel(rawB);
-    const list = [a, b].filter(Boolean);
-
-    //console.log('[HM→Struct] hover site:', site, 'raw labels:', { rawA, rawB }, 'parsed:', list, 'targetId:', targetId);
-
-
-    setPanelData(prev => ({
-      ...prev,
-      [targetId]: {
-        ...prev[targetId],
-        // StructureViewer will map these to CA indices via its own chain map
-        linkedResiduesByKey: list,
-        // optionally hint a chain (use the first valid one)
-        linkedChainId: list[0]?.chainId || prev[targetId]?.linkedChainId,
-      }
-    }));
-    return;
-  }
-    // SequenceLogo <-> Alignment
-    if (
-    (sourcePanel.type === 'seqlogo' && targetPanel.type === 'alignment') ||
-    (sourcePanel.type === 'alignment' && targetPanel.type === 'seqlogo')
-    ) {
-    const siteIdx = site;
-    // Scroll alignment panel if necessary
-    if (targetPanel.type === 'alignment') {
+    // SeqLogo <-> Alignment (scroll & mirror highlight)
+    'seqlogo->alignment': () => {
       const targetData = panelData[targetId];
       if (!targetData) return;
-      const targetIsCodon = targetData.codonMode;
-      const scrollSite = targetIsCodon ? siteIdx * 3 : siteIdx;
-      setScrollPositions(prev => ({
-        ...prev,
-        [targetId]: scrollSite * CELL_SIZE
-      }));
-      setHighlightSite(siteIdx);
+      const isCodon = !!targetData.codonMode;
+      const scrollSite = isCodon ? site * 3 : site;
+      setScrollPositions(prev => ({ ...prev, [targetId]: scrollSite * CELL_SIZE }));
+      setHighlightSite(site);
       setHighlightOrigin(originId);
-    } else if (targetPanel.type === 'seqlogo') {
-      setHighlightSite(siteIdx);
+    },
+    'alignment->seqlogo': () => {
+      setHighlightSite(site);
       setHighlightOrigin(originId);
-    }
-    return;
-    }
+    },
 
-    // Alignment -> Histogram
-    if (sourcePanel.type === 'alignment' && targetPanel.type === 'histogram') {
+    // Alignment -> Histogram (match X if tabular)
+    'alignment->histogram': () => {
       const targetData = panelData[targetId];
       if (targetData && !Array.isArray(targetData.data)) {
         const xCol = targetData.selectedXCol ||
-          (targetData.data.headers.find(h => typeof targetData.data.rows[0][h] === 'number'));
+          targetData.data.headers.find(h => typeof targetData.data.rows[0][h] === 'number');
         if (xCol) {
-          // Find the bar index whose x value matches the alignment column
           const xArr = targetData.data.rows.map(row => row[xCol]);
-          let barIdx = xArr.findIndex(x => x === site);
-          if (barIdx === -1) barIdx = null;
-          setHighlightSite(barIdx);
+          const barIdx = xArr.findIndex(x => x === site);
+          setHighlightSite(barIdx === -1 ? null : barIdx);
           setHighlightOrigin(originId);
         }
       }
-    }
+    },
 
-    // Histogram -> Alignment
-    else if (sourcePanel.type === 'histogram' && targetPanel.type === 'alignment') {
+    // Histogram -> Alignment (scroll to MSA column or mapped X)
+    'histogram->alignment': () => {
       const sourceData = panelData[originId];
       const targetData = panelData[targetId];
       if (!targetData) return;
-      let scrollToSite = site;
-      let highlightCol = site;
+      let col = site;
       if (sourceData && !Array.isArray(sourceData.data)) {
         const xCol = sourceData.selectedXCol ||
-          (sourceData.data.headers.find(h => typeof sourceData.data.rows[0][h] === 'number'));
+          sourceData.data.headers.find(h => typeof sourceData.data.rows[0][h] === 'number');
         if (xCol) {
           const xVal = sourceData.data.rows[site]?.[xCol];
-          if (typeof xVal === 'number') {
-            scrollToSite = xVal;
-            highlightCol = scrollToSite;
-          }
+          if (typeof xVal === 'number') col = xVal;
         }
       }
-      const targetIsCodon = targetData.codonMode;
-      const scrollMultiplier = targetIsCodon ? 3 : 1;
+      const isCodon = !!targetData.codonMode;
+      setScrollPositions(prev => ({ ...prev, [targetId]: col * (isCodon ? 3 : 1) * CELL_SIZE }));
+      setHighlightSite(col);
+      setHighlightOrigin(originId);
+    },
 
-        setScrollPositions(prev => ({
-            ...prev,
-            [targetId]: scrollToSite * scrollMultiplier * CELL_SIZE
-          }));
-          setHighlightSite(highlightCol);
-          setHighlightOrigin(originId);
-    }
-    // Alignment -> Alignment
-    else if (sourcePanel.type === 'alignment' && targetPanel.type === 'alignment') {
-      const originData = panelData[originId];
+    // Alignment -> Alignment (codon-aware scroll sync)
+    'alignment->alignment': () => {
       const targetData = panelData[targetId];
-      if (!originData || !targetData) return;
-
-      const targetIsCodon = targetData.codonMode;
-      const scrollSite = targetIsCodon ? site * 3 : site;
-
-      setScrollPositions(prev => ({
-        ...prev,
-        [targetId]: scrollSite * CELL_SIZE
-      }));
+      if (!targetData) return;
+      const scrollSite = targetData.codonMode ? site * 3 : site;
+      setScrollPositions(prev => ({ ...prev, [targetId]: scrollSite * CELL_SIZE }));
       setHighlightSite(site);
       setHighlightOrigin(originId);
-    }
+    },
 
-  const extractChainIdFromSeqId = (id) => {
-  if (!id) return null;
-  const m = id.match(/_chain_([A-Za-z0-9])\b/i);
-  if (m) return m[1];
-  if (/^[A-Za-z0-9]$/.test(id)) return id; // single-letter chain like "A"
-  return null;
-};
+    // Alignment -> Structure (map MSA col to residue index)
+    'alignment->structure': () => {
+      const alnData = panelData[originId];
+      const structId = targetId;
+      const preferredChain =
+        chainIdFromSeqId(alnData?.data?.[0]?.id) || null;
 
-const getSeqForChain = (alignmentData, preferChainId, structureChainsLengths) => {
-  if (!alignmentData || !Array.isArray(alignmentData.data)) return { seq: null, chainId: null };
-  // Prefer name-based match
-  if (preferChainId) {
-    const named = alignmentData.data.find(s => {
-      const cid = extractChainIdFromSeqId(s.id);
-      return cid === preferChainId || s.id === preferChainId;
-    });
-    if (named) return { seq: named, chainId: preferChainId };
-  }
-  // Length-based unique match
-  if (structureChainsLengths) {
-    for (const s of alignmentData.data) {
-      const len = (s.sequence || '').replace(/-/g, '').length;
-      const match = Object.entries(structureChainsLengths).find(([, L]) => L === len);
-      if (match) return { seq: s, chainId: match[0] };
-    }
-  }
-  return { seq: alignmentData.data[0] || null, chainId: preferChainId || null };
-};
+      const { seq, chainId } = pickAlignedSeqForChain(alnData, preferredChain, null);
+      if (!seq) return;
 
-// Alignment -> Structure
-if (sourcePanel?.type === 'alignment' && targetPanel?.type === 'structure') {
-  const alnData = panelData[originId];
-  const structId = targetId;
+      const residIdx = msaColToResidueIndex(seq.sequence, site);
+      setPanelData(prev => ({
+        ...prev,
+        [structId]: { ...prev[structId], linkedResidueIndex: residIdx, linkedChainId: chainId || preferredChain || undefined }
+      }));
+    },
 
+    // Structure -> Alignment (map residue index to MSA col)
+    'structure->alignment': () => {
+      const structData = panelData[originId];
+      const alnData    = panelData[targetId];
+      if (!alnData?.data) return;
 
-  // we don’t know chain lengths here; let viewer deduce by name/length too,
-  // but we’ll try to pull a chainId from sequence id for better UX:
-  const preferredChainId =
-    extractChainIdFromSeqId(alnData?.data?.[0]?.id) ||
-    null;
+      const structureChainId = structData?.linkedChainId
+        || chainIdFromSeqId(alnData.data[0]?.id)
+        || null;
 
-  // We need to map column -> residue index (skip gaps) for the matched sequence
-  // Try to find a matching sequence by chain name
-  const { seq, chainId } = getSeqForChain(alnData, preferredChainId, null);
-  if (seq) {
-    const residIdx = (() => {
-      let count = -1;
-      for (let i = 0; i <= site && i < seq.sequence.length; i++) {
-        if (seq.sequence[i] !== '-') count++;
-      }
-      return count < 0 ? null : count;
-    })();
+      const { seq } = pickAlignedSeqForChain(alnData, structureChainId, null);
+      if (!seq) return;
 
-    setPanelData(prev => ({
-      ...prev,
-      [structId]: {
-        ...prev[structId],
-        linkedResidueIndex: residIdx,
-        linkedChainId: chainId || preferredChainId || undefined
-      }
-    }));
-  }
-  return;
-}
+      const col = residueIndexToMsaCol(seq.sequence, site);
+      if (col == null) return;
 
-// Structure -> Alignment
-if (sourcePanel?.type === 'structure' && targetPanel?.type === 'alignment') {
-  const structData = panelData[originId];
-  const alnData = panelData[targetId];
-  if (!alnData || !Array.isArray(alnData.data)) return;
+      const isCodon = !!panelData[targetId]?.codonMode;
+      setScrollPositions(prev => ({ ...prev, [targetId]: col * (isCodon ? 3 : 1) * CELL_SIZE }));
+      setHighlightSite(col);
+      setHighlightOrigin(originId);
+    },
+  };
 
-  const structureChainId = structData?.linkedChainId
-    || extractChainIdFromSeqId(alnData.data[0]?.id)
-    || null;
+  const key = `${S}->${T}`;
+  if (handlers[key]) handlers[key]();
+}, [panelLinks, panels, panelData]);
 
-  // pick the best sequence (by name or length)
-  const { seq } = getSeqForChain(alnData, structureChainId, null);
-  if (!seq) return;
-
-  // translate residue index -> MSA column
-  const residIdx = site; // what StructureViewer sends
-  const col = (() => {
-    let count = -1;
-    for (let i = 0; i < seq.sequence.length; i++) {
-      if (seq.sequence[i] !== '-') {
-        count++;
-        if (count === residIdx) return i;
-      }
-    }
-    return null;
-  })();
-
-  if (col != null) {
-    // Scroll & highlight the alignment column
-    const isCodon = panelData[targetId]?.codonMode;
-    const scrollMultiplier = isCodon ? 3 : 1;
-    setScrollPositions(prev => ({
-      ...prev,
-      [targetId]: col * scrollMultiplier * CELL_SIZE
-    }));
-    setHighlightSite(col);
-    setHighlightOrigin(originId);
-  }
-  return;
-}
-  }, [panelLinks, panels, panelData, highlightOrigin]);
 
 
   const triggerUpload = useCallback((type, panelId = null) => {
