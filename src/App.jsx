@@ -644,7 +644,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const throttledOnScroll = useCallback(
     throttle(({ scrollTop, scrollLeft }) => {
       setScrollTop(scrollTop);
-      if (linkedTo != null && scrollLeft != null) {
+      if (linkedTo != null && scrollLeft != null && hoveredPanelId === id) {
         onSyncScroll(scrollLeft, id);
       }
     }, 90),
@@ -690,14 +690,28 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
     if (!gridRef.current || typeof externalScrollLeft !== 'number') return;
     const viewportWidth = dims.width - LABEL_WIDTH;
     const outer = gridRef.current._outerRef;
-    const currentScrollLeft = outer ? outer.scrollLeft : 0;
+    if (!outer) return;
+    const currentScrollLeft = outer.scrollLeft;
     const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
     const colStart = externalScrollLeft;
     const colEnd = colStart + itemWidth;
-    if (colStart < currentScrollLeft || colEnd > currentScrollLeft + viewportWidth) {
-      gridRef.current.scrollTo({ scrollLeft: colStart });
+    const padding = viewportWidth / 3;
+    const maxScroll = outer.scrollWidth - viewportWidth + itemWidth + padding;
+
+    let targetScroll = null;
+    if (colStart < currentScrollLeft) {
+      targetScroll = colStart - padding;
+    } else if (colEnd > currentScrollLeft + viewportWidth) {
+      targetScroll = colStart - viewportWidth + itemWidth + padding;
+    }
+
+    if (targetScroll !== null) {
+      gridRef.current.scrollTo({
+        scrollLeft: Math.max(0, Math.min(maxScroll, targetScroll)),
+      });
     }
   }, [externalScrollLeft, dims.width, codonMode]);
+
 
   const rowCount = msaData.length;
   const colCount = msaData[0]?.sequence.length || 0;
@@ -1823,6 +1837,7 @@ const handleLinkClick = useCallback((id) => {
 
 
 const handleHighlight = useCallback((site, originId) => {
+  
   setHighlightSite(site);
   setHighlightOrigin(originId);
 
