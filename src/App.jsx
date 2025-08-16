@@ -818,6 +818,7 @@ const handleGridMouseLeave = useCallback(() => {
       const isLinkedHighlight =
         linkedTo &&
         highlightedSite != null &&
+        hoveredPanelId !== id &&   
         (linkedTo === highlightOrigin || id === highlightOrigin) &&
         (codonMode ? codonIndex === highlightedSite : columnIndex === highlightedSite);
 
