@@ -297,9 +297,7 @@ const localTooltipPos = getTooltipPos(hoverIndex);
   const handleMouseLeaveChart = useCallback(() => {
     setHoverIndex(null);
     setIsLocalTooltipActive(false);
-    if (panelId === highlightOrigin) {
       onHighlight(null, panelId);
-    }
   }, [onHighlight, panelId, highlightOrigin]);
 
   // area-level hover -> highlight the bar column under the mouse X IF Y is inside plot area
@@ -428,6 +426,26 @@ const onListScroll = useCallback(({ scrollOffset, scrollUpdateWasRequested }) =>
     }
   }, [scrollLeft, scrollingToIndex, isIndexVisible]);
 
+useEffect(() => {
+  function handleDocumentMouseMove(e) {
+    if (!outerRef.current) return;
+    const rect = outerRef.current.getBoundingClientRect();
+    // If mouse is outside the panel, clear tooltip
+    if (
+      e.clientX < rect.left ||
+      e.clientX > rect.right ||
+      e.clientY < rect.top ||
+      e.clientY > rect.bottom
+    ) {
+      setIsLocalTooltipActive(false);
+      // clear hover index
+      setHoverIndex(null);
+    }
+  }
+  document.addEventListener('mousemove', handleDocumentMouseMove);
+  return () => document.removeEventListener('mousemove', handleDocumentMouseMove);
+}, [onHighlight, panelId]);
+
   const Legend = () =>
     discrete ? (
       <div className="flex flex-wrap items-center mb-2 space-x-4">
@@ -442,6 +460,7 @@ const onListScroll = useCallback(({ scrollOffset, scrollUpdateWasRequested }) =>
         ))}
       </div>
     ) : null;
+
 
   return (
     <>
@@ -494,7 +513,7 @@ const onListScroll = useCallback(({ scrollOffset, scrollUpdateWasRequested }) =>
 
         {/* Chart area (captures mouse to compute column under cursor) */}
         <div
-          ref={chartAreaRef}                                  // NEW: ref
+          ref={chartAreaRef}                                  // ref
           style={{
             position: 'absolute',
             left: LEFT_MARGIN,
@@ -504,7 +523,8 @@ const onListScroll = useCallback(({ scrollOffset, scrollUpdateWasRequested }) =>
             overflowX: needScroll ? 'auto' : 'hidden',
             overflowY: 'hidden',
           }}
-          onMouseMove={handleAreaMouseMove}                   // NEW: area-level hover
+          onMouseMove={handleAreaMouseMove}                   // area-level hover
+          onMouseLeave={handleMouseLeaveChart}                // area-level mouse leave
         >
           {needScroll ? (
             <List
