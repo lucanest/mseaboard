@@ -39,7 +39,6 @@ function Histogram({
   highlightOrigin,
   linkedTo,
   height,
-  syncId, // unused but preserved for prop parity
   setPanelData,
   highlightedSites,
 }) {

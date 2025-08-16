@@ -1151,7 +1151,7 @@ const NotepadPanel = React.memo(function NotepadPanel({
 const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, onReupload, onDuplicate,
   onLinkClick, isLinkModeActive, isEligibleLinkTarget,isLinked, linkedTo,
   highlightedSite, highlightOrigin, onHighlight, hoveredPanelId, justLinkedPanels,
-  setHoveredPanelId, setPanelData, syncId,
+  setHoveredPanelId, setPanelData,
 }) {
   const { filename } = data;
   const isTabular = !Array.isArray(data.data);
@@ -1310,7 +1310,6 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
         highlightedSites={data?.highlightedSites || []}
         linkedTo={linkedTo}
         height={height}
-        syncId={syncId}
       />
     </div>
   </PanelContainer>
@@ -2498,16 +2497,6 @@ const makeCommonProps = useCallback((panel) => {
     if (!data) return null;
 
   const commonProps = makeCommonProps(panel);
-  let syncId;
-    if (panel.type === 'histogram') {
-      const otherId = panelLinks[panel.i];  // see if they're linked
-      const otherPanel = panels.find(p => p.i === otherId);
-      if (otherId && otherPanel?.type === 'histogram') {
-        // use a stable string (sort the two IDs so it's the same both ways)
-        const [a, b] = [panel.i, otherId].sort();
-        syncId = `hist-sync-${a}-${b}`;
-      }
-    }
 
   return (
   <div key={panel.i}>
@@ -2539,7 +2528,6 @@ const makeCommonProps = useCallback((panel) => {
           {...commonProps}
           setPanelData={setPanelData}
           justLinkedPanels={justLinkedPanels}
-          syncId={syncId}
         />
       ) : panel.type === 'notepad' ? (
         <NotepadPanel
