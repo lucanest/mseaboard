@@ -232,12 +232,13 @@ if (isIndexVisible(index)) {
     const n = data.length;
     const out = new Array(n);
     for (let i = 0; i < n; i++) {
+      const matchValue = isLocalTooltipActive ? (xValues ? xValues[i] : i) : i;
       const isCurrentLinkedHighlight =
-        highlightedSite === i &&
+        highlightedSite === matchValue &&
         (linkedTo === highlightOrigin || panelId === highlightOrigin);
 
       const isPersistentHighlight = highlightedSet.has(i);
-
+      
       out[i] = {
         fill: getColor(data[i].value),
         stroke: isCurrentLinkedHighlight
@@ -362,7 +363,7 @@ const handleAreaMouseMove = useCallback((e) => {
   const y = yScale(v);
   const barH = chartInnerHeight - y;
   // Adjust x calculation to align with index
-  const x = xScale(i) - (itemSize)*2;
+  const x = xScale(i) - (itemSize)* 0.5;
   const vis = barVisuals[i];
   return (
     <VisxBar
