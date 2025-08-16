@@ -303,24 +303,46 @@ const localTooltipPos = getTooltipPos(hoverIndex);
   }, [onHighlight, panelId, highlightOrigin]);
 
   // area-level hover -> highlight the bar column under the mouse X IF Y is inside plot area
-  const handleAreaMouseMove = useCallback((e) => {
-    const el = chartAreaRef.current;
-    if (!el) return;
+const handleAreaMouseMove = useCallback((e) => {
+  const el = chartAreaRef.current;
+  if (!el) return;
 
-    const rect = el.getBoundingClientRect();
-    const xIn = e.clientX - rect.left;            // x inside scroll area (excluding left axis)
-    const yIn = e.clientY - rect.top;             // y inside scroll area
-    const inYBand = yIn >= TOP_MARGIN && yIn <= TOP_MARGIN + chartInnerHeight;
-    if (!inYBand) return;
+  const rect = el.getBoundingClientRect();
+  const xIn = e.clientX - rect.left; // x inside scroll area (excluding left axis)
+  const yIn = e.clientY - rect.top;  // y inside scroll area
+  const inYBand = yIn >= TOP_MARGIN && yIn <= TOP_MARGIN + chartInnerHeight;
+  if (!inYBand) return;
 
-    // Translate X to global data-space index
-    const xWithScroll = (needScroll ? scrollLeft : 0) + xIn;
-    const idx = Math.max(0, Math.min(values.length - 1, Math.floor(xWithScroll / itemSize)));
+  let idx;
+  if (needScroll) {
+    // Scrollable: fixed width bars
+    const xWithScroll = scrollLeft + xIn;
+    idx = Math.max(0, Math.min(values.length - 1, Math.floor(xWithScroll / itemSize)));
+  } else {
+    // Not scrollable: use xScale inverse
+    const innerWidth = containerWidth - LEFT_MARGIN - RIGHT_MARGIN;
+    const xScale = scaleLinear({
+      domain: [0, values.length],
+      range: [0, innerWidth],
+    });
+    // Map xIn to index using the inverse of xScale
+    const iFloat = xScale.invert(xIn);
+    idx = Math.max(0, Math.min(values.length - 1, Math.floor(iFloat)));
+  }
 
-    setIsLocalTooltipActive(true);
-    setHoverIndex(idx);
-    onHighlight(idx, panelId);
-  }, [chartInnerHeight, needScroll, scrollLeft, itemSize, values.length, onHighlight, panelId]);
+  setIsLocalTooltipActive(true);
+  setHoverIndex(idx);
+  onHighlight(idx, panelId);
+}, [
+  chartInnerHeight,
+  needScroll,
+  scrollLeft,
+  itemSize,
+  values.length,
+  onHighlight,
+  panelId,
+  containerWidth,
+]);
 
   const SmallSVG = () => {
     const innerWidth = Math.max(0, containerWidth - LEFT_MARGIN - RIGHT_MARGIN);
