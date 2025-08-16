@@ -13,7 +13,7 @@ const PhyloTreeViewer = ({
   const [debugInfo, setDebugInfo] = useState('');
   const [highlightedNode, setHighlightedNode] = useState(null);
   const [highlightedLink, setHighlightedLink] = useState(null);
-  
+
   const parseNewick = (newickString) => {
     let pos = 0;
     const parseNode = () => {
@@ -520,6 +520,25 @@ g.append('g')
 
     setDebugInfo(`Tree rendered successfully. Found ${Object.keys(colorMap).length} different ${colorField} values.`);
   }, [newickStr, isNhx, size, linkedTo, highlightOrigin, onHoverTip,highlightedNodes,linkedHighlights]);
+
+  useEffect(() => {
+    function handleDocumentMouseMove(e) {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      // If mouse is outside the panel, clear tooltip
+      if (
+        e.clientX < rect.left ||
+        e.clientX > rect.right ||
+        e.clientY < rect.top ||
+        e.clientY > rect.bottom
+      ) {
+        setHighlightedNode(null); // clear highlighted node
+        setHighlightedLink(null); // clear highlighted link
+      }
+    }
+    document.addEventListener('mousemove', handleDocumentMouseMove);
+    return () => document.removeEventListener('mousemove', handleDocumentMouseMove);
+  }, [onHoverTip]);
 
   return (
     <div
