@@ -1,4 +1,4 @@
-// Histogram.jsx (updated)
+// Histogram.jsx
 import React, {
   useRef,
   useEffect,
@@ -118,6 +118,7 @@ function Histogram({
   }, []);
 
   const chartInnerHeight = Math.max(0, height - TOP_MARGIN - BOTTOM_MARGIN);
+  const innerWidth = Math.max(0, containerWidth - LEFT_MARGIN - RIGHT_MARGIN);
   const yScale = useMemo(() => {
     return scaleLinear({
       domain: [Math.min(0, min), Math.max(0, max)],
@@ -141,22 +142,22 @@ function Histogram({
 
   const itemSize = needScroll
     ? (BAR_MIN_WIDTH_PX + GAP_PX)
-    : Math.max(1, containerWidth / Math.max(1, values.length));
+    : Math.max(1, innerWidth / Math.max(1, values.length));
   const barWidth = Math.max(1, itemSize - GAP_PX);
 
 
     // Visible window info (updates on scroll/resize)
   const visibleWindow = useMemo(() => {
-  const listWidth = Math.max(0, containerWidth - LEFT_MARGIN - RIGHT_MARGIN);
+  const listWidth = innerWidth;
   const start = Math.max(0, Math.floor(scrollLeft / itemSize));
   const count = Math.max(1, Math.ceil(listWidth / itemSize));
   const end = Math.min(values.length - 1, start + count - 1);
   return { start, end, listWidth };
-  }, [containerWidth, scrollLeft, itemSize, values.length]);
+ }, [innerWidth, scrollLeft, itemSize, values.length]);
 
   const isIndexVisible = useCallback((index) => {
   if (index == null) return true;
-  const listWidth = Math.max(0, containerWidth - LEFT_MARGIN - RIGHT_MARGIN);
+  const listWidth = innerWidth;
   const viewStart = scrollLeft;
   const viewEnd = scrollLeft + listWidth;
 
@@ -165,7 +166,7 @@ function Histogram({
 
   // visible if the whole bar is within the viewport
   return barStart < viewEnd && barEnd > viewStart;
-}, [containerWidth, scrollLeft, itemSize]);
+}, [innerWidth, scrollLeft, itemSize]);
 
   const scrollBarIntoView = useCallback((index) => {
   if (!needScroll || index == null || !listRef.current) return;
@@ -177,7 +178,7 @@ if (isIndexVisible(index)) {
   }
 
   // 2) Otherwise, center (or bias) it
-  const listWidth = Math.max(0, containerWidth - LEFT_MARGIN - RIGHT_MARGIN);
+  const listWidth = innerWidth;
   const contentWidth = values.length * itemSize;
 
   const targetCenter = index * itemSize + itemSize / 2;
@@ -193,7 +194,7 @@ if (isIndexVisible(index)) {
     setScrollingToIndex(index);
     listRef.current.scrollTo(nextScroll);
   }
-}, [needScroll, isIndexVisible, containerWidth, values.length, itemSize]);
+}, [needScroll, isIndexVisible, innerWidth, values.length, itemSize]);
 
   useLayoutEffect(() => {
     const isLinkedTarget =
@@ -232,7 +233,7 @@ if (isIndexVisible(index)) {
     const n = data.length;
     const out = new Array(n);
     for (let i = 0; i < n; i++) {
-      const matchValue = isLocalTooltipActive ? (xValues ? xValues[i] : i) : i;
+      const matchValue = isLocalTooltipActive ? (xValues && xValues[i] === i + 1 ? i : (xValues ? xValues[i]:i)) : i;
       const isCurrentLinkedHighlight =
         highlightedSite === matchValue &&
         (linkedTo === highlightOrigin || panelId === highlightOrigin);
@@ -265,7 +266,12 @@ const getTooltipPos = useCallback((index) => {
     // Add bounds checking to prevent accessing non-existent data
     if (index == null || index < 0 || index >= data.length) return null;
 
-    const left = LEFT_MARGIN + (index * itemSize - (needScroll ? scrollLeft : 0)) + barWidth / 2;
+    const barLeftOffset = needScroll ? (itemSize - barWidth) / 2 : 0;
+const left =
+   LEFT_MARGIN +
+   (index * itemSize - (needScroll ? scrollLeft : 0)) +
+   barLeftOffset +
+   barWidth / 2;
     const y = yScale(data[index].value);
     const top = TOP_MARGIN + y;
 
@@ -318,7 +324,6 @@ const handleAreaMouseMove = useCallback((e) => {
     idx = Math.max(0, Math.min(values.length - 1, Math.floor(xWithScroll / itemSize)));
   } else {
     // Not scrollable: use xScale inverse
-    const innerWidth = containerWidth - LEFT_MARGIN - RIGHT_MARGIN;
     const xScale = scaleLinear({
       domain: [0, values.length],
       range: [0, innerWidth],
@@ -343,15 +348,14 @@ const handleAreaMouseMove = useCallback((e) => {
 ]);
 
   const SmallSVG = () => {
-    const innerWidth = Math.max(0, containerWidth - LEFT_MARGIN - RIGHT_MARGIN);
     const xScale = scaleLinear({
       domain: [0, values.length],
       range: [0, innerWidth],
     });
 
     return (
-      <svg width={containerWidth} height={height}>
-        <g transform={`translate(${LEFT_MARGIN},${TOP_MARGIN})`}>
+   <svg width={innerWidth} height={height}>
+     <g transform={`translate(0,${TOP_MARGIN})`}>
           <GridRows
             scale={yScale}
             width={innerWidth}
@@ -362,8 +366,7 @@ const handleAreaMouseMove = useCallback((e) => {
   const v = d.value;
   const y = yScale(v);
   const barH = chartInnerHeight - y;
-  // Adjust x calculation to align with index
-  const x = xScale(i) - (itemSize)* 0.5;
+  const x = xScale(i);  
   const vis = barVisuals[i];
   return (
     <VisxBar
@@ -480,7 +483,7 @@ useEffect(() => {
           <g transform={`translate(${LEFT_MARGIN},${TOP_MARGIN})`}>
             <GridRows
               scale={yScale}
-              width={Math.max(0, containerWidth - LEFT_MARGIN - RIGHT_MARGIN)}
+              width={innerWidth}
               stroke="#e5e7eb"
               numTicks={5}
             />
@@ -531,7 +534,7 @@ useEffect(() => {
               ref={listRef}
               layout="horizontal"
               height={height}
-              width={Math.max(0, containerWidth - LEFT_MARGIN - RIGHT_MARGIN)}
+              width={innerWidth}
               itemCount={values.length}
               itemSize={itemSize}
               overscanCount={64}
