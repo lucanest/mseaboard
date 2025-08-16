@@ -343,7 +343,7 @@ const localTooltipPos = getTooltipPos(hoverIndex);
   const y = yScale(v);
   const barH = chartInnerHeight - y;
   // Adjust x calculation to align with index
-  const x = xScale(i) - (itemSize / 2);
+  const x = xScale(i) - (itemSize)*2;
   const vis = barVisuals[i];
   return (
     <VisxBar
