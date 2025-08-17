@@ -55,7 +55,7 @@ function Histogram({
   const transformY = useCallback(
     (v) => {
       if (!yLogActive) return v;
-      if (v === 0) return 0;
+      if (v === 0) return NaN;
       return Math.log10(Math.abs(v));
     },
     [yLogActive]
