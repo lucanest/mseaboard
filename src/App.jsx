@@ -6,7 +6,7 @@ import throttle from 'lodash.throttle'
 import GridLayout from 'react-grid-layout';
 import ReactDOM from 'react-dom';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
-CodonToggleButton, TranslateButton, SurfaceToggleButton, SiteStatsButton,
+CodonToggleButton, TranslateButton, SurfaceToggleButton, SiteStatsButton, LogYButton,
 SeqlogoButton, SequenceButton, DistanceMatrixButton, DownloadButton, GitHubButton} from './components/Buttons.jsx';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, threeToOne,
@@ -1162,7 +1162,10 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
         data.data.headers.find(h => typeof data.data.rows[0][h] === 'number'))
       : null
   );
-
+  const [yLog, setYLog] = useState(Boolean(data?.yLog));
+  useEffect(() => {
+  setYLog(Boolean(data?.yLog));
+}, [data?.yLog]);
   const [selectedXCol, setSelectedXCol] = useState(
     isTabular
       ? (data.selectedXCol ||
@@ -1249,8 +1252,16 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
       isLinked={isLinked}
       onRemove={onRemove}
       extraButtons={[
-        <DownloadButton onClick={handleDownload} />]}
-    />
+        <DownloadButton onClick={handleDownload} />, 
+        <LogYButton
+        onClick={() => {
+          setPanelData(prev => ({
+            ...prev,
+            [id]: { ...prev[id], yLog: !yLog }
+          }));
+          setYLog(v => !v);
+        }} isActive={yLog}/>]}
+      />
     <div className="p-2">
       {isTabular && (
         <div className="flex items-center gap-4">
@@ -1311,6 +1322,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
         highlightedSites={data?.highlightedSites || []}
         linkedTo={linkedTo}
         height={height}
+        yLogActive={yLog}
       />
     </div>
   </PanelContainer>

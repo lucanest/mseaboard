@@ -41,6 +41,7 @@ function Histogram({
   height,
   setPanelData,
   highlightedSites,
+  yLogActive = false,   
 }) {
   const data = useMemo(() => {
     const n = values.length;
@@ -51,16 +52,25 @@ function Histogram({
     return out;
   }, [values, xValues]);
 
-  const [min, max] = useMemo(() => {
+  const transformY = useCallback(
+    (v) => {
+      if (!yLogActive) return v;
+      if (v === 0) return 0;
+      return Math.log10(Math.abs(v));
+    },
+    [yLogActive]
+      );
+ const [min, max] = useMemo(() => {
     if (values.length === 0) return [0, 0];
-    let mn = values[0], mx = values[0];
+    let mn = transformY(values[0]), mx = transformY(values[0]);
     for (let i = 1; i < values.length; i++) {
-      const v = values[i];
-      if (v < mn) mn = v;
-      if (v > mx) mx = v;
+      const tv = transformY(values[i]);
+      if (tv < mn) mn = tv;
+      if (tv > mx) mx = tv;
     }
     return [mn, mx];
-  }, [values]);
+  }, [values, transformY]);
+
 
   const unique = useMemo(() => Array.from(new Set(values)), [values]);
   const discrete = useMemo(
@@ -272,7 +282,7 @@ const left =
    (index * itemSize - (needScroll ? scrollLeft : 0)) +
    barLeftOffset +
    barWidth / 2;
-    const y = yScale(data[index].value);
+    const y = yScale(transformY(data[index].value));
     const top = TOP_MARGIN + y;
 
     // Estimate tooltip dimensions (w:120px, h:50px) and add some buffer
@@ -293,6 +303,14 @@ const left =
   }, [containerWidth, height, itemSize, barWidth, needScroll, scrollLeft, yScale, data]);
 
 const localTooltipPos = getTooltipPos(hoverIndex);
+
+const formatTooltip = useCallback((v) => {
+  if (!yLogActive) return `${v}`;
+  const tv = transformY(v);
+  return `${tv.toFixed(4)}`;
+}, [yLogActive, transformY]);
+
+
   const shouldMirror =
     highlightedSite !== null &&
     linkedTo === highlightOrigin &&
@@ -348,51 +366,58 @@ const handleAreaMouseMove = useCallback((e) => {
 ]);
 
 const SmallSVG = () => {
-    const xScale = scaleLinear({
-      domain: [0, values.length],
-      range: [0, innerWidth],
-    });
-    const y0 = yScale(0);
+  const xScale = scaleLinear({
+    domain: [0, values.length],
+    range: [0, innerWidth],
+  });
+  const y0 = yScale(0);
 
-    return (
-   <svg width={innerWidth} height={height}>
-     <g transform={`translate(0,${TOP_MARGIN})`}>
-          <GridRows
-            scale={yScale}
-            width={innerWidth}
-            stroke="#e5e7eb"
-            numTicks={5}
-          />
-{data.map((d, i) => {
-  const v = d.value;
-  const barTop = v >= 0 ? yScale(v) : y0;
-  const barHeight = Math.abs(yScale(v) - y0);
-  const x = xScale(i);  
-  const vis = barVisuals[i];
   return (
-    <VisxBar
-      key={i}
-      x={x}
-      y={barTop}
-      width={barWidth}
-      height={barHeight}
-      fill={vis.fill}
-      stroke={vis.stroke}
-      strokeWidth={vis.strokeWidth}
-      onClick={() => handleBarClick(i)}
-    />
+    <svg width={innerWidth} height={height}>
+      <g transform={`translate(0,${TOP_MARGIN})`}>
+        <GridRows
+          scale={yScale}
+          width={innerWidth}
+          stroke="#e5e7eb"
+          numTicks={5}
+        />
+        {data.map((d, i) => {
+          const v = d.value;
+          const tv = transformY(v);
+          const vis = barVisuals[i];
+
+          // center each bar in its slot
+          const slotLeft = xScale(i);
+          const x = slotLeft + (itemSize - barWidth) / 2;
+
+          const barTop = tv >= 0 ? yScale(tv) : y0;
+          const barHeight = Math.abs(yScale(tv) - y0);
+
+          return (
+            <VisxBar
+              key={i}
+              x={x}
+              y={barTop}
+              width={barWidth}
+              height={barHeight}
+              fill={vis.fill}
+              stroke={vis.stroke}
+              strokeWidth={vis.strokeWidth}
+              onClick={() => handleBarClick(i)}
+            />
+          );
+        })}
+      </g>
+    </svg>
   );
-})}
-        </g>
-      </svg>
-    );
-  };
+};
 
   const Item = ({ index, style }) => {
-    const v = data[index].value;
-    const y0 = yScale(0);
-    const barTop = v >= 0 ? yScale(v) : y0;
-    const barHeight = Math.abs(yScale(v) - y0);
+const v = data[index].value;
+const tv = transformY(v);
+const y0 = yScale(0);
+const barTop = tv >= 0 ? yScale(tv) : y0;
+const barHeight = Math.abs(yScale(tv) - y0);
     const vis = barVisuals[index];
     return (
       <div style={style}>
@@ -563,7 +588,9 @@ useEffect(() => {
     className="bg-white p-2 border border-gray-300 rounded-xl shadow-md text-sm"
   >
     <p className="font-medium">{`${getXLabel(hoverIndex)}`}</p>
-    <p className="text-blue-600">{`Value : ${data[hoverIndex].value}`}</p>
+    <p className="text-blue-600">
+      {`Value${yLogActive ? ' (log)' : ''}: ${formatTooltip(data[hoverIndex].value)}`}
+    </p>
   </div>
 )}
 
@@ -584,7 +611,9 @@ useEffect(() => {
       className="bg-white p-2 border border-gray-300 rounded-xl shadow-md text-sm"
     >
       <p className="font-medium">{`${getXLabel(highlightedSite)}`}</p>
-      <p className="text-blue-600">{`Value : ${data[highlightedSite].value}`}</p>
+      <p className="text-blue-600">
+        {`Value${yLogActive ? ' (log)' : ''}: ${formatTooltip(data[highlightedSite].value)}`}
+      </p>
     </div>
   );
 })()}
