@@ -1251,8 +1251,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
       isEligibleLinkTarget={isEligibleLinkTarget}
       isLinked={isLinked}
       onRemove={onRemove}
-      extraButtons={[
-        <DownloadButton onClick={handleDownload} />, 
+      extraButtons={[ 
         <LogYButton
         onClick={() => {
           setPanelData(prev => ({
@@ -1260,7 +1259,8 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
             [id]: { ...prev[id], yLog: !yLog }
           }));
           setYLog(v => !v);
-        }} isActive={yLog}/>]}
+        }} isActive={yLog}/>,
+        <DownloadButton onClick={handleDownload} />]}
       />
     <div className="p-2">
       {isTabular && (

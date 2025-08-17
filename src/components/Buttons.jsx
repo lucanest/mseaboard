@@ -214,9 +214,9 @@ export function DownloadButton({ onClick, title = "Download" }) {
 function LogGlyph(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
-      <text x="2"  y="20" fill="gray" fontSize="16" >l</text>
-      <text x="6" y="20" fill="gray" fontSize="16">o</text>
-      <text x="14" y="20" fill="gray" fontSize="16">g</text>
+      <text x="0"  y="18" fill="gray" fontSize="16" >l</text>
+      <text x="4.5" y="18" fill="gray" fontSize="16">o</text>
+      <text x="14" y="18" fill="gray" fontSize="16">g</text>
     </svg>
   );
 }
@@ -230,7 +230,7 @@ export function LogYButton({ onClick, isActive, title = "Toggle log scale on Y" 
       title={title}
     >
       <span className={`inline-flex items-center justify-center w-6 h-6 rounded
-       ${isActive ? 'bg-blue-200' : 'bg-gray-200'}
+       ${isActive ? 'bg-orange-300' : 'bg-gray-200'}
         border border-gray-400 hover:bg-orange-200`}>
         <LogGlyph className="w-5 h-5 text-gray-700" />
       </span>
