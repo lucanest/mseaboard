@@ -87,9 +87,9 @@ function Histogram({
       const baseR = 96, baseG = 165, baseB = 250;
       const denom = max - min || 1;
       const t = Math.sqrt((v - min) / denom);
-      const r = baseR + Math.round((255 - baseR) * (1 - t));
-      const g = baseG + Math.round((255 - baseG) * (1 - t));
-      const b = baseB + Math.round((255 - baseB) * (1 - t));
+      const r = baseR + Math.round((255 - baseR) * 3*(1 - t)/4);
+      const g = baseG + Math.round((255 - baseG) * 3*(1 - t)/4);
+      const b = baseB + Math.round((255 - baseB) * 3*(1 - t)/4);
       return `rgb(${r},${g},${b})`;
     },
     [discrete, cmap, min, max]
@@ -347,11 +347,12 @@ const handleAreaMouseMove = useCallback((e) => {
   containerWidth,
 ]);
 
-  const SmallSVG = () => {
+const SmallSVG = () => {
     const xScale = scaleLinear({
       domain: [0, values.length],
       range: [0, innerWidth],
     });
+    const y0 = yScale(0);
 
     return (
    <svg width={innerWidth} height={height}>
@@ -364,17 +365,17 @@ const handleAreaMouseMove = useCallback((e) => {
           />
 {data.map((d, i) => {
   const v = d.value;
-  const y = yScale(v);
-  const barH = chartInnerHeight - y;
+  const barTop = v >= 0 ? yScale(v) : y0;
+  const barHeight = Math.abs(yScale(v) - y0);
   const x = xScale(i);  
   const vis = barVisuals[i];
   return (
     <VisxBar
       key={i}
       x={x}
-      y={y}
+      y={barTop}
       width={barWidth}
-      height={barH}
+      height={barHeight}
       fill={vis.fill}
       stroke={vis.stroke}
       strokeWidth={vis.strokeWidth}
@@ -389,8 +390,9 @@ const handleAreaMouseMove = useCallback((e) => {
 
   const Item = ({ index, style }) => {
     const v = data[index].value;
-    const y = yScale(v);
-    const barH = chartInnerHeight - y;
+    const y0 = yScale(0);
+    const barTop = v >= 0 ? yScale(v) : y0;
+    const barHeight = Math.abs(yScale(v) - y0);
     const vis = barVisuals[index];
     return (
       <div style={style}>
@@ -398,9 +400,9 @@ const handleAreaMouseMove = useCallback((e) => {
           <g transform={`translate(0, ${TOP_MARGIN})`}>
             <VisxBar
               x={(itemSize - barWidth) / 2}
-              y={y}
+              y={barTop}
               width={barWidth}
-              height={barH}
+              height={barHeight}
               fill={vis.fill}
               stroke={vis.stroke}
               strokeWidth={vis.strokeWidth}
