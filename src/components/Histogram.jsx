@@ -412,7 +412,7 @@ const SmallSVG = () => {
   );
 };
 
-  const Item = ({ index, style }) => {
+const Item = ({ index, style }) => {
 const v = data[index].value;
 const tv = transformY(v);
 const y0 = yScale(0);
@@ -589,7 +589,7 @@ useEffect(() => {
   >
     <p className="font-medium">{`${getXLabel(hoverIndex)}`}</p>
     <p className="text-blue-600">
-      {`Value${yLogActive ? ' (log)' : ''}: ${formatTooltip(data[hoverIndex].value)}`}
+      {`Value${yLogActive ? ' (log)' : ''}: ${(yLogActive && formatTooltip(data[hoverIndex].value)==0) ? NaN : formatTooltip(data[hoverIndex].value)}`}
     </p>
   </div>
 )}
@@ -612,7 +612,7 @@ useEffect(() => {
     >
       <p className="font-medium">{`${getXLabel(highlightedSite)}`}</p>
       <p className="text-blue-600">
-        {`Value${yLogActive ? ' (log)' : ''}: ${formatTooltip(data[highlightedSite].value)}`}
+        {`Value${yLogActive ? ' (log)' : ''}: ${(yLogActive && formatTooltip(data[highlightedSite].value)==0) ? NaN : formatTooltip(data[highlightedSite].value)}`}
       </p>
     </div>
   );
