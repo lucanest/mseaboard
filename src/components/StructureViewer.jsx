@@ -33,6 +33,7 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData,link
   const viewerRef = useRef(null);
   const surfaceHandleRef = useRef(null);
   const appliedInitialViewRef = useRef(false);
+  const lastSentHighlightRef = useRef(undefined);
 
   // StructureTooltip: use state for small structures, direct DOM updates in perf mode
   const [tooltip, setStructureTooltip] = useState(null);
@@ -146,15 +147,53 @@ function guessLinkedChainId(linkedPanelData) {
   return null;
 }
 
-// Map alignment column -> residue index (skip gaps)
-function msaColToResidIndex(seqString, col) {
-  if (!seqString || col == null) return null;
-  let count = -1;
-  for (let i = 0; i <= col && i < seqString.length; i++) {
-    if (seqString[i] !== '-') count++;
-  }
-  return count < 0 ? null : count;
-}
+const setupHoverStructureTooltip = () => {
+  const v = viewerRef.current;
+  if (!v) return;
+
+  v.setHoverable(
+    { atom: 'CA' },
+    true,
+    function onHover(atom) {
+      if (!atom || atom.hetflag) return;
+
+      const resn = (atom.resn || '').trim().toUpperCase();
+      const one = threeToOne[resn] || '-';
+      const label = `chain ${atom.chain || ''}, ${atom.resi - 1 ?? ''}: ${one}`;
+      showStructureTooltipText(label);
+
+      // Share highlight back to MSA if linked
+      try {
+        const chain = (atom.chain || 'A').trim() || 'A';
+        const icode = String(atom.inscode ?? atom.icode ?? '').trim();
+        const key = `${chain}|${atom.resi}|${icode}`;
+        const info = chainInfoRef.current.byChain[chain];
+        const idx = info ? info.keyToIndex.get(key) : null;
+
+        if (typeof onHighlight === 'function' && idx != null) {
+          if (lastSentHighlightRef.current !== idx) {
+            lastSentHighlightRef.current = idx;
+            onHighlight(idx, panelId);
+          }
+        }
+      } catch {}
+
+      scheduleHalo(atom);
+    },
+    function onUnhover() {
+      hideStructureTooltipText();
+      scheduleHalo(null);
+      if (typeof onHighlight === 'function') {
+        if (lastSentHighlightRef.current !== null) {
+          lastSentHighlightRef.current = null;
+          onHighlight(null, panelId);
+        }
+      }
+    }
+  );
+};
+
+
 
   const defaultColorFunc = (atom) => {
     const resn = (atom.resn || '').trim().toUpperCase();
@@ -219,44 +258,7 @@ function msaColToResidIndex(seqString, col) {
     });
   };
 
-const setupHoverStructureTooltip = () => {
-  const v = viewerRef.current;
-  if (!v) return;
 
-  v.setHoverable(
-    { atom: 'CA' },
-    true,
-    function onHover(atom) {
-      if (!atom || atom.hetflag) return;
-
-      const resn = (atom.resn || '').trim().toUpperCase();
-      const one = threeToOne[resn] || '-';
-      const label = `chain ${atom.chain || ''}, ${atom.resi-1 ?? ''}: ${one}`;
-
-      // StructureTooltip (hover-driven)
-      showStructureTooltipText(label);
-
-      // Share highlight back to MSA if linked
-      try {
-        const chain = (atom.chain || 'A').trim() || 'A';
-        const icode = String(atom.inscode ?? atom.icode ?? '').trim();
-        const key = `${chain}|${atom.resi}|${icode}`;
-        const info = chainInfoRef.current.byChain[chain];
-        const idx = info ? info.keyToIndex.get(key) : null;
-        if (idx != null && typeof onHighlight === 'function') {
-          onHighlight(idx, panelId);
-        }
-      } catch {}
-
-      scheduleHalo(atom);
-    },
-    function onUnhover() {
-      hideStructureTooltipText();
-      scheduleHalo(null);
-      if (typeof onHighlight === 'function') onHighlight(null, panelId);
-    }
-  );
-};
 
 useEffect(() => {
   // If multi-linked residues are present, don't override them here.
@@ -269,7 +271,7 @@ useEffect(() => {
   if (!v || !byChain) return;
 
   const chainId = data?.linkedChainId || guessLinkedChainId(linkedPanelData);
-  //console.log('[Structure] chosen chain for single-link (data.linkedChainId or guess):', chainId);
+  console.log('[Structure] chosen chain for single-link (data.linkedChainId or guess):', chainId);
   const residIdx = data?.linkedResidueIndex;
 
   if (chainId && byChain[chainId] && Number.isInteger(residIdx)) {
@@ -295,7 +297,6 @@ useEffect(() => {
   // Clear if no valid linked highlight
   hideStructureTooltipText();
   scheduleHalo(null);
-  // eslint-disable-next-line
 }, [data?.linkedResidueIndex, data?.linkedChainId, linkedPanelData]);
 // Render multiple persistent highlights from heatmap links
   useEffect(() => {

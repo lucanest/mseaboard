@@ -1580,10 +1580,10 @@ function App() {
       targetScrollLeft = scrollLeft * 3;
     }
 
-    setScrollPositions(prev => ({
-        ...prev,
-        [targetId]: targetScrollLeft
-    }));
+ setScrollPositions(prev => {
+   if (prev[targetId] === targetScrollLeft) return prev;
+   return { ...prev, [targetId]: targetScrollLeft };
+ });
   }, [panelLinks, panels, panelData]);
 
   const duplicatePanel = useCallback((id) => {
@@ -1867,7 +1867,7 @@ const handleLinkClick = useCallback((id) => {
 
 
 const handleHighlight = useCallback((site, originId) => {
-  
+  if (highlightSite === site && highlightOrigin === originId) return;
   setHighlightSite(site);
   setHighlightOrigin(originId);
 
@@ -1882,16 +1882,33 @@ const handleHighlight = useCallback((site, originId) => {
     // clear heatmap -> tree/align/structure transient state on hover out
     if (site !== null) return;
     if (sourcePanel.type === 'heatmap' && targetPanel.type === 'tree') {
-      setPanelData(prev => ({ ...prev, [targetId]: { ...prev[targetId], linkedHighlights: [] }}));
+       setPanelData(prev => {
+   const cur = prev[targetId] || {};
+   if (!cur.linkedHighlights || cur.linkedHighlights.length === 0) return prev;
+   return { ...prev, [targetId]: { ...cur, linkedHighlights: [] } };
+ });
+
     }
     if (sourcePanel.type === 'heatmap' && targetPanel.type === 'alignment') {
-      setPanelData(prev => ({ ...prev, [targetId]: { ...prev[targetId], linkedHighlights: [] }}));
+       setPanelData(prev => {
+   const cur = prev[targetId] || {};
+   if (!cur.linkedHighlights || cur.linkedHighlights.length === 0) return prev;
+   return { ...prev, [targetId]: { ...cur, linkedHighlights: [] } };
+ });
     }
     if (sourcePanel.type === 'heatmap' && targetPanel.type === 'structure') {
-      setPanelData(prev => ({ ...prev, [targetId]: { ...prev[targetId], linkedResiduesByKey: [] }}));
+       setPanelData(prev => {
+   const cur = prev[targetId] || {};
+   if (!Array.isArray(cur.linkedResiduesByKey) || cur.linkedResiduesByKey.length === 0) return prev;
+   return { ...prev, [targetId]: { ...cur, linkedResiduesByKey: [] } };
+ });
     }
     if (sourcePanel.type === 'alignment' && targetPanel.type === 'structure') {
-      setPanelData(prev => ({ ...prev, [targetId]: { ...prev[targetId], linkedResidueIndex: undefined, linkedChainId: prev[targetId]?.linkedChainId }}));
+       setPanelData(prev => {
+   const cur = prev[targetId] || {};
+   if (cur.linkedResidueIndex == null) return prev;
+   return { ...prev, [targetId]: { ...cur, linkedResidueIndex: undefined, linkedChainId: cur.linkedChainId } };
+ });
     }
   };
 
@@ -1905,7 +1922,16 @@ const handleHighlight = useCallback((site, originId) => {
       const { labels } = panelData[originId] || {};
       if (!labels || !site?.row?.toString || !site?.col?.toString) return;
       const leaf1 = labels[site.row], leaf2 = labels[site.col];
-      setPanelData(prev => ({ ...prev, [targetId]: { ...prev[targetId], linkedHighlights: [leaf1, leaf2] }}));
+       setPanelData(prev => {
+   const cur = prev[targetId] || {};
+   const next = [leaf1, leaf2];
+   const same = Array.isArray(cur.linkedHighlights)
+     && cur.linkedHighlights.length === 2
+     && cur.linkedHighlights[0] === next[0]
+     && cur.linkedHighlights[1] === next[1];
+   if (same) return prev;
+   return { ...prev, [targetId]: { ...cur, linkedHighlights: next } };
+ });
     },
 
     // Heatmap -> Alignment (highlight 2 row labels)
@@ -1913,7 +1939,16 @@ const handleHighlight = useCallback((site, originId) => {
       const { labels } = panelData[originId] || {};
       if (!labels || typeof site?.row !== 'number' || typeof site?.col !== 'number') return;
       const leaf1 = labels[site.row], leaf2 = labels[site.col];
-      setPanelData(prev => ({ ...prev, [targetId]: { ...prev[targetId], linkedHighlights: [leaf1, leaf2] }}));
+      setPanelData(prev => {
+   const cur = prev[targetId] || {};
+   const next = [leaf1, leaf2];
+   const same = Array.isArray(cur.linkedHighlights)
+     && cur.linkedHighlights.length === 2
+     && cur.linkedHighlights[0] === next[0]
+     && cur.linkedHighlights[1] === next[1];
+   if (same) return prev;
+   return { ...prev, [targetId]: { ...cur, linkedHighlights: next } };
+ });
     },
 
     // Heatmap -> Structure (map labels like "A:123" to residues)
@@ -1929,14 +1964,13 @@ const handleHighlight = useCallback((site, originId) => {
       const a = parseLabel(labels[site.row]);
       const b = parseLabel(labels[site.col]);
       const list = [a, b].filter(Boolean);
-      setPanelData(prev => ({
-        ...prev,
-        [targetId]: {
-          ...prev[targetId],
-          linkedResiduesByKey: list,
-          linkedChainId: list[0]?.chainId || prev[targetId]?.linkedChainId,
-        }
-      }));
+      setPanelData(prev => {
+        const cur = prev[targetId] || {};
+        const newChain = list[0]?.chainId || cur.linkedChainId;
+        const sameList = JSON.stringify(cur.linkedResiduesByKey) === JSON.stringify(list);
+        if (sameList && cur.linkedChainId === newChain) return prev;
+        return { ...prev, [targetId]: { ...cur, linkedResiduesByKey: list, linkedChainId: newChain } };
+      });
     },
 
     // SeqLogo <-> Alignment (scroll & mirror highlight)
@@ -1945,13 +1979,13 @@ const handleHighlight = useCallback((site, originId) => {
       if (!targetData) return;
       const isCodon = !!targetData.codonMode;
       const scrollSite = isCodon ? site * 3 : site;
-      setScrollPositions(prev => ({ ...prev, [targetId]: scrollSite * CELL_SIZE }));
-      setHighlightSite(site);
-      setHighlightOrigin(originId);
+      setScrollPositions(prev => {
+        const v = scrollSite * CELL_SIZE;
+        if (prev[targetId] === v) return prev;
+      return { ...prev, [targetId]: v };
+   });
     },
     'alignment->seqlogo': () => {
-      setHighlightSite(site);
-      setHighlightOrigin(originId);
     },
 
     // Alignment -> Histogram (match X if tabular)
@@ -1984,7 +2018,11 @@ const handleHighlight = useCallback((site, originId) => {
         }
       }
       const isCodon = !!targetData.codonMode;
-      setScrollPositions(prev => ({ ...prev, [targetId]: col * (isCodon ? 3 : 1) * CELL_SIZE }));
+      setScrollPositions(prev => {
+     const v = col * (isCodon ? 3 : 1) * CELL_SIZE;
+     if (prev[targetId] === v) return prev;
+     return { ...prev, [targetId]: v };
+   });
       setHighlightSite(col);
       setHighlightOrigin(originId);
     },
@@ -1994,9 +2032,11 @@ const handleHighlight = useCallback((site, originId) => {
       const targetData = panelData[targetId];
       if (!targetData) return;
       const scrollSite = targetData.codonMode ? site * 3 : site;
-      setScrollPositions(prev => ({ ...prev, [targetId]: scrollSite * CELL_SIZE }));
-      setHighlightSite(site);
-      setHighlightOrigin(originId);
+      setScrollPositions(prev => {
+        const v = scrollSite * CELL_SIZE;
+        if (prev[targetId] === v) return prev;
+      return { ...prev, [targetId]: v };
+   });
     },
 
     // Alignment -> Structure (map MSA col to residue index)
@@ -2010,10 +2050,12 @@ const handleHighlight = useCallback((site, originId) => {
       if (!seq) return;
 
       const residIdx = msaColToResidueIndex(seq.sequence, site);
-      setPanelData(prev => ({
-        ...prev,
-        [structId]: { ...prev[structId], linkedResidueIndex: residIdx, linkedChainId: chainId || preferredChain || undefined }
-      }));
+   setPanelData(prev => {
+     const cur = prev[structId] || {};
+     const newChain = chainId || preferredChain || undefined;
+    if (cur.linkedResidueIndex === residIdx && cur.linkedChainId === newChain) return prev;
+   return { ...prev, [structId]: { ...cur, linkedResidueIndex: residIdx, linkedChainId: newChain } };
+ });
     },
 
     // Structure -> Alignment (map residue index to MSA col)
@@ -2033,15 +2075,21 @@ const handleHighlight = useCallback((site, originId) => {
       if (col == null) return;
 
       const isCodon = !!panelData[targetId]?.codonMode;
-      setScrollPositions(prev => ({ ...prev, [targetId]: col * (isCodon ? 3 : 1) * CELL_SIZE }));
-      setHighlightSite(col);
-      setHighlightOrigin(originId);
+            setScrollPositions(prev => {
+     const v = col * (isCodon ? 3 : 1) * CELL_SIZE;
+     if (prev[targetId] === v) return prev;
+     return { ...prev, [targetId]: v };
+   });
+ if (!(highlightSite === col && highlightOrigin === originId)) {
+   setHighlightSite(col);
+   setHighlightOrigin(originId);
+ }
     },
   };
 
   const key = `${S}->${T}`;
   if (handlers[key]) handlers[key]();
-}, [panelLinks, panels, panelData]);
+}, [panelLinks, panels, panelData, highlightSite, highlightOrigin]);
 
 
 
