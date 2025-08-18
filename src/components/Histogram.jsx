@@ -306,8 +306,9 @@ const localTooltipPos = getTooltipPos(hoverIndex);
 
 const formatTooltip = useCallback((v) => {
   if (!yLogActive) return `${v}`;
+  if (yLogActive && v === 0) return 'NaN';
   const tv = transformY(v);
-  return `${tv.toFixed(4)}`;
+  return `${tv.toFixed(4)}`; 
 }, [yLogActive, transformY]);
 
 
@@ -364,6 +365,24 @@ const handleAreaMouseMove = useCallback((e) => {
   panelId,
   containerWidth,
 ]);
+
+const getColumnStyle = useCallback((index) => {
+  if (index == null || index < 0 || index >= values.length) return { display: 'none' };
+
+  const leftWithinChart =
+    (needScroll ? (index * itemSize - scrollLeft) : (index * itemSize));
+
+  return {
+    position: 'absolute',
+    left: leftWithinChart,
+    top: TOP_MARGIN,
+    width: itemSize,
+    height: chartInnerHeight,
+    background: 'rgba(0,0,0,0.1)',   // light gray veil
+    pointerEvents: 'none',              // don't block mouse
+    zIndex: 10,                         // below tooltips (which are much higher)
+  };
+}, [needScroll, itemSize, scrollLeft, chartInnerHeight, values.length]);
 
 const SmallSVG = () => {
   const xScale = scaleLinear({
@@ -556,6 +575,15 @@ useEffect(() => {
           onMouseMove={handleAreaMouseMove}                   // area-level hover
           onMouseLeave={handleMouseLeaveChart}                // area-level mouse leave
         >
+        {/* Column overlay for local hover */}
+        {isLocalTooltipActive && hoverIndex != null && (
+          <div style={getColumnStyle(hoverIndex)} />
+        )}
+
+        {/* Column overlay for linked highlight */}
+        {shouldMirror && highlightedSite != null && scrollingToIndex === null && (
+          <div style={getColumnStyle(highlightedSite)} />
+        )}
           {needScroll ? (
             <List
               ref={listRef}
@@ -589,7 +617,7 @@ useEffect(() => {
   >
     <p className="font-medium">{`${getXLabel(hoverIndex)}`}</p>
     <p className="text-blue-600">
-      {`Value${yLogActive ? ' (log)' : ''}: ${(yLogActive && formatTooltip(data[hoverIndex].value)==0) ? NaN : formatTooltip(data[hoverIndex].value)}`}
+      {`Value${yLogActive ? ' (log)' : ''}: ${formatTooltip(data[hoverIndex].value)}`}
     </p>
   </div>
 )}
@@ -612,7 +640,7 @@ useEffect(() => {
     >
       <p className="font-medium">{`${getXLabel(highlightedSite)}`}</p>
       <p className="text-blue-600">
-        {`Value${yLogActive ? ' (log)' : ''}: ${(yLogActive && formatTooltip(data[highlightedSite].value)==0) ? NaN : formatTooltip(data[highlightedSite].value)}`}
+        {`Value${yLogActive ? ' (log)' : ''}: ${formatTooltip(data[highlightedSite].value)}`}
       </p>
     </div>
   );
