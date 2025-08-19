@@ -169,9 +169,10 @@ const setupHoverStructureTooltip = () => {
         const key = `${chain}|${atom.resi}|${icode}`;
         const info = chainInfoRef.current.byChain[chain];
         const idx = info ? info.keyToIndex.get(key) : null;
+        //console.log(chain,data?.linkedChainId)
 
         if (typeof onHighlight === 'function' && idx != null) {
-          if (lastSentHighlightRef.current !== idx) {
+          if (lastSentHighlightRef.current !== idx && chain=== data?.linkedChainId) {
             lastSentHighlightRef.current = idx;
             onHighlight(idx, panelId);
           }
@@ -270,8 +271,8 @@ useEffect(() => {
   const byChain = chainInfoRef.current.byChain;
   if (!v || !byChain) return;
 
-  const chainId = data?.linkedChainId || guessLinkedChainId(linkedPanelData);
-  console.log('[Structure] chosen chain for single-link (data.linkedChainId or guess):', chainId);
+  const chainId = data?.linkedChainId;
+  //console.log('[Structure] chosen chain for single-link (data.linkedChainId):', chainId);
   const residIdx = data?.linkedResidueIndex;
 
   if (chainId && byChain[chainId] && Number.isInteger(residIdx)) {

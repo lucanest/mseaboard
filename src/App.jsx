@@ -1787,6 +1787,7 @@ const handleAlignmentToDistance = useCallback((id) => {
 }, [panelData, addPanel]);
 
 const handleLinkClick = useCallback((id) => {
+  
   const unlinkPair = (copy, a) => {
     const b = copy[a];
     if (b) { delete copy[b]; }
@@ -1855,7 +1856,61 @@ const handleLinkClick = useCallback((id) => {
 
       setJustLinkedPanels([linkMode, id]);
       setTimeout(() => setJustLinkedPanels([]), 1000);
+
+      // Reorder if tree linked
       reorderIfTreeLinked(a, b);
+
+      // ----- If we just linked an alignment with a structure, pick and persist chain once -----
+      try {
+        const panelA = panels.find(p => p.i === a);
+        const panelB = panels.find(p => p.i === b);
+        if (panelA && panelB) {
+          const isAlnStruct =
+            (panelA.type === 'alignment' && panelB.type === 'structure') ||
+            (panelA.type === 'structure' && panelB.type === 'alignment');
+
+          if (isAlnStruct) {
+            const structId = panelA.type === 'structure' ? a : b;
+            const alnId    = panelA.type === 'alignment' ? a : b;
+
+            const structData = panelData[structId];
+            const alnData    = panelData[alnId];
+
+            if (structData?.pdb && Array.isArray(alnData?.data) && alnData.data.length > 0) {
+              // Build map of structure chain lengths
+              const chains = parsePdbChains(structData.pdb);
+              const structureChainsLengths = {};
+              for (const [cid, { seq }] of chains.entries()) {
+                structureChainsLengths[cid] = (seq || '').length;
+              }
+
+              // Preferred chain from MSA IDs like "..._chain_A" or bare "A"
+              const preferredFromId =
+                chainIdFromSeqId(alnData.data[0]?.id) || null;
+
+              const { chainId } = pickAlignedSeqForChain(
+                alnData,
+                preferredFromId,
+                structureChainsLengths
+              );
+
+              if (chainId) {
+                setPanelData(prev => ({
+                  ...prev,
+                  [structId]: {
+                    ...prev[structId],
+                    linkedChainId: chainId
+                  }
+                }));
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Failed to persist linkedChainId on link:', e);
+      }
+      // ----------------------------------------------------------------------
+
       setLinkMode(null);
     }
   }
@@ -1864,7 +1919,6 @@ const handleLinkClick = useCallback((id) => {
   setHighlightSite(null);
   setHighlightOrigin(null);
 }, [linkMode, panelLinks, panels, panelData]);
-
 
 const handleHighlight = useCallback((site, originId) => {
   if (highlightSite === site && highlightOrigin === originId) return;
