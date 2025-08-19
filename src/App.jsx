@@ -1501,7 +1501,77 @@ function App() {
   const pendingTypeRef = useRef(null);
   const pendingPanelRef = useRef(null);
   const [titleFlipKey, setTitleFlipKey] = useState(() => Date.now());
+  const hideErrors = true;
 
+  if (hideErrors) {
+  useEffect(() => {
+    //if (process.env.NODE_ENV !== 'development') return;
+
+    const matches = (msg = '') => {
+      const m = String(msg).toLowerCase();
+      return (
+        // 3Dmol + WebGL collapse spam
+        m.includes('webgl: invalid_framebuffer_operation') ||
+        m.includes('framebuffer is incomplete') ||
+        m.includes('attachment has zero size') ||
+        m.includes('invalid_framebuffer_operation') ||
+        m.includes("e.close") ||                    // 3Dmol internal NPE path
+        // Safari / cross-origin “Script error.”
+        m === 'script error.'
+      );
+    };
+
+    const onError = (ev) => {
+      if (matches(ev?.message)) {
+        ev.preventDefault();
+        ev.stopImmediatePropagation(); // <- blocks CRA/webpack overlay
+      }
+    };
+
+    const onRejection = (ev) => {
+      const r = ev?.reason;
+      const msg = (r && (r.message || r.toString?.())) || '';
+      if (matches(msg)) {
+        ev.preventDefault();
+        ev.stopImmediatePropagation();
+      }
+    };
+
+    window.addEventListener('error', onError, true);
+    window.addEventListener('unhandledrejection', onRejection, true);
+
+    return () => {
+      window.removeEventListener('error', onError, true);
+      window.removeEventListener('unhandledrejection', onRejection, true);
+    };
+  }, []);
+
+  useEffect(() => {
+  //if (process.env.NODE_ENV !== 'development') return;
+
+  const origErr = console.error.bind(console);
+  const origWarn = console.warn.bind(console);
+
+  const noisy = (...args) => {
+    const s = args
+      .map(a => (typeof a === 'string' ? a : (a?.message || a?.toString?.() || '')))
+      .join(' ')
+      .toLowerCase();
+    return (
+      s.includes('webgl: invalid_framebuffer_operation') ||
+      s.includes('framebuffer is incomplete') ||
+      s.includes('attachment has zero size')
+    );
+  };
+
+  console.error = (...a) => { if (!noisy(...a)) origErr(...a); };
+  console.warn  = (...a) => { if (!noisy(...a)) origWarn(...a); };
+
+  return () => {
+    console.error = origErr;
+    console.warn  = origWarn;
+  };
+  }, []); }
 
   const addPanel = useCallback((config) => {
     const { type, data, basedOnId, layoutHint = {} } = config;
