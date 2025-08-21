@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Stack, Slider } from '@mui/material';
 import { threeToOne } from './Utils.jsx';
 import { residueColorHex,chainColors } from '../constants/colors.js';
 
@@ -34,6 +35,26 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData,link
   const surfaceHandleRef = useRef(null);
   const appliedInitialViewRef = useRef(false);
   const lastSentHighlightRef = useRef(undefined);
+  const [opacity, setOpacity] = useState(0.8);
+  const [sliderTooltip, setSliderTooltip] = useState(false);
+  const didInitOpacity = useRef(false);
+
+  // restore opacity from data
+  useEffect(() => {
+    didInitOpacity.current = false;
+  }, [panelId]);
+
+  useEffect(() => {
+    if (!didInitOpacity.current) {
+      if (typeof data?.opacity === 'number') {
+        setOpacity(data.opacity);
+      } else {
+        setOpacity(0.8);
+      }
+      didInitOpacity.current = true;
+    }
+    // Only run on mount or panelId change
+  }, [panelId, data?.opacity]);
 
   // StructureTooltip: use state for small structures, direct DOM updates in perf mode
   const [tooltip, setStructureTooltip] = useState(null);
@@ -71,7 +92,6 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData,link
   };
   // throttle window in ms when perfMode = true
   const HOVER_THROTTLE_MS = 60; // tuned a bit higher for giant structures
-
 
 const chainInfoRef = useRef({
   // byChain: { [chainId]: { caAtoms: Array<atom>, keyToIndex: Map, length: number } }
@@ -376,7 +396,7 @@ useEffect(() => {
 
     if (surface) {
       surfaceHandleRef.current = v.addSurface('SAS', {
-        opacity: 0.8,
+        opacity: opacity,
         colorfunc: function (atom) {
           return getChainColor(atom.chain);
         }
@@ -431,7 +451,7 @@ useEffect(() => {
       let isPerf = false;
       try {
         const atomCount = modelRef.current.selectedAtoms({}).length; // all atoms
-        isPerf = atomCount > 20000; // tune threshold
+        isPerf = atomCount > 20000000;
       } catch {
         isPerf = true; // safe fallback
       }
@@ -509,7 +529,19 @@ useEffect(() => {
   useEffect(() => {
     if (!viewerRef.current) return;
     rebuildSurface();
-  }, [surface]);
+  }, [surface, opacity]);
+
+
+
+useEffect(() => {
+  setPanelData((prev) => ({
+    ...prev,
+    [panelId]: {
+      ...prev[panelId],
+      opacity,
+    },
+  }));
+}, [opacity, panelId, setPanelData]);
 
   // Apply saved view once when workspace loads (if viewer already exists)
   useEffect(() => {
@@ -580,6 +612,60 @@ useEffect(() => {
         }}
         className="structure-viewer-container"
       />
+  {surface && (
+  <div style={{ position: 'relative', width: '26%', height: '10%',bottom: '28px', left: '4px'  } }>
+  <Stack spacing={2} direction="row" sx={{ alignItems: 'center', mb: 1 }}>
+  
+  <Slider aria-label="Volume" value={opacity} onChange={(_, v) => setOpacity(Array.isArray(v) ? v[0] : v)}
+  step={0.01}
+  min={0.4}
+  max={1}
+  sx={(t) => ({
+              color: 'rgba(0,0,0,0.37)',
+              '& .MuiSlider-track': {
+                border: 'none',
+              },
+              '& .MuiSlider-thumb': {
+                width: 18,
+                height: 18,
+                backgroundColor: '#fff',
+                '&::before': {
+                  boxShadow: '0 4px 8px rgba(0,0,0,0.4)',
+                },
+                '&:hover, &.Mui-focusVisible, &.Mui-active': {
+                  boxShadow: 'none',
+                },
+              },
+              ...t.applyStyles('dark', {
+                color: '#fff',
+              }),
+            })}
+        onMouseEnter={() => setSliderTooltip(true)}
+        onMouseLeave={() => setSliderTooltip(false)}
+      />
+      {/* Tooltip for the slider */}
+      {sliderTooltip && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '-30px',
+            left: '-18px',
+            background: 'rgba(0,0,0,0.3)',
+            color: '#fff',
+            padding: '2px 8px',
+            borderRadius: '10px',
+            fontSize: '12px',
+            pointerEvents: 'none',
+            whiteSpace: 'nowrap',
+            zIndex: 20,
+          }}
+        >
+          Surface Opacity: {Math.round(opacity * 100)}%
+        </div>
+      )}
+  </Stack>
+      </div>
+      )}
 
       {/* StructureTooltip: in perf mode we update via ref to avoid React churn */}
       <div
