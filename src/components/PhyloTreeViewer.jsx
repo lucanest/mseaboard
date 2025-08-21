@@ -2,6 +2,11 @@
 import  React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 
+const BLACK_COLOR = "#fff";
+const LIGHT_GRAY_COLOR = "#ccc";
+const DARK_GRAY_COLOR = "#555";
+const MAGENTA_COLOR = "#cc0066";
+
 const PhyloTreeViewer = ({
   id,
   newick: newickStr, isNhx = false, onHoverTip,
@@ -162,7 +167,7 @@ const tooltip = d3.select(container).select(".tooltip").empty()
       .attr("class", "tooltip")
       .style("position", "absolute")
       .style("background", "rgba(0,0,0,0.3)")
-      .style("color", "#fff")
+      .style("color", BLACK_COLOR)
       .style("padding", "4px 8px")
       .style("border-radius", "28px")
       .style("pointer-events", "none")
@@ -266,7 +271,7 @@ const branchPaths = g.append('g')
   .attr('class', 'branch')
   .attr('fill', 'none')
   .style('pointer-events', 'none')
-  .attr('stroke', '#ccc')
+  .attr('stroke', LIGHT_GRAY_COLOR)
   .attr('stroke-width', 2)
   .attr('d', linkPathGen);
 
@@ -283,7 +288,7 @@ g.append('g')
   .on('mouseenter', function (event, d) {
     // highlight the matching visible path without triggering React state
     const idx = links.indexOf(event);
-    if (idx > -1) d3.select(branchPaths.nodes()[idx]).attr('stroke', 'red');
+    if (idx > -1) d3.select(branchPaths.nodes()[idx]).attr('stroke', MAGENTA_COLOR);
 
     const length = event?.target?.data?.length;
     tooltip
@@ -297,7 +302,7 @@ g.append('g')
   })
   .on('mouseleave', function (event, d) {
     const idx = links.indexOf(event);
-    if (idx > -1) d3.select(branchPaths.nodes()[idx]).attr('stroke', '#ccc');
+    if (idx > -1) d3.select(branchPaths.nodes()[idx]).attr('stroke', LIGHT_GRAY_COLOR);
     tooltip.html('').style("display", "none");
   });
 
@@ -353,11 +358,11 @@ g.append('g')
       .attr('r', 4)
 .attr('fill', d => {  
 const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
-    return val ? colorMap[val] : '#555';
+    return val ? colorMap[val] : DARK_GRAY_COLOR;
   })
   .attr('stroke', d => {
     const { isHighlight, isPersistentHighlight } = getHighlightState(d);
-    return isHighlight ? '#333' : (isPersistentHighlight ? "#cc0066" : '#fff');
+    return isHighlight ? DARK_GRAY_COLOR : (isPersistentHighlight ? MAGENTA_COLOR : BLACK_COLOR);
   })
   .attr('stroke-width', d => {
     const { isHighlight, isPersistentHighlight } = getHighlightState(d);
@@ -455,7 +460,7 @@ g.append('g')
   })
   .style('fill', d => {
     const { isHighlight, isPersistentHighlight } = getHighlightState(d);
-    return isHighlight ? '#333' : (isPersistentHighlight ? "#cc0066" : '#333');
+    return isHighlight ? DARK_GRAY_COLOR : (isPersistentHighlight ? MAGENTA_COLOR : DARK_GRAY_COLOR);
   })
     .style('font-weight', d => {
     const { isHighlight, isPersistentHighlight } = getHighlightState(d);
@@ -515,7 +520,7 @@ g.append('g')
         .attr('y', (_, i) => i * 20 + 12)
         .text(d => `${colorField}: ${d[0]}`)
         .style('font-size', '12px')
-        .style('fill', '#333');
+        .style('fill', DARK_GRAY_COLOR);
     }
 
     setDebugInfo(`Tree rendered successfully. Found ${Object.keys(colorMap).length} different ${colorField} values.`);
