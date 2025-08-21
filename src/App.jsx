@@ -286,7 +286,7 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
     >
       <PanelHeader
         id={id}
-        prefix="SeqLogo: "
+        prefix=""
         filename={data.filename || "Sequence Logo"}
         setPanelData={setPanelData}
         onDuplicate={onDuplicate}
@@ -378,7 +378,7 @@ return (
   >
     <PanelHeader
           id={id}
-          prefix="Distance matrix: "
+          prefix=""
           filename={filename}
           setPanelData={setPanelData}
           onDuplicate={onDuplicate}
@@ -490,7 +490,7 @@ const pickChain = React.useCallback((choice) => {
     >
       <PanelHeader
         id={id}
-        prefix="Structure: "
+        prefix=""
         filename={filename}
         setPanelData={setPanelData}
         onLinkClick={onLinkClick}
@@ -879,7 +879,7 @@ const handleGridMouseLeave = useCallback(() => {
       >
         <PanelHeader
           id={id}
-          prefix="MSA: "
+          prefix=""
           filename={filename}
           setPanelData={setPanelData}
           extraButtons={
@@ -1045,7 +1045,7 @@ const TreePanel = React.memo(function TreePanel({
     >
       <PanelHeader
       id={id}
-      prefix="Tree: "
+      prefix=""
       filename={filename}
       setPanelData={setPanelData}
       onDuplicate={onDuplicate}
@@ -1117,7 +1117,7 @@ const NotepadPanel = React.memo(function NotepadPanel({
     >
       <PanelHeader
         id={id}
-        prefix="-"
+        prefix=""
         filename={filenameInput}
         setPanelData={setPanelData}
         onDuplicate={onDuplicate}
@@ -1242,7 +1242,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
   >
     <PanelHeader
       id={id}
-      prefix="Data: "
+      prefix=""
       filename={filename}
       setPanelData={setPanelData}
       onDuplicate={onDuplicate}
