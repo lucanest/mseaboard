@@ -2648,6 +2648,37 @@ const makeCommonProps = useCallback((panel) => {
             <input ref={fileInputRef} type="file" accept=".fasta,.nwk,.nhx,.txt,.tsv,.csv,.fas,.phy,.phylip,.dist,.pdb" onChange={handleFileUpload} style={{ display: 'none' }} />
           </div>
         </div>
+         {/* instructions and example */}
+         {panels.length === 0 && (
+          <div className="flex flex-col items-center justify-center py-24">
+            <div className="text-2xl font-bold mb-4 text-gray-700">
+              Drag and drop files, use the upload buttons above,
+            </div>
+<div className="flex items-center gap-4 mt-2">
+  <span className="text-2xl font-bold text-gray-700">or</span>
+  <button
+    className="bg-gray-200 hover:bg-gray-300 text-black text-2xl font-semibold px-3 py-3 rounded-xl shadow-lg transition"
+    onClick={async () => {
+      try {
+        const resp = await fetch('/mseaboard-example.json');
+        if (!resp.ok) throw new Error('Example file not found');
+        const text = await resp.text();
+        const board = JSON.parse(text);
+        setPanels(board.panels || []);
+        setLayout(board.layout || []);
+        setPanelData(board.panelData || {});
+        setPanelLinks(board.panelLinks || {});
+        setTitleFlipKey(Date.now());
+      } catch (err) {
+        alert('Failed to load example board.');
+      }
+    }}
+  >
+    Load an example
+  </button>
+</div>
+          </div>
+        )}
 
         {panels.length > 0 && (
           <div className="flex-grow overflow-auto pb-20">
