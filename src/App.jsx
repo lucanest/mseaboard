@@ -40,7 +40,10 @@ function PanelHeader({
   onRemove,
 }) {
   return (
-    <div className="panel-drag-handle bg-gradient-to-b from-gray-100 to-white p-1 mb-2 cursor-move flex items-center justify-between font-bold">
+    <div
+  className="panel-drag-handle bg-gradient-to-b from-gray-100 to-white p-1 mb-2 cursor-move
+             flex flex-wrap items-center justify-between gap-x-2 gap-y-1 font-bold"
+>
       <div className="w-12" />
       <div className="flex-1 flex justify-center">
         <EditableFilename
