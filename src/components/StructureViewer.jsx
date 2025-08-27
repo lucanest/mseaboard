@@ -98,6 +98,15 @@ const chainInfoRef = useRef({
   byChain: {}
 });
 
+const linkedChainIdRef = useRef(data?.linkedChainId);
+useEffect(() => { linkedChainIdRef.current = data?.linkedChainId; }, [data?.linkedChainId]);
+
+const onHighlightRef = useRef(onHighlight);
+useEffect(() => { onHighlightRef.current = onHighlight; }, [onHighlight]);
+
+const panelIdRef = useRef(panelId);
+useEffect(() => { panelIdRef.current = panelId; }, [panelId]);
+
 function buildChainInfo(model) {
   const byChain = {};
   const atoms = model.selectedAtoms({ atom: 'CA' }) || [];
@@ -136,37 +145,6 @@ const hideStructureTooltipText = () => {
   }
 };
 
-// Use linked MSA data to guess the chain (id like "..._chain_A" or equals "A"; or length match)
-function guessLinkedChainId(linkedPanelData) {
-  if (!linkedPanelData || !Array.isArray(linkedPanelData.data)) return null;
-
-  const byChain = chainInfoRef.current.byChain;
-  const chainIds = Object.keys(byChain);
-  if (!chainIds.length) return null;
-
-  // Try by name
-  for (const seq of linkedPanelData.data) {
-    const id = (seq.id || '').trim();
-    const m1 = id.match(/_chain_([A-Za-z0-9])\b/i);
-    if (m1 && byChain[m1[1]]) return m1[1];
-    if (chainIds.includes(id)) return id; // exact match like "A"
-  }
-
-  // Try by length (unique match)
-  const candidates = [];
-  for (const seq of linkedPanelData.data) {
-    const ungappedLen = (seq.sequence || '').replace(/-/g, '').length;
-    for (const c of chainIds) {
-      if (byChain[c].length === ungappedLen) {
-        candidates.push(c);
-      }
-    }
-  }
-  if (candidates.length === 1) return candidates[0];
-
-  return null;
-}
-
 const setupHoverStructureTooltip = () => {
   const v = viewerRef.current;
   if (!v) return;
@@ -191,12 +169,14 @@ const setupHoverStructureTooltip = () => {
         const idx = info ? info.keyToIndex.get(key) : null;
         //console.log(chain,data?.linkedChainId)
 
-        if (typeof onHighlight === 'function' && idx != null) {
-          if (lastSentHighlightRef.current !== idx && chain=== data?.linkedChainId) {
-            lastSentHighlightRef.current = idx;
-            onHighlight(idx, panelId);
-          }
-        }
+       if (typeof onHighlightRef.current === 'function' && idx != null) {
+         // gate by the current linkedChainId
+         const wantChain = linkedChainIdRef.current;
+         if (chain === wantChain && lastSentHighlightRef.current !== idx) {
+           lastSentHighlightRef.current = idx;
+           onHighlightRef.current(idx, panelIdRef.current);
+         }
+       }
       } catch {}
 
       scheduleHalo(atom);
@@ -204,12 +184,12 @@ const setupHoverStructureTooltip = () => {
     function onUnhover() {
       hideStructureTooltipText();
       scheduleHalo(null);
-      if (typeof onHighlight === 'function') {
-        if (lastSentHighlightRef.current !== null) {
-          lastSentHighlightRef.current = null;
-          onHighlight(null, panelId);
-        }
-      }
+ if (typeof onHighlightRef.current === 'function') {
+   if (lastSentHighlightRef.current !== null) {
+     lastSentHighlightRef.current = null;
+     onHighlightRef.current(null, panelIdRef.current);
+   }
+ }
     }
   );
 };
@@ -305,7 +285,7 @@ useEffect(() => {
       // Build tooltip label same as hover
       const resn = (a.resn || '').trim().toUpperCase();
       const one = threeToOne[resn] || '-';
-      const label = `chain ${a.chain || ''}, ${a.resi-1 ?? ''}: ${one}`;
+      const label = `chain ${a.chain || ''}, ${a.resi - 1 ?? ''}: ${one}`;
 
       // StructureTooltip (linked-driven)
       showStructureTooltipText(label);
@@ -337,7 +317,6 @@ useEffect(() => {
      const resn = (a.resn || '').trim().toUpperCase();
      const one = threeToOne[resn] || '-';
      const chain = (a.chain || '').trim();
-     // Keep existing UI convention (display resi-1)
      const dispResi = (typeof a.resi === 'number') ? (a.resi - 1) : a.resi;
      return `chain ${chain}, ${dispResi}:${one}`;
    };
@@ -555,6 +534,11 @@ useEffect(() => {
       appliedInitialViewRef.current = true;
     }
   }, [data?.view]);
+
+  // Reset last sent highlight when chain changes, so the first hover on the new chain still emits
+useEffect(() => {
+  lastSentHighlightRef.current = null;
+}, [data?.linkedChainId]);
 
   // Persist view only on interaction end (avoid re-rendering during drag)
   useEffect(() => {
