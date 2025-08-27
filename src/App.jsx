@@ -50,7 +50,7 @@ function PanelHeader({
           prefix={prefix}
         />
       </div>
-      <div className="flex items-center gap-1">
+      <div className="flex flex-wrap items-center gap-1">
         {extraButtons.map((btn, i) => <React.Fragment key={i}>{btn}</React.Fragment>)}
         <DuplicateButton onClick={() => onDuplicate(id)} />
  {onLinkClick && (
