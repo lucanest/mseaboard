@@ -30,7 +30,7 @@ export function RemoveButton({ onClick }) {
   );
 }
 
-export function LinkButton({ onClick, isLinked, isLinkModeActive }) {
+export function LinkButton({ onClick, isLinked, isLinkModeActive, isEligibleLinkTarget }) {
   return (
     <button
         onClick={onClick}
@@ -38,8 +38,8 @@ export function LinkButton({ onClick, isLinked, isLinkModeActive }) {
         title={isLinked ? 'Unlink panels' : 'Link panel'}
     >
       <span className={`inline-flex items-center justify-center w-6 h-6 rounded hover:bg-yellow-300
-        ${isLinkModeActive ? 'bg-blue-200' : isLinked ? 'bg-green-200' :'bg-gray-200'}
-        border border-gray-400`}>
+${isLinkModeActive ? 'bg-blue-200' : isLinked ? 'bg-green-200' :'bg-gray-200'}
+${isEligibleLinkTarget ? 'border-2 border-blue-400' : 'border border-gray-400'}`}>
           <LinkIcon
           className={`w-5 h-5
             ${isLinkModeActive ? 'text-blue-700' : isLinked ? 'text-green-700' : 'text-gray-500'}`

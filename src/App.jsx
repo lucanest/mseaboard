@@ -54,19 +54,22 @@ function PanelHeader({
         />
       </div>
       <div className="flex flex-wrap items-center gap-1">
-        {extraButtons.map((btn, i) => <React.Fragment key={i}>{btn}</React.Fragment>)}
-        <DuplicateButton onClick={() => onDuplicate(id)} />
- {onLinkClick && (
-          <div
-  className={`inline-flex items-center justify-center ${isEligibleLinkTarget ? 'ring-2 ring-blue-400' : ''}`}
-  style={{ width: 28, height: 28, borderRadius: 4, top: 0, right: 0 }}>
-            <LinkButton
-              onClick={() => onLinkClick(id)}
-              isLinked={isLinked}
-              isLinkModeActive={isLinkModeActive}
-            />
-          </div>
-        )}
+        {extraButtons.map((btn, i) => (
+    <div key={i} className="w-7 h-7 flex items-center justify-center">{btn}</div>
+  ))}
+  <div className="w-7 h-7 flex items-center justify-center">
+    <DuplicateButton onClick={() => onDuplicate(id)} />
+  </div>
+  {onLinkClick && (
+    <div className="w-7 h-7 flex items-center justify-center">
+      <LinkButton
+        onClick={() => onLinkClick(id)}
+        isLinked={isLinked}
+        isLinkModeActive={isLinkModeActive}
+        isEligibleLinkTarget={isEligibleLinkTarget}
+      />
+    </div>
+  )}
         <RemoveButton onClick={() => onRemove(id)} />
       </div>
     </div>
