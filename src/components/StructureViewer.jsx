@@ -157,7 +157,7 @@ const setupHoverStructureTooltip = () => {
 
       const resn = (atom.resn || '').trim().toUpperCase();
       const one = threeToOne[resn] || '-';
-      const label = `chain ${atom.chain || ''}, ${atom.resi - 1 ?? ''}: ${one}`;
+      const label = `chain ${atom.chain || ''}, ${atom.resi - 2 ?? ''}: ${one}`;
       showStructureTooltipText(label);
 
       // Share highlight back to MSA if linked
@@ -285,7 +285,7 @@ useEffect(() => {
       // Build tooltip label same as hover
       const resn = (a.resn || '').trim().toUpperCase();
       const one = threeToOne[resn] || '-';
-      const label = `chain ${a.chain || ''}, ${a.resi - 1 ?? ''}: ${one}`;
+      const label = `chain ${a.chain || ''}, ${a.resi - 2 ?? ''}: ${one}`;
 
       // StructureTooltip (linked-driven)
       showStructureTooltipText(label);
@@ -317,7 +317,7 @@ useEffect(() => {
      const resn = (a.resn || '').trim().toUpperCase();
      const one = threeToOne[resn] || '-';
      const chain = (a.chain || '').trim();
-     const dispResi = (typeof a.resi === 'number') ? (a.resi - 1) : a.resi;
+     const dispResi = (typeof a.resi === 'number') ? (a.resi - 2) : a.resi;
      return `chain ${chain}, ${dispResi}:${one}`;
    };
 
