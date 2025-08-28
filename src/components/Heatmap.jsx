@@ -20,6 +20,7 @@ function PhylipHeatmap({
   highlightedCells = [],
   onCellClick,
   linkedHighlightCell,
+  showlegend = true,
 }) {
   const containerRef = useRef();
   const canvasRef = useRef();
@@ -310,15 +311,16 @@ if (
 }
 
   return (
-    <div ref={containerRef} className="flex-1 relative overflow-hidden w-full h-full">
-      <div
-        className="absolute left-0 top-0"
-        style={{
-          width: gridWidth + labelSpace,
-          height: gridHeight + labelSpace,
-          fontFamily: "monospace",
-        }}
-      >
+      <div ref={containerRef} className="flex-1 relative overflow-visible w-full h-full" style={{display: "flex", flexDirection: "column"}}>
+    <div
+      className="relative"
+      style={{
+        width: gridWidth + labelSpace,
+        height: gridHeight + labelSpace,
+        fontFamily: "monospace",
+        margin: "0 auto",
+      }}
+    >
         {/* Column labels */}
         {!hideLabels && (
           <div
@@ -402,9 +404,8 @@ if (
           onMouseLeave={handleGridMouseLeave}
           onClick={handleGridClick}
           style={{
-            position: "absolute",
-            left: labelSpace,
-            top: labelSpace,
+    marginLeft: labelSpace,
+    marginTop: labelSpace,
             width: gridWidth,
             height: gridHeight,
             border: "1px solid #eee",
@@ -439,6 +440,49 @@ if (
       )}
       {/* Tooltip for linked highlight cell */}
       {linkedTooltip}
+      {/* --- Color Legend --- */}
+      {showlegend && (
+      <div
+        style={{
+          width: gridWidth,
+          marginLeft: labelSpace,
+          marginTop: 12,
+          height: 36,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "stretch",
+          pointerEvents: "none",
+          userSelect: "none",
+        }}
+      >
+          {/* Gradient bar */}
+          <div
+            style={{
+              width: "100%",
+              height: 12,
+              background: `linear-gradient(to right, ${Array.from({length: 20}, (_, i) => valueToColor(min + (max-min)*i/19, min, max)).join(',')})`,
+              borderRadius: 4,
+              border: "1px solid #ccc",
+            }}
+          />
+          {/* Min/Max/Quantiles labels */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              fontSize: 10,
+              marginTop: 2,
+              color: "#333",
+            }}
+          >
+            <span>{min.toFixed(3)}</span>
+            <span>{((min+max)/4).toFixed(3)}</span>
+            <span>{((min+max)/2).toFixed(3)}</span>
+            <span>{(3*(min+max)/4).toFixed(3)}</span>
+            <span>{max.toFixed(3)}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
