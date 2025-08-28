@@ -1,5 +1,6 @@
 import { useRef, useState, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
+import { residueColorHex } from '../constants/colors';
 
 export function TitleFlip({ text, colors}) {
   return (
@@ -129,24 +130,32 @@ export const AnimatedList = ({
         className={`scroll-list ${!displayScrollbar ? 'no-scrollbar' : ''}`}
         onScroll={handleScroll}
       >
-        {items.map((item, index) => (
-          <AnimatedItem
-            key={index}
-            delay={0.1}
-            index={index}
-            onMouseEnter={() => setSelectedIndex(index)}
-            onClick={() => {
-              setSelectedIndex(index);
-              if (onItemSelect) {
-                onItemSelect(item, index);
-              }
-            }}
-          >
-            <div className={`item ${selectedIndex === index ? 'selected' : ''} ${itemClassName}`}>
-              <p className="item-text">{item}</p>
-            </div>
-          </AnimatedItem>
-        ))}
+        {items.map((item, index) => {
+          // Get color class from residueColorHex, fallback to a default if not found
+          const firstLetter = item.split(' ').length > 1 ? item.split(' ')[1][0] : item[0];
+          const colorClass = item =='All chains'? 'white' : residueColorHex[firstLetter] || '#C4B5FD';
+          return (
+            <AnimatedItem
+              key={index}
+              delay={0.1}
+              index={index}
+              onMouseEnter={() => setSelectedIndex(index)}
+              onClick={() => {
+                setSelectedIndex(index);
+                if (onItemSelect) {
+                  onItemSelect(item, index);
+                }
+              }}
+            >
+              <div
+    className={`item ${selectedIndex === index ? 'selected' : ''} ${itemClassName} ${colorClass} hover:scale-110 transition-transform`}
+    style={{ background: `${colorClass}` }}
+  >
+    <p className="item-text" style={{ color: 'black' }}>{item}</p>
+  </div>
+</AnimatedItem>
+          );
+        })}
       </div>
       {showGradients && (
         <>

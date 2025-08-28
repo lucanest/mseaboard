@@ -525,7 +525,7 @@ const pickChain = React.useCallback((choice) => {
             onClick={(e) => e.stopPropagation()}
             style={{ height: 'min(120vh, 28rem)' }}
           >
-            <div className="text-lg font-bold text-white mb-4 flex-shrink-0 text-center">Choose chain for distance map</div>
+            <div className="text-3xl font-bold text-white mb-4 flex-shrink-0 text-center">Choose chain for distance map</div>
             <div className="flex-1 flex items-center justify-center w-full max-w-xs">
               <AnimatedList
                 items={pickerItems}
