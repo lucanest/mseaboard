@@ -38,13 +38,42 @@ function PanelHeader({
   isEligibleLinkTarget,
   isLinked,
   onRemove,
+  linkBadges = [],
+  activeLinkTarget = null,
+    onRestoreLink,
+    onUnlink,
+  colorForLink,
 }) {
+    const LinkBadge = ({ partnerId, active, title }) => {
+    const baseColor = colorForLink?.(id, partnerId, true) ?? 'bg-blue-500';
+    const gray = 'bg-gray-300';
+    return (
+      <button
+        type="button"
+        className={`w-4 h-4 rounded-full shadow hover:scale-110
+          ${active ? baseColor : gray} 
+          ${!active ? `hover:bg-blue-300` : ''}`}
+        title={title}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (active) onUnlink?.(id, partnerId);
+          else onRestoreLink?.(id, partnerId);
+        }}
+      />
+    );
+  };
   return (
     <div
   className="panel-drag-handle bg-gradient-to-b from-gray-100 to-white p-1 mb-2 cursor-move
              flex flex-wrap items-center justify-between gap-x-2 gap-y-1 font-bold"
 >
-      <div className="w-12" />
+      <div className="flex items-center gap-1 pl-1">
+        {linkBadges.map(({ partnerId, active, title }) => (
+          <div key={partnerId} className="w-5 h-5">
+            <LinkBadge partnerId={partnerId} active={active} title={title} />
+          </div>
+        ))}
+      </div>
       <div className="flex-1 flex justify-center">
         <EditableFilename
           id={id}
@@ -222,7 +251,8 @@ className={`border rounded-2xl overflow-hidden h-full flex flex-col bg-white
 const SeqLogoPanel = React.memo(function SeqLogoPanel({
   id, data, onRemove, onDuplicate, hoveredPanelId, setHoveredPanelId, setPanelData,
   highlightedSite, highlightOrigin, onHighlight, linkedTo,
-  onLinkClick, isLinkModeActive,isEligibleLinkTarget, isLinked,justLinkedPanels,
+  onLinkClick, isLinkModeActive, isEligibleLinkTarget, isLinked, justLinkedPanels,
+  linkBadges, activeLinkTarget, onRestoreLink, colorForLink, onUnlink,
 }) {
   const sequences = useMemo(() => {
     if (!data?.msa) return [];
@@ -301,6 +331,11 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
         isLinkModeActive={isLinkModeActive}
         isEligibleLinkTarget={isEligibleLinkTarget}
         isLinked={isLinked}
+        linkBadges={linkBadges}
+        activeLinkTarget={activeLinkTarget}
+             onRestoreLink={onRestoreLink}
+         onUnlink={onUnlink}
+        colorForLink={colorForLink}
         extraButtons={[
           <DownloadButton key="dl" onClick={handleDownloadSVG} title="Download SVG" />
         ]}
@@ -332,7 +367,7 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
 const HeatmapPanel = React.memo(function HeatmapPanel({
   id, data, onRemove, onDuplicate, onLinkClick, isLinkModeActive,isEligibleLinkTarget, isLinked,
   hoveredPanelId, setHoveredPanelId, setPanelData, onReupload, highlightedSite,
-  highlightOrigin, onHighlight, justLinkedPanels,
+  highlightOrigin, onHighlight, justLinkedPanels,linkBadges, activeLinkTarget, onRestoreLink, colorForLink, onUnlink,
 }) {
   const { labels, matrix, filename } = data || {};
   const [containerRef, dims] = useElementSize({ debounceMs: 90 });
@@ -392,6 +427,11 @@ return (
           isEligibleLinkTarget={isEligibleLinkTarget}
           isLinkModeActive={isLinkModeActive}
           isLinked={isLinked}
+        linkBadges={linkBadges}
+        activeLinkTarget={activeLinkTarget}
+             onRestoreLink={onRestoreLink}
+           onUnlink={onUnlink}
+        colorForLink={colorForLink}
           onRemove={onRemove}
           extraButtons={[
             <DownloadButton onClick={handleDownload} />,]}
@@ -422,6 +462,7 @@ const StructurePanel = React.memo(function StructurePanel({
   id, data, onRemove, onDuplicate, hoveredPanelId, setHoveredPanelId, setPanelData, onReupload,
   onCreateSequenceFromStructure, onGenerateDistance, onLinkClick, isLinkModeActive,isEligibleLinkTarget, isLinked,
   linkedTo, highlightedSite, highlightOrigin, onHighlight, linkedPanelData, justLinkedPanels,
+   linkBadges, activeLinkTarget, onRestoreLink, colorForLink,   onUnlink,
 }) {
   const { pdb, filename, surface = false } = data || {};
 
@@ -504,6 +545,11 @@ const pickChain = React.useCallback((choice) => {
         isLinkModeActive={isLinkModeActive}
         isEligibleLinkTarget={isEligibleLinkTarget}
         isLinked={isLinked}
+                linkBadges={linkBadges}
+        activeLinkTarget={activeLinkTarget}
+             onRestoreLink={onRestoreLink}
+   onUnlink={onUnlink}
+        colorForLink={colorForLink}
         onDuplicate={onDuplicate}
         onRemove={onRemove}
         extraButtons={[
@@ -602,6 +648,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   onSyncScroll, externalScrollLeft,
   highlightedSequenceId, setHighlightedSequenceId,
   hoveredPanelId, setHoveredPanelId, setPanelData, justLinkedPanels,
+  linkBadges, activeLinkTarget, onRestoreLink, colorForLink, onUnlink,
 }) {
   const msaData = useMemo(() => data.data, [data.data]);
   const filename = data.filename;
@@ -910,6 +957,11 @@ const handleGridMouseLeave = useCallback(() => {
           isLinkModeActive={isLinkModeActive}
           isEligibleLinkTarget={isEligibleLinkTarget}
           isLinked={isLinked}
+                  linkBadges={linkBadges}
+        activeLinkTarget={activeLinkTarget}
+             onRestoreLink={onRestoreLink}
+onUnlink={onUnlink}
+        colorForLink={colorForLink}
           onRemove={onRemove}
         />
 
@@ -1021,6 +1073,7 @@ const TreePanel = React.memo(function TreePanel({
   linkedTo, highlightOrigin,
   onLinkClick, isLinkModeActive,isEligibleLinkTarget,isLinked,hoveredPanelId,
   setHoveredPanelId, setPanelData,justLinkedPanels,
+  linkBadges, activeLinkTarget, onRestoreLink, colorForLink, onUnlink,
 }) {
   const { data: newick, filename, isNhx, RadialMode= true } = data || {};
 
@@ -1070,6 +1123,11 @@ const TreePanel = React.memo(function TreePanel({
           <DownloadButton onClick={handleDownload} />
         ]}
       isLinked={isLinked}
+              linkBadges={linkBadges}
+        activeLinkTarget={activeLinkTarget}
+             onRestoreLink={onRestoreLink}
+onUnlink={onUnlink}
+        colorForLink={colorForLink}
       onRemove={onRemove}
       />
       <div className="flex-1 overflow-auto flex items-center justify-center">
@@ -1160,6 +1218,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
   onLinkClick, isLinkModeActive, isEligibleLinkTarget,isLinked, linkedTo,
   highlightedSite, highlightOrigin, onHighlight, hoveredPanelId, justLinkedPanels,
   setHoveredPanelId, setPanelData,
+  linkBadges, activeLinkTarget, onRestoreLink, colorForLink, onUnlink,
 }) {
   const { filename } = data;
   const isTabular = !Array.isArray(data.data);
@@ -1257,6 +1316,11 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
       isLinkModeActive={isLinkModeActive}
       isEligibleLinkTarget={isEligibleLinkTarget}
       isLinked={isLinked}
+              linkBadges={linkBadges}
+        activeLinkTarget={activeLinkTarget}
+             onRestoreLink={onRestoreLink}
+onUnlink={onUnlink}
+        colorForLink={colorForLink}
       onRemove={onRemove}
       extraButtons={[ 
         <LogYButton
@@ -1495,6 +1559,7 @@ function App() {
   const [layout, setLayout] = useState([]);
   const [linkMode, setLinkMode] = useState(null);
   const [panelLinks, setPanelLinks] = useState({});
+  const [panelLinkHistory, setPanelLinkHistory] = useState({});
   const [justLinkedPanels, setJustLinkedPanels] = useState([]);
   const [scrollPositions, setScrollPositions] = useState({});
   const [highlightSite, setHighlightSite] = useState(null);
@@ -1634,6 +1699,81 @@ function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+const upsertHistory = useCallback((a, b) => {
+    setPanelLinkHistory(prev => {
+      const copy = { ...prev };
+      // Always coerce to Set before mutating
+      const ensure = (id) => {
+        let v = copy[id];
+        if (Array.isArray(v)) v = new Set(v);
+        else if (!(v instanceof Set)) v = new Set();
+        copy[id] = v;
+        return v;
+      };
+      ensure(a).add(b);
+      ensure(b).add(a);
+      // Return plain arrays for state/serialization
+      const normalized = {};
+      for (const [k, v] of Object.entries(copy)) {
+        normalized[k] = v instanceof Set ? Array.from(v) : Array.isArray(v) ? v : [];
+      }
+      return normalized;
+    });
+  }, []);
+
+// Pair-based colors for link badges
+  const palette = useMemo(() => [
+    'bg-blue-400','bg-green-400','bg-purple-200',
+    'bg-pink-200','bg-amber-200','bg-cyan-200',
+    'bg-rose-200','bg-indigo-200','bg-lime-200'
+  ], []);
+  const [linkColors, setLinkColors] = useState({}); // {"a|b": idx}
+  const pairKey = useCallback((a,b) => [String(a), String(b)].sort().join('|'), []);
+
+  // Allocate a color for a new pair, avoiding duplicates within either panel if possible
+  const assignPairColor = useCallback((a, b) => {
+    const key = pairKey(a, b);
+    setLinkColors(prev => {
+      if (prev[key] != null) return prev;
+      // colors already used with either endpoint
+      const used = new Set(
+        Object.entries(prev)
+          .filter(([k]) => {
+            const [x,y] = k.split('|');
+            return x === String(a) || y === String(a) || x === String(b) || y === String(b);
+          })
+          .map(([, idx]) => idx)
+      );
+      let idx = 0;
+      while (idx < palette.length && used.has(idx)) idx++;
+      if (idx >= palette.length) {
+        // pick least-used globally
+        const counts = Array(palette.length).fill(0);
+        for (const v of Object.values(prev)) counts[v] = (counts[v] || 0) + 1;
+        let best = 0, bestCnt = counts[0];
+        for (let i = 1; i < counts.length; i++) {
+          if (counts[i] < bestCnt) { best = i; bestCnt = counts[i]; }
+        }
+        idx = best;
+      }
+      return { ...prev, [key]: idx };
+    });
+  }, [palette, pairKey]);
+
+  
+  // Resolve badge color (active=pair color, inactive=gray; falls back to hash if unseen)
+  const colorForLink = useCallback((selfId, partnerId, active) => {
+    if (!active) return 'bg-gray-300';
+    const key = pairKey(selfId, partnerId);
+    let idx = linkColors[key];
+    if (idx == null) {
+      // stable fallback so history badges don't thrash before allocation
+      let h = 0; for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+      idx = h % palette.length;
+    }
+    return palette[idx];
+  }, [linkColors, pairKey, palette]);
+
   const onSyncScroll = useCallback((scrollLeft, originId) => {
     const targetId = panelLinks[originId];
     if (!targetId) return;
@@ -1674,6 +1814,19 @@ function App() {
       basedOnId: id,
     });
   }, [panels, panelData, addPanel]);
+
+  const handleUnlink = useCallback((selfId, partnerId) => {
+    setPanelLinks(pl => {
+      const copy = { ...pl };
+      // Only unlink if this is the active pair
+      if (copy[selfId] === partnerId) {
+        delete copy[selfId];
+        // If partner currently points back to self, remove that too
+        if (copy[partnerId] === selfId) delete copy[partnerId];
+      }
+      return copy;
+    });
+  }, []);
 
     const handleDuplicateTranslate = useCallback((id) => {
     const data = panelData[id];
@@ -1863,6 +2016,28 @@ const handleAlignmentToDistance = useCallback((id) => {
   });
 }, [panelData, addPanel]);
 
+  const handleRestoreLink = useCallback((selfId, partnerId) => {
+    // Must exist to restore
+    const selfExists   = panels.some(p => p.i === selfId);
+    const partnerExists= panels.some(p => p.i === partnerId);
+    if (!selfExists || !partnerExists) return; // quietly ignore
+
+    setPanelLinks(pl => {
+      const copy = { ...pl };
+      // unlink any existing for strict 1:1 link mode
+      const unlinkPair = (c, a) => { const b = c[a]; if (b) delete c[b]; delete c[a]; };
+      if (copy[selfId]) unlinkPair(copy, selfId);
+      if (copy[partnerId]) unlinkPair(copy, partnerId);
+      // link again
+      copy[selfId] = partnerId;
+      copy[partnerId] = selfId;
+      return copy;
+    });
+    assignPairColor(selfId, partnerId);
+    setJustLinkedPanels([selfId, partnerId]);
+    setTimeout(() => setJustLinkedPanels([]), 1000);
+}, [panels, assignPairColor]);
+
 const handleLinkClick = useCallback((id) => {
   
   const unlinkPair = (copy, a) => {
@@ -1930,6 +2105,9 @@ const handleLinkClick = useCallback((id) => {
         copy[a] = b; copy[b] = a;
         return copy;
       });
+
+      upsertHistory(a, b);
+      assignPairColor(a, b);
 
       setJustLinkedPanels([linkMode, id]);
       setTimeout(() => setJustLinkedPanels([]), 1000);
@@ -2340,6 +2518,24 @@ const handleHighlight = useCallback((site, originId) => {
       if (other) delete c[other];
       return c;
     });
+       // purge any pair colors that referenced this id
+   setLinkColors(prev => {
+     const next = {};
+     for (const [k, v] of Object.entries(prev)) {
+       const [x,y] = k.split('|');
+       if (x !== String(id) && y !== String(id)) next[k] = v;
+     }
+     return next;
+   });
+     setPanelLinkHistory(h => {
+   const copy = { ...h };
+   delete copy[id];                         // drop the removed panel's own history
+   for (const k of Object.keys(copy)) {
+     copy[k] = (copy[k] || []).filter(pid => pid !== id); // remove badges pointing to it
+   }
+   return copy;
+ });
+ setLinkMode(lm => (lm === id ? null : lm)); // if user was mid-link with this panel, cancel it
     setScrollPositions(sp => {
       const c = { ...sp };
       delete c[id];
@@ -2369,7 +2565,7 @@ const handleHighlight = useCallback((site, originId) => {
   };
 
   const handleSaveBoard = () => {
-    const board = { panels, layout, panelData, panelLinks };
+    const board = { panels, layout, panelData, panelLinks, panelLinkHistory };
     mkDownload('mseaboard', JSON.stringify(board, null, 2), 'json', 'application/json')();
   };
 
@@ -2502,6 +2698,7 @@ const handleDrop = async (e) => {
       setLayout(board.layout || []);
       setPanelData(board.panelData || {});
       setPanelLinks(board.panelLinks || {});
+      setPanelLinkHistory(board.panelLinkHistory || {});
       setTitleFlipKey(Date.now());
       return;
     } catch {
@@ -2551,17 +2748,27 @@ const makeCommonProps = useCallback((panel) => {
   const originId = linkMode;
   const originPanel = originId ? panels.find(p => p.i === originId) : null;
   const highlightOriginType = highlightOrigin ? (panels.find(p => p.i === highlightOrigin)?.type || null) : null;
-
+  const historyPartners = panelLinkHistory[panel.i] || [];
+  const activePartner = panelLinks[panel.i] || null;
   const isEligibleLinkTarget =
     !!(
       originPanel &&
-      originPanel.i !== panel.i &&                     // not the origin
-      canLink(originPanel.type, panel.type)            // compatible types
+      originPanel.i !== panel.i &&                
+      canLink(originPanel.type, panel.type)   
     );
 
   return {
     id: panel.i,
     data: panelData[panel.i],
+    linkBadges: historyPartners.map(pid => ({
+      partnerId: pid,
+      active: pid === activePartner,
+      title: panelData[pid]?.filename || pid
+    })),
+    activeLinkTarget: activePartner,
+    onRestoreLink: handleRestoreLink,
+     onUnlink: handleUnlink,
+    colorForLink,
     onRemove: removePanel,
     onReupload: id => triggerUpload(panel.type, id),
     onDuplicate: duplicatePanel,
@@ -2585,6 +2792,10 @@ const makeCommonProps = useCallback((panel) => {
   handleLinkClick,
   linkMode,
   panelLinks,
+  panelLinkHistory,
+  colorForLink,
+  handleRestoreLink,
+  handleUnlink,
   highlightSite,
   highlightOrigin,
   handleHighlight,
