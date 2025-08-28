@@ -19,6 +19,7 @@ function PhylipHeatmap({
   id,
   highlightedCells = [],
   onCellClick,
+  linkedHighlightCell,
 }) {
   const containerRef = useRef();
   const canvasRef = useRef();
@@ -157,6 +158,20 @@ function PhylipHeatmap({
     onCellClick?.({ row: cell.row, col: cell.col }, id);
   };
 
+  // Convert linkedHighlightCell (labels) to indices
+  let linkedHighlightCellIdx = null;
+  if (
+    linkedHighlightCell &&
+    typeof linkedHighlightCell.row === "string" &&
+    typeof linkedHighlightCell.col === "string"
+  ) {
+    const rowIdx = labels.indexOf(linkedHighlightCell.row);
+    const colIdx = labels.indexOf(linkedHighlightCell.col);
+    if (rowIdx !== -1 && colIdx !== -1) {
+      linkedHighlightCellIdx = { row: rowIdx, col: colIdx };
+    }
+  }
+
   // ----- Canvas Drawing Effect -----
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -208,6 +223,20 @@ function PhylipHeatmap({
       ctx.strokeRect(col * cellSize, row * cellSize, cellSize, cellSize);
     });
 
+
+    // Draw linked highlight cell (heatmap->heatmap)
+    if (linkedHighlightCellIdx) {
+    ctx.save();
+    ctx.strokeStyle = "rgb(13, 245, 241)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(
+      linkedHighlightCellIdx.col * cellSize,
+      linkedHighlightCellIdx.row * cellSize,
+      cellSize,
+      cellSize
+    );
+      ctx.restore();
+    }
     // Draw hover highlight
     if (hoverCell && showHoverHighlight) {
       ctx.strokeStyle = "rgb(13, 245, 241)";
@@ -230,7 +259,55 @@ function PhylipHeatmap({
     hoverCell,
     highlightedCells,
     showGridLines,
+    linkedHighlightCellIdx,
   ]);
+
+// Compute tooltip for linked highlight cell if not hovered
+let linkedTooltip = null;
+if (
+  linkedHighlightCellIdx &&
+  (!hoverCell ||
+    hoverCell.row !== linkedHighlightCellIdx.row ||
+    hoverCell.col !== linkedHighlightCellIdx.col) &&
+  matrix &&
+  Array.isArray(matrix) &&
+  matrix[linkedHighlightCellIdx.row] &&
+  typeof matrix[linkedHighlightCellIdx.row][linkedHighlightCellIdx.col] !== "undefined"
+) {
+  // Compute position in the grid
+  const x =
+    labelSpace +
+    (linkedHighlightCellIdx.col + 0.5) * cellSize -
+    40; // adjust -40 for tooltip width
+  const y =
+    labelSpace +
+    (linkedHighlightCellIdx.row + 0.5) * cellSize -
+    30; // adjust -30 for tooltip height
+
+  linkedTooltip = (
+    <div
+      className="absolute pointer-events-none z-50 bg-black text-white text-sm px-2 py-1 rounded-lg shadow-lg"
+      style={{
+        left: x+50,
+        top: y + 30,
+        transform: `${
+          x > dims.width / 2 ? "translateX(-120%)" : "translateX(0)"
+        } ${y > dims.height / 2 ? "translateY(-100%)" : "translateY(0)"}`,
+      }}
+    >
+      <div>
+        <strong>
+          {labels[linkedHighlightCellIdx.row]}:{labels[linkedHighlightCellIdx.col]}
+        </strong>
+      </div>
+      <div>
+        <strong>
+          {Number(matrix[linkedHighlightCellIdx.row][linkedHighlightCellIdx.col]).toFixed(4)}
+        </strong>
+      </div>
+    </div>
+  );
+}
 
   return (
     <div ref={containerRef} className="flex-1 relative overflow-hidden w-full h-full">
@@ -338,7 +415,7 @@ function PhylipHeatmap({
         </div>
       </div>
 
-      {/* Tooltip */}
+      {/* Tooltip for hover */}
       {tooltip.visible && tooltip.content && (
         <div
           className="absolute pointer-events-none z-50 bg-black text-white text-sm px-2 py-1 rounded-lg shadow-lg"
@@ -360,6 +437,8 @@ function PhylipHeatmap({
           </div>
         </div>
       )}
+      {/* Tooltip for linked highlight cell */}
+      {linkedTooltip}
     </div>
   );
 }

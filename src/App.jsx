@@ -408,6 +408,7 @@ return (
         onHighlight={onHighlight}
         onCellClick={handleCellClick}
         highlightedCells={data.highlightedCells || []}
+        linkedHighlightCell={data.linkedHighlightCell}
         />
       ) : (
         <div className="flex-1 flex items-center justify-center text-gray-400">No data</div>
@@ -1679,7 +1680,7 @@ function App() {
     if (!data) return;
 
     const translatedMsa = translateNucToAmino(data.data);
-    const newFilename = (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'alignment') + '_protein.fasta';
+    const newFilename = (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'alignment') + '.aa.fasta';
 
     addPanel({
       type: 'alignment',
@@ -1701,7 +1702,7 @@ function App() {
       type: 'seqlogo',
       data: {
         msa: data.data,
-        filename: (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'alignment'),
+        filename: (data.filename ? data.filename : 'alignment')+'.sl.svg',
       },
       basedOnId: id,
       layoutHint: { h: 8 },
@@ -1776,14 +1777,14 @@ const handleStructureToDistance = useCallback((id, forcedChoice) => {
   if (atoms.length < 2) { alert('Not enough residues to build a distance map.'); return; }
 
   const { labels, matrix } = distanceMatrixFromAtoms(atoms);
-  const base  = (s.filename ? s.filename.replace(/\.[^.]+$/, '') : 'structure');
+  const base  = (s.filename ? s.filename: 'structure');
   const suffix = choice === 'ALL' ? 'ALL' : choice;
 
   addPanel({
     type: 'heatmap',
-    data: { labels, matrix, filename: `${base}_distmap_${suffix}` },
+    data: { labels, matrix, filename: `${base}_${suffix}.phy` },
     basedOnId: id,
-    layoutHint: { w: 4, h: 20 }
+    layoutHint: { w: 4, h: 16 }
   });
 }, [panelData, addPanel]);
 
@@ -1793,12 +1794,12 @@ const handleTreeToDistance = useCallback((id) => {
   if (!treeData?.data) return;
   try {
     const { labels, matrix } = newickToDistanceMatrix(treeData.data);
-    const base = (treeData.filename ? treeData.filename.replace(/\.[^.]+$/, '') : 'tree');
+    const base = (treeData.filename ? treeData.filename : 'tree');
     addPanel({
       type: 'heatmap',
-      data: { labels, matrix, filename: `${base}_distmatrix` },
+      data: { labels, matrix, filename: `${base}.phy` },
       basedOnId: id,
-      layoutHint: { w: 4, h: 20 }
+      layoutHint: { w: 4, h: 16 }
     });
 
   } catch (e) {
@@ -1853,12 +1854,12 @@ const handleAlignmentToDistance = useCallback((id) => {
     }
   }
 
-  const base = (a.filename ? a.filename.replace(/\.[^.]+$/, '') : 'alignment');
+  const base = (a.filename ? a.filename : 'alignment');
   addPanel({
     type: 'heatmap',
-    data: { labels, matrix, filename: `${base}_dist` },
+    data: { labels, matrix, filename: `${base}.phy` },
     basedOnId: id,
-    layoutHint: { w: 4, h: 20 }
+    layoutHint: { w: 4, h: 16 }
   });
 }, [panelData, addPanel]);
 
@@ -2019,6 +2020,13 @@ const handleHighlight = useCallback((site, originId) => {
  });
 
     }
+    if (sourcePanel.type === 'heatmap' && targetPanel.type === 'heatmap') {
+      setPanelData(prev => {
+        const cur = prev[targetId] || {};
+        if (!cur.linkedHighlightCell) return prev;
+        return { ...prev, [targetId]: { ...cur, linkedHighlightCell: undefined } };
+      });
+    }
     if (sourcePanel.type === 'heatmap' && targetPanel.type === 'alignment') {
        setPanelData(prev => {
    const cur = prev[targetId] || {};
@@ -2080,7 +2088,27 @@ const handleHighlight = useCallback((site, originId) => {
    return { ...prev, [targetId]: { ...cur, linkedHighlights: next } };
  });
     },
-
+'heatmap->heatmap': () => {
+  const { labels } = panelData[originId] || {};
+  if (
+    !labels ||
+    typeof site?.row !== 'number' ||
+    typeof site?.col !== 'number'
+  )
+    return;
+  const rowLabel = labels[site.row];
+  const colLabel = labels[site.col];
+  setPanelData(prev => {
+    const cur = prev[targetId] || {};
+    const next = { row: rowLabel, col: colLabel };
+    const same =
+      cur.linkedHighlightCell &&
+      cur.linkedHighlightCell.row === next.row &&
+      cur.linkedHighlightCell.col === next.col;
+    if (same) return prev;
+    return { ...prev, [targetId]: { ...cur, linkedHighlightCell: next } };
+  });
+},
     // Heatmap -> Structure (map labels like "A:123" to residues)
     'heatmap->structure': () => {
       const { labels } = panelData[originId] || {};
@@ -2421,12 +2449,12 @@ const handleCreateSiteStatsHistogram = useCallback((id) => {
   const isCodon = !!data.codonMode;
   const table = computeSiteStats(data.data, isCodon);
 
-  const baseName = (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'alignment');
+  const baseName = (data.filename ? data.filename : 'alignment');
   addPanel({
     type: 'histogram',
     data: {
       data: table,
-      filename: `${baseName}_site_stats${isCodon ? '_codon' : ''}.csv`,
+      filename: `${baseName}.stats${isCodon ? '_codon' : ''}.csv`,
       selectedXCol: isCodon ? 'codon' : 'site',
       selectedCol: 'conservation'
     },
