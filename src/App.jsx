@@ -1629,81 +1629,27 @@ function App() {
   };
   }, []); }
 
-  const addPanel = useCallback((config) => {
-    const { type, data, basedOnId, layoutHint = {} } = config;
-    const newId = `${type}-${Date.now()}`;
-
-    setPanelData(prev => ({ ...prev, [newId]: data }));
-
-    setPanels(prev => {
-      const withoutFooter = prev.filter(p => p.i !== '__footer');
-      return [...withoutFooter, { i: newId, type }, { i: '__footer', type: 'footer' }];
-    });
-
-    setLayout(prevLayout => {
-      const layoutWithoutFooter = prevLayout.filter(l => l.i !== '__footer');
-      const footer = prevLayout.find(l => l.i === '__footer');
-      
-      let newLayoutItem;
-      const originalLayout = basedOnId ? layoutWithoutFooter.find(l => l.i === basedOnId) : null;
-
-      if (originalLayout) {
-        // Position relative to the original panel
-        const rightX = originalLayout.x + originalLayout.w;
-        const fitsRight = rightX + originalLayout.w <= 12;
-        const newX = fitsRight ? rightX : originalLayout.x;
-        const newY = fitsRight ? originalLayout.y : originalLayout.y + originalLayout.h;
-        newLayoutItem = {
-          i: newId,
-          x: newX,
-          y: newY,
-          w: layoutHint.w || originalLayout.w,
-          h: layoutHint.h || 10,
-          minW: 3,
-          minH: 5,
-          ...layoutHint,
-        };
-      } else {
-        // Position at the bottom of the grid
-        const maxY = layoutWithoutFooter.reduce((max, l) => Math.max(max, l.y + l.h), 0);
-        newLayoutItem = { i: newId, x: (layoutWithoutFooter.length * 4) % 12, y: maxY, w: 4, h: 20, minW: 3, minH: 5, ...layoutHint };
-      }
-      
-      const nextLayout = [...layoutWithoutFooter, newLayoutItem];
-      const newMaxY = nextLayout.reduce((max, l) => Math.max(max, l.y + l.h), 0);
-      const newFooter = { ...(footer || {}), i: '__footer', x: 0, y: newMaxY, w: 12, h: 2, static: true };
-
-      return [...nextLayout, newFooter];
-    });
-  }, []);
-
-  useEffect(() => {
-    const handleResize = () => setWindowWidth(window.innerWidth);
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
-  }, []);
-
 const upsertHistory = useCallback((a, b) => {
-    setPanelLinkHistory(prev => {
-      const copy = { ...prev };
-      // Always coerce to Set before mutating
-      const ensure = (id) => {
-        let v = copy[id];
-        if (Array.isArray(v)) v = new Set(v);
-        else if (!(v instanceof Set)) v = new Set();
-        copy[id] = v;
-        return v;
-      };
-      ensure(a).add(b);
-      ensure(b).add(a);
-      // Return plain arrays for state/serialization
-      const normalized = {};
-      for (const [k, v] of Object.entries(copy)) {
-        normalized[k] = v instanceof Set ? Array.from(v) : Array.isArray(v) ? v : [];
-      }
-      return normalized;
-    });
-  }, []);
+  setPanelLinkHistory(prev => {
+    const copy = { ...prev };
+    // Always coerce to Set before mutating
+    const ensure = (id) => {
+      let v = copy[id];
+      if (Array.isArray(v)) v = new Set(v);
+      else if (!(v instanceof Set)) v = new Set();
+      copy[id] = v;
+      return v;
+    };
+    ensure(a).add(b);
+    ensure(b).add(a);
+    // Return plain arrays for state/serialization
+    const normalized = {};
+    for (const [k, v] of Object.entries(copy)) {
+      normalized[k] = v instanceof Set ? Array.from(v) : Array.isArray(v) ? v : [];
+    }
+    return normalized;
+  });
+}, []);
 
 // Pair-based colors for link badges
   const palette = useMemo(() => [
@@ -1750,6 +1696,73 @@ const assignPairColor = useCallback((a, b) => {
     }
     return palette[idx];
   }, [linkColors, pairKey, palette]);
+
+const addPanel = useCallback((config = {}) => {
+  const { type, data, basedOnId, layoutHint = {}, autoLinkTo = null } = config;
+  const newId = `${type}-${Date.now()}`;
+
+  setPanelData(prev => ({ ...prev, [newId]: data }));
+
+  setPanels(prev => {
+    const withoutFooter = prev.filter(p => p.i !== '__footer');
+    return [...withoutFooter, { i: newId, type }, { i: '__footer', type: 'footer' }];
+  });
+
+  setLayout(prevLayout => {
+    const layoutWithoutFooter = prevLayout.filter(l => l.i !== '__footer');
+    const footer = prevLayout.find(l => l.i === '__footer');
+    let newLayoutItem;
+    const originalLayout = basedOnId ? layoutWithoutFooter.find(l => l.i === basedOnId) : null;
+    if (originalLayout) {
+      const rightX = originalLayout.x + originalLayout.w;
+      const fitsRight = rightX + originalLayout.w <= 12;
+      const newX = fitsRight ? rightX : originalLayout.x;
+      const newY = fitsRight ? originalLayout.y : originalLayout.y + originalLayout.h;
+      newLayoutItem = {
+        i: newId,
+        x: newX,
+        y: newY,
+        w: layoutHint.w || originalLayout.w,
+        h: layoutHint.h || 10,
+        minW: 3,
+        minH: 5,
+        ...layoutHint,
+      };
+    } else {
+      const maxY = layoutWithoutFooter.reduce((max, l) => Math.max(max, l.y + l.h), 0);
+      newLayoutItem = { i: newId, x: (layoutWithoutFooter.length * 4) % 12, y: maxY, w: 4, h: 20, minW: 3, minH: 5, ...layoutHint };
+    }
+    const nextLayout = [...layoutWithoutFooter, newLayoutItem];
+    const newMaxY = nextLayout.reduce((max, l) => Math.max(max, l.y + l.h), 0);
+    const newFooter = { ...(footer || {}), i: '__footer', x: 0, y: newMaxY, w: 12, h: 2, static: true };
+    return [...nextLayout, newFooter];
+  });
+
+  // --- Auto-link logic ---
+  if (autoLinkTo) {
+    setPanelLinks(pl => {
+      const copy = { ...pl };
+      // strict 1:1: remove any existing links
+      const unlinkPair = (c, x) => { const y = c[x]; if (y) delete c[y]; delete c[x]; };
+      if (copy[newId]) unlinkPair(copy, newId);
+      if (copy[autoLinkTo]) unlinkPair(copy, autoLinkTo);
+      copy[newId] = autoLinkTo;
+      copy[autoLinkTo] = newId;
+      return copy;
+    });
+    upsertHistory(newId, autoLinkTo);
+    assignPairColor(newId, autoLinkTo);
+    setJustLinkedPanels([newId, autoLinkTo]);
+    setTimeout(() => setJustLinkedPanels([]), 1000);
+  }
+}, [upsertHistory, assignPairColor]);
+
+  useEffect(() => {
+    const handleResize = () => setWindowWidth(window.innerWidth);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+
 
   const onSyncScroll = useCallback((scrollLeft, originId) => {
     const targetId = panelLinks[originId];
@@ -1821,12 +1834,15 @@ const assignPairColor = useCallback((a, b) => {
         codonMode: false,
       },
       basedOnId: id,
+      autoLinkTo: data.codonMode ? id : null,
     });
   }, [panelData, addPanel]);
 
     const handleCreateSeqLogo = useCallback((id) => {
     const data = panelData[id];
     if (!data) return;
+    const isNuc = Array.isArray(data.data) && isNucleotide(data.data);
+    const shouldLink = !(isNuc && data.codonMode);
 
     addPanel({
       type: 'seqlogo',
@@ -1836,6 +1852,8 @@ const assignPairColor = useCallback((a, b) => {
       },
       basedOnId: id,
       layoutHint: { h: 8 },
+      autoLinkTo: shouldLink ? id : null,
+
     });
   }, [panelData, addPanel]);
 
@@ -1882,7 +1900,24 @@ const handleCreateSequenceFromStructure = useCallback((id) => {
   });
 
   setPanelData(prev => ({ ...prev, ...newPanelDataEntries }));
-}, [panelData, layout, setPanels, setLayout, setPanelData]);
+  // Auto-link each new alignment panel to the structure panel
+  newPanels.forEach(p => {
+    setPanelLinks(pl => {
+      const copy = { ...pl };
+      const newId = p.i;
+      const unlinkPair = (c, x) => { const y = c[x]; if (y) delete c[y]; delete c[x]; };
+      if (copy[newId]) unlinkPair(copy, newId);
+      if (copy[id]) unlinkPair(copy, id);
+      copy[newId] = id;
+      copy[id] = newId;
+      return copy;
+    });
+    upsertHistory(p.i, id);
+    assignPairColor(p.i, id);
+    setJustLinkedPanels([p.i, id]);
+    setTimeout(() => setJustLinkedPanels([]), 1000);
+  });
+}, [panelData, layout, setPanels, setLayout, setPanelData, upsertHistory, assignPairColor]);
 
 
 const handleStructureToDistance = useCallback((id, forcedChoice) => {
@@ -1914,7 +1949,8 @@ const handleStructureToDistance = useCallback((id, forcedChoice) => {
     type: 'heatmap',
     data: { labels, matrix, filename: `${base}_${suffix}.phy` },
     basedOnId: id,
-    layoutHint: { w: 4, h: 20 }
+    layoutHint: { w: 4, h: 20 },
+    autoLinkTo: id,
   });
 }, [panelData, addPanel]);
 
@@ -1929,7 +1965,8 @@ const handleTreeToDistance = useCallback((id) => {
       type: 'heatmap',
       data: { labels, matrix, filename: `${base}.phy` },
       basedOnId: id,
-      layoutHint: { w: 4, h: 20 }
+      layoutHint: { w: 4, h: 20 },
+      autoLinkTo: id,
     });
 
   } catch (e) {
@@ -1989,7 +2026,8 @@ const handleAlignmentToDistance = useCallback((id) => {
     type: 'heatmap',
     data: { labels, matrix, filename: `${base}.phy` },
     basedOnId: id,
-    layoutHint: { w: 4, h: 20 }
+    layoutHint: { w: 4, h: 20 },
+    autoLinkTo: id,
   });
 }, [panelData, addPanel]);
 
@@ -2642,7 +2680,8 @@ const handleCreateSiteStatsHistogram = useCallback((id) => {
       selectedCol: 'conservation'
     },
     basedOnId: id,
-    layoutHint: { w: 4, h: 14 }
+    layoutHint: { w: 4, h: 14 },
+    autoLinkTo: id,
   });
 }, [panelData, addPanel]);
 
