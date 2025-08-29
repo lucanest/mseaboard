@@ -43,13 +43,12 @@ function PanelHeader({
   colorForLink,
 }) {
     const LinkBadge = ({ partnerId, active, title }) => {
-    const baseColor = colorForLink?.(id, partnerId, true) ?? 'bg-blue-500';
-    const gray = 'bg-gray-300';
+    const baseColor = colorForLink?.(id, partnerId, true) ?? 'bg-blue-400';
     return (
       <button
         type="button"
         className={`w-4 h-4 rounded-full shadow hover:scale-110
-          ${active ? baseColor : gray} 
+          ${active ? baseColor : 'bg-gray-300'} 
           ${!active ? `hover:bg-blue-300` : ''}`}
         title={title}
         onClick={(e) => {
