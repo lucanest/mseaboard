@@ -1,38 +1,38 @@
 // Seqlogo.jsx
-import React, { useMemo } from "react";
-import { residueSvgColors } from '../constants/colors.js';
-
+import React, { useMemo, useRef, useEffect, useCallback } from "react";
+import { residueSvgColors } from "../constants/colors.js";
 
 function log2(x) {
   return x <= 0 ? 0 : Math.log2(x);
 }
 
-function SequenceLogoSVG({
+export default React.memo(function SequenceLogoCanvas({
   sequences,
   height = 160,
   fontFamily = "monospace",
-  onHighlight,             
-  highlightedSite = null, 
+  onHighlight,
+  highlightedSite = null,
 }) {
+  const canvasRef = useRef(null);
+
   const seqLen = sequences[0]?.length || 0;
-  const colWidth = 24; // Fixed column width
+  const colWidth = 24;
   const logoWidth = colWidth * seqLen;
   const xAxisHeight = 30;
-  const svgHeight = height + xAxisHeight;
+  const canvasHeight = height + xAxisHeight;
 
-  // Get alphabet
+  // alphabet logic
   const alphabet = useMemo(() => {
     const set = new Set();
-    sequences.forEach(seq => {
+    sequences.forEach((seq) => {
       for (let c of seq) set.add(c.toUpperCase());
     });
-    // Remove gaps
     set.delete("-");
     set.delete(".");
     return Array.from(set).sort();
   }, [sequences]);
 
-  // Frequencies and information per column
+  // column stats logic
   const columns = useMemo(() => {
     const results = [];
     for (let i = 0; i < seqLen; ++i) {
@@ -44,135 +44,145 @@ function SequenceLogoSVG({
         freq[c] = (freq[c] || 0) + 1;
         total += 1;
       }
-      // Convert to probabilities
-      Object.keys(freq).forEach(k => freq[k] /= total || 1);
-
-      // Entropy (uncertainty)
+      Object.keys(freq).forEach((k) => (freq[k] /= total || 1));
       let entropy = 0;
-      Object.values(freq).forEach(p => {
-        entropy -= p * log2(p);
-      });
+      Object.values(freq).forEach((p) => (entropy -= p * log2(p)));
+      const s = alphabet.length || 1;
+      const info = log2(s) - entropy;
 
-      // Max entropy (alphabet size)
-      const s = alphabet.length;
-      const maxEntropy = log2(s);
-      // Information: reduction from maximum
-      const info = maxEntropy - entropy;
-
-      // Order letters by frequency
-      const ordered = Object.entries(freq)
-        .sort((a, b) => a[1] - b[1]);
-
-      results.push({
-        freq,
-        ordered,
-        info,
-        total,
-      });
+      const ordered = Object.entries(freq).sort((a, b) => a[1] - b[1]); // bottom->top
+      results.push({ freq, ordered, info, total });
     }
     return results;
   }, [sequences, seqLen, alphabet.length]);
 
-  // Info scaling: scale so that max info (bits) fills full height
+  // scaling
   const maxInfo = log2(alphabet.length) || 2;
   const yScale = (val) => (val / maxInfo) * height;
 
-  // For text vertical scaling
-  const textHeightPx = colWidth * 0.9;
+  // text nominal height (vertically scale it per stack slice)
+  const textHeightPx = colWidth * 1.1;
+
+  // draw
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    // set drawing buffer size (not CSS)
+    // Backing store: high-res
+    canvas.width = Math.max(1, Math.floor(logoWidth * 2));
+    canvas.height = Math.max(1, Math.floor(canvasHeight * 2));
+    // CSS (layout) size: logical px (unchanged)
+    canvas.style.width = `${logoWidth}px`;
+    canvas.style.height = `${canvasHeight}px`;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+
+    // Draw in CSS units; scale the context
+    ctx.setTransform(2, 0, 0, 2, 0, 0);
+    // Optional: crisper shapes; text remains vector-rendered by the browser
+    ctx.imageSmoothingEnabled = true;
+
+    // crisp text
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    ctx.font = `700 ${textHeightPx}px ${fontFamily}`;
+
+    // background
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, logoWidth, canvasHeight);
+
+    // highlight column
+    if (highlightedSite != null) {
+      ctx.fillStyle = "rgba(253, 230, 138, 0.5)"; // #fde68a @ 0.5
+      ctx.fillRect(highlightedSite * colWidth, 0, colWidth, height);
+    }
+
+    // columns
+    for (let i = 0; i < columns.length; i++) {
+      const col = columns[i];
+      let y0 = height; // stack from bottom
+      // column hit area is drawn transparent;
+      for (const [res, p] of col.ordered) {
+        const h = yScale(p * col.info);
+        if (h < 0.1) continue;
+        y0 -= h;
+
+        // glyph color
+        ctx.fillStyle = residueSvgColors[res] || "#444";
+
+        // transform: translate to (xCenter, bottomOfSlice) and scaleY
+        const xCenter = i * colWidth + colWidth / 2;
+        ctx.save();
+        ctx.translate(xCenter, y0 + h); // baseline at bottom of slice
+        ctx.scale(1, h / textHeightPx); // vertical squash/stretch
+        ctx.fillText(res, 0, -2); // -2 to add a bit of top padding
+        ctx.restore();
+      }
+    }
+
+    // X axis numbers
+    ctx.fillStyle = "#888";
+    for (let i = 0; i < seqLen; i++) {
+      const label = String(i + 1);
+      const len = label.length;
+      let fontSize = colWidth * 0.55;
+      if (len > 2) fontSize = (colWidth / len) * 1.2;
+      ctx.font = `${fontSize}px monospace`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "alphabetic";
+      ctx.fillText(label, i * colWidth + colWidth / 2, height + 25);
+    }
+  }, [
+    sequences,
+    columns,
+    seqLen,
+    logoWidth,
+    canvasHeight,
+    height,
+    colWidth,
+    textHeightPx,
+    fontFamily,
+    highlightedSite,
+  ]);
+
+  // hover → column index → onHighlight
+  const handleMouseMove = useCallback(
+    (e) => {
+      if (!onHighlight) return;
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const i = Math.floor(x / colWidth);
+      if (i >= 0 && i < seqLen) onHighlight(i);
+      else onHighlight(null);
+    },
+    [onHighlight, colWidth, seqLen]
+  );
+
+  const handleMouseLeave = useCallback(() => {
+    onHighlight && onHighlight(null);
+  }, [onHighlight]);
+
+  const handleClick = useCallback(
+    (e) => {
+      if (!onHighlight) return;
+      const rect = canvasRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const i = Math.floor(x / colWidth);
+      if (i >= 0 && i < seqLen) onHighlight(i);
+    },
+    [onHighlight, colWidth, seqLen]
+  );
 
   return (
-    <svg width={logoWidth} height={svgHeight} style={{ cursor: 'default', userSelect: 'none' }}>
-    <rect x={0} y={0} width={logoWidth} height={svgHeight} fill="#fff" />
-    {/* Highlight column (if any) */}
-    {highlightedSite != null && (
-    <rect
-        x={highlightedSite * colWidth}
-        y={0}
-        width={colWidth}
-        height={height}
-        fill="#fde68a"
-        fillOpacity={0.5}
-        pointerEvents="none"
-    />)}
-    {/* Draw columns */}
-    {columns.map((col, i) => {
-        let y0 = height;
-        return (
-          <g
-            key={i}
-            transform={`translate(${i * colWidth},0)`}
-            onMouseEnter={() => onHighlight && onHighlight(i)}
-            onMouseMove={() => onHighlight && onHighlight(i)}
-            onMouseLeave={() => onHighlight && onHighlight(null)}
-            onClick={() => onHighlight && onHighlight(i)}
-            style={{ cursor: 'default' }}
-          >
-            {/* Transparent rectangle for hit detection */}
-            <rect
-              x={0}
-              y={0}
-              width={colWidth}
-              height={height}
-              fill="transparent"
-              onMouseEnter={() => onHighlight && onHighlight(i)}
-              onMouseMove={() => onHighlight && onHighlight(i)}
-              onMouseLeave={() => onHighlight && onHighlight(null)}
-              onClick={() => onHighlight && onHighlight(i)}
-            />
-            {col.ordered.map(([res, p], j) => {
-              const h = yScale(p * col.info);
-              if (h < 1e-1) return null;
-              y0 -= h;
-              return (
-                <text
-                  key={res}
-                  x={colWidth / 2}
-                  y={y0 + h - 2}
-                  fontSize={textHeightPx}
-                  fontFamily={fontFamily}
-                  textAnchor="middle"
-                  dominantBaseline="auto"
-                  fill={residueSvgColors[res] || "#444"}
-                  style={{
-                    transform: `scaleY(${h / textHeightPx})`,
-                    transformOrigin: `${colWidth / 2}px ${y0 + h}px`,
-                    userSelect: "none",
-                  }}
-                  fontWeight={700}
-                >
-                  {res}
-                </text>
-              );
-            })}
-          </g>
-        );
-      })}
-      {/* X axis numbers */}
-      <g>
-        {Array.from({ length: seqLen }).map((_, i) => {
-          const label = String(i + 1);
-          const len = label.length;
-          let fontSize = colWidth * 0.55;
-          if (len > 2) {
-            fontSize = (colWidth / len) * 1.2;
-          }
-
-          return (
-            <text
-              key={i}
-              x={i * colWidth + colWidth / 2}
-              y={height + 25}
-              fontSize={fontSize}
-              fontFamily="monospace"
-              fill="#888"
-              textAnchor="middle"
-            >
-              {label}
-            </text>
-          );
-        })}
-      </g>
-    </svg>
+    <canvas
+      ref={canvasRef}
+      width={logoWidth}
+      height={canvasHeight}
+      style={{ cursor: "default", userSelect: "none", display: "block" }}
+      onMouseMove={handleMouseMove}
+      onMouseEnter={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      onClick={handleClick}
+    />
   );
-}
-export default React.memo(SequenceLogoSVG);
+});

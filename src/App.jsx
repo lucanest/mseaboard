@@ -11,14 +11,14 @@ SeqlogoButton, SequenceButton, DistanceMatrixButton, DownloadButton, GitHubButto
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, threeToOne,
    parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick, newickToDistanceMatrix,
-  downloadSVGElement, downloadText, detectFileType, toFasta, toPhylip, computeSiteStats} from './components/Utils.jsx';
+ downloadText, detectFileType, toFasta, toPhylip, computeSiteStats} from './components/Utils.jsx';
 import { residueColors, logoColors } from './constants/colors.js';
 import { TitleFlip, AnimatedList } from './components/Animations.jsx';
 import { FixedSizeGrid as Grid } from 'react-window';
 import PhyloTreeViewer from './components/PhyloTreeViewer.jsx';
 import PhylipHeatmap from "./components/Heatmap";
 import Histogram from './components/Histogram.jsx';
-import SequenceLogoSVG from './components/Seqlogo.jsx';
+import SequenceLogoCanvas from './components/Seqlogo.jsx';
 import StructureViewer from './components/StructureViewer.jsx';
 import useElementSize from './hooks/useElementSize.js'
 
@@ -293,16 +293,27 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
     }
   }, [highlightedSite, highlightOrigin, linkedTo, id]);
 
-  // download handler for SVG
-  const handleDownloadSVG = useCallback(() => {
-    const svg = logoContainerRef.current?.querySelector('svg');
-    const base = (data?.filename || 'sequence_logo');
-    if (!svg) {
-      alert('No SVG to download yet.');
-      return;
-    }
-    downloadSVGElement(svg, base);
-  }, [data]);
+ // download handler for PNG
+ const handleDownloadPNG = useCallback(() => {
+   const canvas = logoContainerRef.current?.querySelector('canvas');
+   const base = (data?.filename || 'sequence_logo').replace(/\.[^.]+$/, '');
+   if (!canvas) {
+     alert('No image to download yet.');
+     return;
+   }
+   try {
+     const url = canvas.toDataURL('image/png');
+     const a = document.createElement('a');
+     a.href = url;
+     a.download = `${base}.png`;
+     document.body.appendChild(a);
+     a.click();
+     document.body.removeChild(a);
+   } catch (e) {
+     console.error('PNG export failed:', e);
+     alert('PNG export failed in this browser.');
+   }
+ }, [data]);
 
   return (
     <PanelContainer
@@ -328,7 +339,7 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
         onUnlink={onUnlink}
         colorForLink={colorForLink}
         extraButtons={[
-          <DownloadButton key="dl" onClick={handleDownloadSVG} title="Download SVG" />
+           <DownloadButton key="dl" onClick={handleDownloadPNG} title="Download PNG" />
         ]}
       />
       <div
@@ -340,9 +351,9 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
             No data to render sequence logo.
           </div>
         ) : (
-          // wrap the logo so we can query the <svg> node
+          // wrap the logo so we can query the node
           <div ref={logoContainerRef}>
-            <SequenceLogoSVG
+            <SequenceLogoCanvas
               sequences={sequences}
               height={200}
               highlightedSite={Highlighted ? highlightedSite : null}
@@ -2054,7 +2065,7 @@ const addPanel = useCallback((config = {}) => {
       type: 'seqlogo',
       data: {
         msa: data.data,
-        filename: (data.filename ? data.filename : 'alignment')+'.sl.svg',
+        filename: (data.filename ? data.filename : 'alignment')+'.sl.png',
       },
       basedOnId: id,
       layoutHint: { h: 8 },

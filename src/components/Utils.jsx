@@ -268,35 +268,6 @@ export function newickToDistanceMatrix(newickText) {
 
 // --- Download utilities ---
 
-/** Ensures the <svg> has proper namespaces, serializes, and downloads it as SVG. */
-export function downloadSVGElement(svgEl, filenameBase = 'sequence_logo') {
-  if (!svgEl) return;
-
-  if (!svgEl.getAttribute('xmlns')) {
-    svgEl.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-  }
-  if (!svgEl.getAttribute('xmlns:xlink')) {
-    svgEl.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
-  }
-
-  const serializer = new XMLSerializer();
-  let source = serializer.serializeToString(svgEl);
-
-  if (!source.startsWith('<?xml')) {
-    source = `<?xml version="1.0" encoding="UTF-8"?>\n` + source;
-  }
-
-  const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${filenameBase}.svg`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  URL.revokeObjectURL(url);
-}
-
 /** Download arbitrary text as a file. */
 export function downloadText(filename, text, mime = 'text/plain;charset=utf-8') {
   const blob = new Blob([text], { type: mime });
