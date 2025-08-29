@@ -2692,7 +2692,7 @@ const handleDrop = async (e) => {
       setLayout(board.layout || []);
       setPanelData(board.panelData || {});
       setPanelLinks(board.panelLinks || {});
-      setPanelLinkHistory(board.panelLinkHistory || {});
+      setPanelLinkHistory(buildHistory(board));
       setTitleFlipKey(Date.now());
       return;
     } catch {
