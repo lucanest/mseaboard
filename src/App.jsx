@@ -3005,7 +3005,7 @@ const canLink = (typeA, typeB) =>
     </div>
   </div>
 )}
-        <div className="p-4 flex justify-between items-center">
+        <div className="p-2 flex justify-between items-center">
           <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors}/>
 <div className="flex items-center gap-5">
   <div className="flex items-center gap-2 mr-8">
