@@ -251,6 +251,8 @@ export function newickToDistanceMatrix(newickText) {
   const root = parseNewickToTree(newickText);
   const { parent, depth, byName } = indexTree(root);
   const labels = Array.from(byName.keys());
+  // invert the order to match input order
+  labels.reverse();
   const nodes = labels.map(n => byName.get(n));
 
   const N = labels.length;
