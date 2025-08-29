@@ -1383,7 +1383,6 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
 );
 });
 
-
 // --- download helpers -------------------------
 
 /** strip extension safely; fall back if empty */
@@ -1503,7 +1502,7 @@ function residueIndexToMsaCol(seq, residIdx) {
   return null;
 }
 
-/** Try to infer chainId from a sequence id like "..._chain_A" or "A" */
+/* Try to infer chainId from a sequence id like "..._chain_A" or "A" */
 function chainIdFromSeqId(id) {
   if (!id) return null;
   const m = id.match(/_chain_([A-Za-z0-9])\b/i);
@@ -1512,7 +1511,7 @@ function chainIdFromSeqId(id) {
   return null;
 }
 
-/** Given alignment data and an optional preferred chain id, pick best sequence */
+/* Given alignment data and an optional preferred chain id, pick best sequence */
 function pickAlignedSeqForChain(alnData, preferredChainId, structureChainsLengths) {
   if (!alnData || !Array.isArray(alnData.data)) return { seq: null, chainId: null };
 
@@ -1535,6 +1534,210 @@ function pickAlignedSeqForChain(alnData, preferredChainId, structureChainsLength
   return { seq: alnData.data[0] || null, chainId: preferredChainId || null };
 }
 
+const usePanelProps = (panelId, {
+  linkMode,
+  panels,
+  panelData,
+  panelLinks,
+  panelLinkHistory,
+  highlightSite,
+  highlightOrigin,
+  hoveredPanelId,
+  justLinkedPanels,
+  handleRestoreLink,
+  handleUnlink,
+  colorForLink,
+  removePanel,
+  triggerUpload,
+  duplicatePanel,
+  handleLinkClick,
+  handleHighlight,
+  setHoveredPanelId,
+  canLink
+}) => {
+  const originId = linkMode;
+  const originPanel = originId ? panels.find(p => p.i === originId) : null;
+  const highlightOriginType = highlightOrigin ? (panels.find(p => p.i === highlightOrigin)?.type || null) : null;
+  const historyPartners = panelLinkHistory[panelId] || [];
+  const activePartner = panelLinks[panelId] || null;
+  const panel = panels.find(p => p.i === panelId);
+  const panelType = panel?.type;
+  const isEligibleLinkTarget = !!(
+    originPanel &&
+    originPanel.i !== panelId &&                
+    canLink(originPanel.type, panelType)   
+  );
+
+  return useMemo(() => ({
+    id: panelId,
+    data: panelData[panelId],
+    linkBadges: historyPartners.map(pid => ({
+      partnerId: pid,
+      active: pid === activePartner,
+      title: panelData[pid]?.filename || pid
+    })),
+    onRestoreLink: handleRestoreLink,
+    onUnlink: handleUnlink,
+    colorForLink,
+    onRemove: removePanel,
+    onReupload: id => triggerUpload(panelType, id),
+    onDuplicate: duplicatePanel,
+    onLinkClick: handleLinkClick,
+    isLinkModeActive: linkMode === panelId,
+    linkedTo: panelLinks[panelId] || null,
+    highlightedSite: highlightSite,
+    highlightOrigin: highlightOrigin,
+    highlightOriginType,
+    onHighlight: handleHighlight,
+    hoveredPanelId,
+    setHoveredPanelId,
+    isEligibleLinkTarget,    
+    justLinkedPanels,
+  }), [
+    panelId,
+    panelData[panelId],
+    historyPartners,
+    activePartner,
+    linkMode,
+    panelLinks[panelId],
+    highlightSite,
+    highlightOrigin,
+    hoveredPanelId,
+    justLinkedPanels,
+    panelType,
+    handleRestoreLink,
+    handleUnlink,
+    colorForLink,
+    removePanel,
+    triggerUpload,
+    duplicatePanel,
+    handleLinkClick,
+    handleHighlight,
+    setHoveredPanelId,
+    originPanel,
+    highlightOriginType,
+    isEligibleLinkTarget
+  ]);
+};
+
+const PanelWrapper = React.memo(({ 
+  panel, 
+  linkMode,
+  panels,
+  panelData,
+  panelLinks,
+  panelLinkHistory,
+  highlightSite,
+  highlightOrigin,
+  hoveredPanelId,
+  justLinkedPanels,
+  handleRestoreLink,
+  handleUnlink,
+  colorForLink,
+  removePanel,
+  triggerUpload,
+  duplicatePanel,
+  handleLinkClick,
+  handleHighlight,
+  setHoveredPanelId,
+  canLink,
+  // Additional props needed for specific panel types
+  onSyncScroll,
+  scrollPositions,
+  highlightedSequenceId,
+  setHighlightedSequenceId,
+  handleDuplicateTranslate,
+  handleCreateSeqLogo,
+  handleCreateSiteStatsHistogram,
+  handleAlignmentToDistance,
+  handleTreeToDistance,
+  handleCreateSequenceFromStructure,
+  handleStructureToDistance,
+  setPanelData
+}) => {
+  const commonProps = usePanelProps(panel.i, {
+    linkMode,
+    panels,
+    panelData,
+    panelLinks,
+    panelLinkHistory,
+    highlightSite,
+    highlightOrigin,
+    hoveredPanelId,
+    justLinkedPanels,
+    handleRestoreLink,
+    handleUnlink,
+    colorForLink,
+    removePanel,
+    triggerUpload,
+    duplicatePanel,
+    handleLinkClick,
+    handleHighlight,
+    setHoveredPanelId,
+    canLink
+  });
+
+  const data = panelData[panel.i];
+  if (!data) return null;
+
+  // Add panel-specific props
+  const additionalProps = {
+    setPanelData,
+    justLinkedPanels,
+    ...(panel.type === 'alignment' && {
+      onSyncScroll,
+      externalScrollLeft: scrollPositions[panel.i],
+      highlightedSequenceId,
+      setHighlightedSequenceId,
+      onDuplicateTranslate: handleDuplicateTranslate,
+      onCreateSeqLogo: handleCreateSeqLogo,
+      onCreateSiteStatsHistogram: handleCreateSiteStatsHistogram,
+      onGenerateDistance: handleAlignmentToDistance
+    }),
+    ...(panel.type === 'tree' && {
+      highlightedSequenceId,
+      onHoverTip: setHighlightedSequenceId,
+      onGenerateDistance: handleTreeToDistance
+    }),
+    ...(panel.type === 'heatmap' && {
+      onHighlight: handleHighlight
+    }),
+    ...(panel.type === 'structure' && {
+      onCreateSequenceFromStructure: handleCreateSequenceFromStructure,
+      onGenerateDistance: handleStructureToDistance,
+      linkedPanelData: panelLinks[panel.i] ? panelData[panelLinks[panel.i]] : null
+    }),
+    ...(panel.type === 'seqlogo' && {
+      highlightedSite: highlightSite,
+      highlightOrigin: highlightOrigin,
+      onHighlight: handleHighlight,
+      linkedTo: panelLinks[panel.i] || null,
+      hoveredPanelId: hoveredPanelId,
+      setHoveredPanelId: setHoveredPanelId,
+      onLinkClick: handleLinkClick,
+      isLinkModeActive: linkMode === panel.i
+    })
+  };
+
+  switch (panel.type) {
+    case 'alignment':
+      return <AlignmentPanel {...commonProps} {...additionalProps} />;
+    case 'tree':
+      return <TreePanel {...commonProps} {...additionalProps} />;
+    case 'histogram':
+      return <HistogramPanel {...commonProps} {...additionalProps} />;
+    case 'notepad':
+      return <NotepadPanel {...commonProps} {...additionalProps} />;
+    case 'heatmap':
+      return <HeatmapPanel {...commonProps} {...additionalProps} />;
+    case 'seqlogo':
+      return <SeqLogoPanel {...commonProps} {...additionalProps} />;
+    case 'structure':
+      return <StructurePanel {...commonProps} {...additionalProps} />;
+    default:
+      return null;
+  }
+});
 
 
 function App() {
@@ -1557,6 +1760,7 @@ function App() {
   const pendingPanelRef = useRef(null);
   const [titleFlipKey, setTitleFlipKey] = useState(() => Date.now());
   const hideErrors = true;
+
 
   // Suppress known-but-benign errors from 3Dmol.js and WebGL
 
@@ -2164,7 +2368,6 @@ const handleLinkClick = useCallback((id) => {
       } catch (e) {
         console.warn('Failed to persist linkedChainId on link:', e);
       }
-      // ----------------------------------------------------------------------
 
       setLinkMode(null);
     }
@@ -2772,64 +2975,7 @@ const LINK_COMPAT = {
 const canLink = (typeA, typeB) =>
   !!(LINK_COMPAT[typeA] && LINK_COMPAT[typeA].has(typeB));
 
-const makeCommonProps = useCallback((panel) => {
-  const originId = linkMode;
-  const originPanel = originId ? panels.find(p => p.i === originId) : null;
-  const highlightOriginType = highlightOrigin ? (panels.find(p => p.i === highlightOrigin)?.type || null) : null;
-  const historyPartners = panelLinkHistory[panel.i] || [];
-  const activePartner = panelLinks[panel.i] || null;
-  const isEligibleLinkTarget =
-    !!(
-      originPanel &&
-      originPanel.i !== panel.i &&                
-      canLink(originPanel.type, panel.type)   
-    );
 
-  return {
-    id: panel.i,
-    data: panelData[panel.i],
-    linkBadges: historyPartners.map(pid => ({
-      partnerId: pid,
-      active: pid === activePartner,
-      title: panelData[pid]?.filename || pid
-    })),
-    onRestoreLink: handleRestoreLink,
-     onUnlink: handleUnlink,
-    colorForLink,
-    onRemove: removePanel,
-    onReupload: id => triggerUpload(panel.type, id),
-    onDuplicate: duplicatePanel,
-    onLinkClick: handleLinkClick,
-    isLinkModeActive: linkMode === panel.i,
-    linkedTo: panelLinks[panel.i] || null,
-    highlightedSite: highlightSite,
-    highlightOrigin: highlightOrigin,
-    highlightOriginType,
-    onHighlight: handleHighlight,
-    hoveredPanelId,
-    setHoveredPanelId,
-    isEligibleLinkTarget,    
-    justLinkedPanels,                          
-  };
-}, [
-  removePanel,
-  triggerUpload,
-  duplicatePanel,
-  handleLinkClick,
-  linkMode,
-  panelLinks,
-  panelLinkHistory,
-  colorForLink,
-  handleRestoreLink,
-  handleUnlink,
-  highlightSite,
-  highlightOrigin,
-  handleHighlight,
-  hoveredPanelId,
-  setHoveredPanelId,
-  panelData,
-  panels
-]);
     return (
       <div
   className="h-screen w-screen flex flex-col overflow-hidden bg-white text-black"
@@ -2952,118 +3098,80 @@ const makeCommonProps = useCallback((panel) => {
           </div>
         )}
 
-        {panels.length > 0 && (
-          <div className="flex-grow overflow-auto pb-20">
-            <GridLayout
-              className="layout"
-              layout={layout}
-              cols={12}
-              rowHeight={30}
-              width={windowWidth}
-              autoSize={false}
-              isResizable
-              isDraggable
-              margin={[10, 10]}
-              containerPadding={[10, 10]}
-              draggableHandle=".panel-drag-handle"
-              draggableCancel="select, option, input, textarea, button"
-              onLayoutChange={(newLayout) => {
-                const footer = newLayout.find(l => l.i === '__footer');
-                const others = newLayout.filter(l => l.i !== '__footer');
-                const maxY = others.reduce((max, l) => Math.max(max, l.y + l.h), 0);
-                const fixedFooter = { ...footer, y: maxY };
-                setLayout([...others, fixedFooter]);
-              }}
-            >
-  {panels.map(panel => {
-    if (panel.i === '__footer') {
-      return (
-        <div key="__footer" className="flex items-center justify-center text-gray-500 text-sm" />
-      );
-    }
-    const data = panelData[panel.i];
-    if (!data) return null;
-
-  const commonProps = makeCommonProps(panel);
-
-  return (
-  <div key={panel.i}>
-    {panel.type === 'alignment' ? (
-      <AlignmentPanel
-        {...commonProps}
-        setPanelData={setPanelData}
-        justLinkedPanels={justLinkedPanels}
-        onSyncScroll={onSyncScroll}
-        externalScrollLeft={scrollPositions[panel.i]}
-        highlightedSequenceId={highlightedSequenceId}
-        setHighlightedSequenceId={setHighlightedSequenceId}
-        onDuplicateTranslate={handleDuplicateTranslate} 
-        onCreateSeqLogo={handleCreateSeqLogo}
-        onCreateSiteStatsHistogram={handleCreateSiteStatsHistogram}
-        onGenerateDistance={handleAlignmentToDistance} 
-      />
-  ) : panel.type === 'tree' ? (
-        <TreePanel
-          {...commonProps}
-          setPanelData={setPanelData}
-          justLinkedPanels={justLinkedPanels}
-          highlightedSequenceId={highlightedSequenceId}
-          onHoverTip={setHighlightedSequenceId}
-          onGenerateDistance={handleTreeToDistance}
-        />
-      ) : panel.type === 'histogram' ? (
-        <HistogramPanel
-          {...commonProps}
-          setPanelData={setPanelData}
-          justLinkedPanels={justLinkedPanels}
-        />
-      ) : panel.type === 'notepad' ? (
-        <NotepadPanel
-          {...commonProps}
-          setPanelData={setPanelData}
-          justLinkedPanels={justLinkedPanels}
-        />
-      ) : panel.type === 'heatmap' ? (
-        <HeatmapPanel
-        {...commonProps}
-        onHighlight={handleHighlight}
-        setPanelData={setPanelData}
-        justLinkedPanels={justLinkedPanels}
-
-      />
-      ) :panel.type === 'seqlogo' ? (
-    <SeqLogoPanel
-      {...commonProps}
-      setPanelData={setPanelData}
-      justLinkedPanels={justLinkedPanels}
-      highlightedSite={highlightSite}
-      highlightOrigin={highlightOrigin}
-      onHighlight={handleHighlight}
-      linkedTo={panelLinks[panel.i] || null}
-      hoveredPanelId={hoveredPanelId}
-      setHoveredPanelId={setHoveredPanelId}
-      onLinkClick={handleLinkClick}
-      isLinkModeActive={linkMode === panel.i}
-    />
-  ): panel.type === 'structure' ? (
-  <StructurePanel
-    {...commonProps}
-setPanelData={setPanelData}
-justLinkedPanels={justLinkedPanels}
-  onCreateSequenceFromStructure={handleCreateSequenceFromStructure}
-  onGenerateDistance={handleStructureToDistance} 
-  linkedPanelData={panelLinks[panel.i] ? panelData[panelLinks[panel.i]] : null}
-   
-  />
-)   : null}
-    </div>
-  );
-  })}
-            </GridLayout>
-          </div>
-        )}
-      </div>
+              {panels.length > 0 && (
+        <div className="flex-grow overflow-auto pb-20">
+          <GridLayout
+            className="layout"
+            layout={layout}
+            cols={12}
+            rowHeight={30}
+            width={windowWidth}
+            autoSize={false}
+            isResizable
+            isDraggable
+            margin={[10, 10]}
+            containerPadding={[10, 10]}
+            draggableHandle=".panel-drag-handle"
+            draggableCancel="select, option, input, textarea, button"
+            onLayoutChange={(newLayout) => {
+              const footer = newLayout.find(l => l.i === '__footer');
+              const others = newLayout.filter(l => l.i !== '__footer');
+              const maxY = others.reduce((max, l) => Math.max(max, l.y + l.h), 0);
+              const fixedFooter = { ...footer, y: maxY };
+              setLayout([...others, fixedFooter]);
+            }}
+          >
+{panels.map(panel => {
+  if (panel.i === '__footer') {
+    return (
+      <div key="__footer" className="flex items-center justify-center text-gray-500 text-sm" />
     );
   }
+  
+  return (
+    <div key={panel.i}>
+      <PanelWrapper
+        panel={panel}
+        linkMode={linkMode}
+        panels={panels}
+        panelData={panelData}
+        panelLinks={panelLinks}
+        panelLinkHistory={panelLinkHistory}
+        highlightSite={highlightSite}
+        highlightOrigin={highlightOrigin}
+        hoveredPanelId={hoveredPanelId}
+        justLinkedPanels={justLinkedPanels}
+        handleRestoreLink={handleRestoreLink}
+        handleUnlink={handleUnlink}
+        colorForLink={colorForLink}
+        removePanel={removePanel}
+        triggerUpload={triggerUpload}
+        duplicatePanel={duplicatePanel}
+        handleLinkClick={handleLinkClick}
+        handleHighlight={handleHighlight}
+        setHoveredPanelId={setHoveredPanelId}
+        canLink={canLink}
+        onSyncScroll={onSyncScroll}
+        scrollPositions={scrollPositions}
+        highlightedSequenceId={highlightedSequenceId}
+        setHighlightedSequenceId={setHighlightedSequenceId}
+        handleDuplicateTranslate={handleDuplicateTranslate}
+        handleCreateSeqLogo={handleCreateSeqLogo}
+        handleCreateSiteStatsHistogram={handleCreateSiteStatsHistogram}
+        handleAlignmentToDistance={handleAlignmentToDistance}
+        handleTreeToDistance={handleTreeToDistance}
+        handleCreateSequenceFromStructure={handleCreateSequenceFromStructure}
+        handleStructureToDistance={handleStructureToDistance}
+        setPanelData={setPanelData}
+      />
+    </div>
+  );
+})}
+          </GridLayout>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default App;
