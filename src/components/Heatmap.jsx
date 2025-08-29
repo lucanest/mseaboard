@@ -446,7 +446,7 @@ if (
         style={{
           width: gridWidth,
           marginLeft: labelSpace,
-          marginTop: 12,
+          marginTop: 16,
           height: 36,
           display: "flex",
           flexDirection: "column",
