@@ -35,14 +35,14 @@ export function LinkButton({ onClick, isLinked, isLinkModeActive, isEligibleLink
     <button
         onClick={onClick}
         className="p-0.5"
-        title={isLinked ? 'Unlink panels' : 'Link panel'}
+        title={'Link panel'}
     >
       <span className={`inline-flex items-center justify-center w-6 h-6 rounded hover:bg-yellow-300
-${isLinkModeActive ? 'bg-blue-200' : isLinked ? 'bg-green-200' :'bg-gray-200'}
+${isLinkModeActive ? 'bg-blue-200' :'bg-gray-200'}
 ${isEligibleLinkTarget ? 'border-2 border-blue-400' : 'border border-gray-400'}`}>
           <LinkIcon
           className={`w-5 h-5 flex-shrink-0 -translate-y-[0px]
-            ${isLinkModeActive ? 'text-blue-700' : isLinked ? 'text-green-700' : 'text-gray-500'}`
+            ${isLinkModeActive ? 'text-blue-700' : 'text-gray-500'}`
             }
           />
       </span>

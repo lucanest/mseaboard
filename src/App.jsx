@@ -36,12 +36,10 @@ function PanelHeader({
   onLinkClick,
   isLinkModeActive,
   isEligibleLinkTarget,
-  isLinked,
   onRemove,
   linkBadges = [],
-  activeLinkTarget = null,
-    onRestoreLink,
-    onUnlink,
+  onRestoreLink,
+  onUnlink,
   colorForLink,
 }) {
     const LinkBadge = ({ partnerId, active, title }) => {
@@ -93,7 +91,6 @@ function PanelHeader({
     <div className="w-7 h-7 flex items-center justify-center">
       <LinkButton
         onClick={() => onLinkClick(id)}
-        isLinked={isLinked}
         isLinkModeActive={isLinkModeActive}
         isEligibleLinkTarget={isEligibleLinkTarget}
       />
@@ -251,8 +248,8 @@ className={`border rounded-2xl overflow-hidden h-full flex flex-col bg-white
 const SeqLogoPanel = React.memo(function SeqLogoPanel({
   id, data, onRemove, onDuplicate, hoveredPanelId, setHoveredPanelId, setPanelData,
   highlightedSite, highlightOrigin, onHighlight, linkedTo,
-  onLinkClick, isLinkModeActive, isEligibleLinkTarget, isLinked, justLinkedPanels,
-  linkBadges, activeLinkTarget, onRestoreLink, colorForLink, onUnlink,
+  onLinkClick, isLinkModeActive, isEligibleLinkTarget, justLinkedPanels,
+  linkBadges, onRestoreLink, colorForLink, onUnlink,
 }) {
   const sequences = useMemo(() => {
     if (!data?.msa) return [];
@@ -330,11 +327,9 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
         onLinkClick={onLinkClick}
         isLinkModeActive={isLinkModeActive}
         isEligibleLinkTarget={isEligibleLinkTarget}
-        isLinked={isLinked}
         linkBadges={linkBadges}
-        activeLinkTarget={activeLinkTarget}
-             onRestoreLink={onRestoreLink}
-         onUnlink={onUnlink}
+        onRestoreLink={onRestoreLink}
+        onUnlink={onUnlink}
         colorForLink={colorForLink}
         extraButtons={[
           <DownloadButton key="dl" onClick={handleDownloadSVG} title="Download SVG" />
@@ -365,9 +360,9 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
 });
 
 const HeatmapPanel = React.memo(function HeatmapPanel({
-  id, data, onRemove, onDuplicate, onLinkClick, isLinkModeActive,isEligibleLinkTarget, isLinked,
+  id, data, onRemove, onDuplicate, onLinkClick, isLinkModeActive,isEligibleLinkTarget,
   hoveredPanelId, setHoveredPanelId, setPanelData, onReupload, highlightedSite,
-  highlightOrigin, onHighlight, justLinkedPanels,linkBadges, activeLinkTarget, onRestoreLink, colorForLink, onUnlink,
+  highlightOrigin, onHighlight, justLinkedPanels,linkBadges, onRestoreLink, colorForLink, onUnlink,
 }) {
   const { labels, matrix, filename } = data || {};
   const [containerRef, dims] = useElementSize({ debounceMs: 90 });
@@ -402,7 +397,7 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
   if (!labels || !matrix) {
     return (
       <PanelContainer id={id} hoveredPanelId={hoveredPanelId} setHoveredPanelId={setHoveredPanelId}>
-        <PanelHeader {...{id, filename, setPanelData, onDuplicate, onLinkClick, isLinkModeActive, isLinked, onRemove,}}/>
+        <PanelHeader {...{id, filename, setPanelData, onDuplicate, onLinkClick, isLinkModeActive, onRemove,}}/>
         <div className="flex-1 flex items-center justify-center text-gray-400">No data</div>
       </PanelContainer>
     );
@@ -426,12 +421,10 @@ return (
           onLinkClick={onLinkClick}
           isEligibleLinkTarget={isEligibleLinkTarget}
           isLinkModeActive={isLinkModeActive}
-          isLinked={isLinked}
-        linkBadges={linkBadges}
-        activeLinkTarget={activeLinkTarget}
-             onRestoreLink={onRestoreLink}
-           onUnlink={onUnlink}
-        colorForLink={colorForLink}
+          linkBadges={linkBadges}
+          onRestoreLink={onRestoreLink}
+          onUnlink={onUnlink}
+          colorForLink={colorForLink}
           onRemove={onRemove}
           extraButtons={[
             <DownloadButton onClick={handleDownload} />,]}
@@ -460,9 +453,9 @@ return (
 
 const StructurePanel = React.memo(function StructurePanel({
   id, data, onRemove, onDuplicate, hoveredPanelId, setHoveredPanelId, setPanelData, onReupload,
-  onCreateSequenceFromStructure, onGenerateDistance, onLinkClick, isLinkModeActive,isEligibleLinkTarget, isLinked,
+  onCreateSequenceFromStructure, onGenerateDistance, onLinkClick, isLinkModeActive,isEligibleLinkTarget,
   linkedTo, highlightedSite, highlightOrigin, onHighlight, linkedPanelData, justLinkedPanels,
-   linkBadges, activeLinkTarget, onRestoreLink, colorForLink,   onUnlink,
+   linkBadges, onRestoreLink, colorForLink,   onUnlink,
 }) {
   const { pdb, filename, surface = false } = data || {};
 
@@ -544,11 +537,9 @@ const pickChain = React.useCallback((choice) => {
         onLinkClick={onLinkClick}
         isLinkModeActive={isLinkModeActive}
         isEligibleLinkTarget={isEligibleLinkTarget}
-        isLinked={isLinked}
-                linkBadges={linkBadges}
-        activeLinkTarget={activeLinkTarget}
-             onRestoreLink={onRestoreLink}
-   onUnlink={onUnlink}
+        linkBadges={linkBadges}
+        onRestoreLink={onRestoreLink}
+        onUnlink={onUnlink}
         colorForLink={colorForLink}
         onDuplicate={onDuplicate}
         onRemove={onRemove}
@@ -643,12 +634,12 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   id,
   data,
   onRemove, onReupload, onDuplicate, onDuplicateTranslate, onCreateSeqLogo, onCreateSiteStatsHistogram, onGenerateDistance,
-  onLinkClick, isLinkModeActive, isLinked, isEligibleLinkTarget, linkedTo,
+  onLinkClick, isLinkModeActive, isEligibleLinkTarget, linkedTo,
   highlightedSite, highlightOrigin, onHighlight, highlightOriginType,
   onSyncScroll, externalScrollLeft,
   highlightedSequenceId, setHighlightedSequenceId,
   hoveredPanelId, setHoveredPanelId, setPanelData, justLinkedPanels,
-  linkBadges, activeLinkTarget, onRestoreLink, colorForLink, onUnlink,
+  linkBadges, onRestoreLink, colorForLink, onUnlink,
 }) {
   const msaData = useMemo(() => data.data, [data.data]);
   const filename = data.filename;
@@ -956,12 +947,10 @@ const handleGridMouseLeave = useCallback(() => {
           onLinkClick={onLinkClick}
           isLinkModeActive={isLinkModeActive}
           isEligibleLinkTarget={isEligibleLinkTarget}
-          isLinked={isLinked}
-                  linkBadges={linkBadges}
-        activeLinkTarget={activeLinkTarget}
-             onRestoreLink={onRestoreLink}
-onUnlink={onUnlink}
-        colorForLink={colorForLink}
+          linkBadges={linkBadges}
+          onRestoreLink={onRestoreLink}
+          onUnlink={onUnlink}
+          colorForLink={colorForLink}
           onRemove={onRemove}
         />
 
@@ -1071,9 +1060,9 @@ const TreePanel = React.memo(function TreePanel({
   id, data, onRemove, onReupload, onDuplicate, onGenerateDistance,
   highlightedSequenceId, onHoverTip,
   linkedTo, highlightOrigin,
-  onLinkClick, isLinkModeActive,isEligibleLinkTarget,isLinked,hoveredPanelId,
+  onLinkClick, isLinkModeActive,isEligibleLinkTarget,hoveredPanelId,
   setHoveredPanelId, setPanelData,justLinkedPanels,
-  linkBadges, activeLinkTarget, onRestoreLink, colorForLink, onUnlink,
+  linkBadges, onRestoreLink, colorForLink, onUnlink,
 }) {
   const { data: newick, filename, isNhx, RadialMode= true } = data || {};
 
@@ -1122,13 +1111,11 @@ const TreePanel = React.memo(function TreePanel({
           />,
           <DownloadButton onClick={handleDownload} />
         ]}
-      isLinked={isLinked}
-              linkBadges={linkBadges}
-        activeLinkTarget={activeLinkTarget}
-             onRestoreLink={onRestoreLink}
-onUnlink={onUnlink}
+        linkBadges={linkBadges}
+        onRestoreLink={onRestoreLink}
+        onUnlink={onUnlink}
         colorForLink={colorForLink}
-      onRemove={onRemove}
+        onRemove={onRemove}
       />
       <div className="flex-1 overflow-auto flex items-center justify-center">
           <PhyloTreeViewer
@@ -1215,10 +1202,10 @@ const NotepadPanel = React.memo(function NotepadPanel({
 });
 
 const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, onReupload, onDuplicate,
-  onLinkClick, isLinkModeActive, isEligibleLinkTarget,isLinked, linkedTo,
+  onLinkClick, isLinkModeActive, isEligibleLinkTarget, linkedTo,
   highlightedSite, highlightOrigin, onHighlight, hoveredPanelId, justLinkedPanels,
   setHoveredPanelId, setPanelData,
-  linkBadges, activeLinkTarget, onRestoreLink, colorForLink, onUnlink,
+  linkBadges, onRestoreLink, colorForLink, onUnlink,
 }) {
   const { filename } = data;
   const isTabular = !Array.isArray(data.data);
@@ -1315,12 +1302,10 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
       onLinkClick={onLinkClick}
       isLinkModeActive={isLinkModeActive}
       isEligibleLinkTarget={isEligibleLinkTarget}
-      isLinked={isLinked}
-              linkBadges={linkBadges}
-        activeLinkTarget={activeLinkTarget}
-             onRestoreLink={onRestoreLink}
-onUnlink={onUnlink}
-        colorForLink={colorForLink}
+      linkBadges={linkBadges}
+      onRestoreLink={onRestoreLink}
+      onUnlink={onUnlink}
+      colorForLink={colorForLink}
       onRemove={onRemove}
       extraButtons={[ 
         <LogYButton
@@ -1723,9 +1708,9 @@ const upsertHistory = useCallback((a, b) => {
 
 // Pair-based colors for link badges
   const palette = useMemo(() => [
-    'bg-blue-400','bg-green-400','bg-purple-200',
-    'bg-pink-200','bg-amber-200','bg-cyan-200',
-    'bg-rose-200','bg-indigo-200','bg-lime-200'
+    'bg-blue-400','bg-green-400','bg-purple-400',
+    'bg-pink-400','bg-amber-400','bg-cyan-400',
+    'bg-rose-400','bg-indigo-400','bg-lime-400'
   ], []);
   const [linkColors, setLinkColors] = useState({}); // {"a|b": idx}
   const pairKey = useCallback((a,b) => [String(a), String(b)].sort().join('|'), []);
@@ -2040,12 +2025,6 @@ const handleAlignmentToDistance = useCallback((id) => {
 
 const handleLinkClick = useCallback((id) => {
   
-  const unlinkPair = (copy, a) => {
-    const b = copy[a];
-    if (b) { delete copy[b]; }
-    delete copy[a];
-  };
-
   const reorderIfTreeLinked = (aId, bId) => {
     const panelA = panels.find(p => p.i === aId);
     const panelB = panels.find(p => p.i === bId);
@@ -2077,20 +2056,8 @@ const handleLinkClick = useCallback((id) => {
       }
     }
   };
-
   if (!linkMode) {
-    // start/cancel or unlink single
-    if (panelLinks[id]) {
-      const other = panelLinks[id];
-      setPanelLinks(pl => {
-        const copy = { ...pl };
-        unlinkPair(copy, id);
-        unlinkPair(copy, other);
-        return copy;
-      });
-    } else {
-      setLinkMode(id);
-    }
+    setLinkMode(id);
   } else {
     if (linkMode === id) {
       setLinkMode(null);
@@ -2098,7 +2065,8 @@ const handleLinkClick = useCallback((id) => {
       const a = linkMode, b = id;
       setPanelLinks(pl => {
         const copy = { ...pl };
-        // unlink any existing
+        // keep strict 1:1 by replacing any existing links on both ends
+        const unlinkPair = (c, x) => { const y = c[x]; if (y) delete c[y]; delete c[x]; };
         if (copy[a]) unlinkPair(copy, a);
         if (copy[b]) unlinkPair(copy, b);
         // link
@@ -2765,7 +2733,6 @@ const makeCommonProps = useCallback((panel) => {
       active: pid === activePartner,
       title: panelData[pid]?.filename || pid
     })),
-    activeLinkTarget: activePartner,
     onRestoreLink: handleRestoreLink,
      onUnlink: handleUnlink,
     colorForLink,
@@ -2774,7 +2741,6 @@ const makeCommonProps = useCallback((panel) => {
     onDuplicate: duplicatePanel,
     onLinkClick: handleLinkClick,
     isLinkModeActive: linkMode === panel.i,
-    isLinked: !!panelLinks[panel.i],
     linkedTo: panelLinks[panel.i] || null,
     highlightedSite: highlightSite,
     highlightOrigin: highlightOrigin,
@@ -3017,7 +2983,6 @@ const makeCommonProps = useCallback((panel) => {
       setHoveredPanelId={setHoveredPanelId}
       onLinkClick={handleLinkClick}
       isLinkModeActive={linkMode === panel.i}
-      isLinked={!!panelLinks[panel.i]}
     />
   ): panel.type === 'structure' ? (
   <StructurePanel
