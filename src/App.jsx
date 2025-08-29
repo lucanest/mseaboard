@@ -1921,7 +1921,7 @@ const handleStructureToDistance = useCallback((id, forcedChoice) => {
     type: 'heatmap',
     data: { labels, matrix, filename: `${base}_${suffix}.phy` },
     basedOnId: id,
-    layoutHint: { w: 4, h: 16 }
+    layoutHint: { w: 4, h: 20 }
   });
 }, [panelData, addPanel]);
 
@@ -1936,7 +1936,7 @@ const handleTreeToDistance = useCallback((id) => {
       type: 'heatmap',
       data: { labels, matrix, filename: `${base}.phy` },
       basedOnId: id,
-      layoutHint: { w: 4, h: 16 }
+      layoutHint: { w: 4, h: 20 }
     });
 
   } catch (e) {
@@ -1996,7 +1996,7 @@ const handleAlignmentToDistance = useCallback((id) => {
     type: 'heatmap',
     data: { labels, matrix, filename: `${base}.phy` },
     basedOnId: id,
-    layoutHint: { w: 4, h: 16 }
+    layoutHint: { w: 4, h: 20 }
   });
 }, [panelData, addPanel]);
 
