@@ -2514,7 +2514,33 @@ const handleHighlight = useCallback((site, originId) => {
     }
   }, [panelData, highlightOrigin]);
 
-    const handleLoadBoard = async (e) => {
+  // Build a symmetric history from either board.panelLinkHistory or, if missing,
+  // derive it from board.panelLinks so badges still show up on old boards.
+  const buildHistory = (board) => {
+    if (board.panelLinkHistory && typeof board.panelLinkHistory === 'object') {
+      // normalize to arrays of unique ids
+      const out = {};
+      for (const [k, v] of Object.entries(board.panelLinkHistory)) {
+        const set = new Set(Array.isArray(v) ? v : []);
+        out[k] = [...set];
+      }
+      return out;
+    }
+    // derive from current active links (1:1), make it symmetric
+    const outSets = {};
+    const add = (a, b) => {
+      if (!a || !b) return;
+      (outSets[a] ??= new Set()).add(b);
+      (outSets[b] ??= new Set()).add(a);
+    };
+   const links = board.panelLinks || {};
+    for (const [a, b] of Object.entries(links)) add(a, b);
+    const out = {};
+    for (const [k, s] of Object.entries(outSets)) out[k] = [...s];
+    return out;
+  };
+
+  const handleLoadBoard = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const text = await file.text();
@@ -2524,6 +2550,7 @@ const handleHighlight = useCallback((site, originId) => {
       setLayout(board.layout || []);
       setPanelData(board.panelData || {});
       setPanelLinks(board.panelLinks || {});
+      setPanelLinkHistory(buildHistory(board));
     } catch (err) {
       alert('Invalid board file');
     }
@@ -2878,6 +2905,7 @@ const makeCommonProps = useCallback((panel) => {
         setLayout(board.layout || []);
         setPanelData(board.panelData || {});
         setPanelLinks(board.panelLinks || {});
+        setPanelLinkHistory(buildHistory(board));
         setTitleFlipKey(Date.now());
       } catch (err) {
         alert('Failed to load example board.');
