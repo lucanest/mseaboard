@@ -645,6 +645,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const containerRef = useRef(null);
   const [gridContainerRef, dims] = useElementSize({ debounceMs: 90 });
   const gridRef = useRef(null);
+  const outerRef = useRef(null); 
 
   const [hoveredCol, setHoveredCol] = useState(null);
   const [hoveredRow, setHoveredRow] = useState(null);
@@ -660,20 +661,20 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
     mkDownload(base, content, 'fasta')();
   }, [data]);
 
-  useEffect(() => {
-    // This effect is now only for initial highlight or non-scrolling updates.
-    // The main tooltip positioning during a sync-scroll is handled in throttledOnScroll.
-    if (linkedTo && highlightedSite != null && id !== highlightOrigin && !isSyncScrolling) {
-      if (gridRef.current && gridRef.current._outerRef) {
-        const rect = gridRef.current._outerRef.getBoundingClientRect();
-        const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
-        const scrollOffset = gridRef.current._outerRef.scrollLeft;
-        const x = rect.left + (highlightedSite * itemWidth) - scrollOffset + (itemWidth / 2);
-        const y = rect.top + (rect.height / 2);
-        setTooltipPos({ x, y });
-      }
-    }
-  }, [linkedTo, highlightedSite, id, highlightOrigin, codonMode, dims.height]);
+useEffect(() => {
+  if (
+    linkedTo && highlightedSite != null &&
+    id !== highlightOrigin && !isSyncScrolling
+  ) {
+    const outer = outerRef.current;
+    if (!outer) return;
+    const rect = outer.getBoundingClientRect();
+    const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
+    const x = rect.left + (highlightedSite * itemWidth) - outer.scrollLeft + (itemWidth / 2);
+    const y = rect.top + (rect.height / 2);
+    setTooltipPos({ x, y });
+  }
+}, [linkedTo, highlightedSite, id, highlightOrigin, codonMode, dims.height, isSyncScrolling]);
 
   // throttle highlight to once every 90ms
 const throttledHighlight = useMemo(
@@ -690,26 +691,27 @@ const throttledHighlight = useMemo(
 
   // throttle scroll handler to once every 90ms
 const throttledOnScroll = useCallback(
-    throttle(({ scrollTop, scrollLeft }) => {
-      setScrollTop(scrollTop);
+  throttle(({ scrollTop, scrollLeft }) => {
+    setScrollTop(scrollTop);
 
-      if (isSyncScrolling) {
-        if (gridRef.current?._outerRef && highlightedSite != null) {
-          const rect = gridRef.current._outerRef.getBoundingClientRect();
-          const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
-          const x = rect.left + (highlightedSite * itemWidth) - scrollLeft + (itemWidth / 2);
-          const y = rect.top + (rect.height / 2);
-          setTooltipPos({ x, y });
-        }
-        setIsSyncScrolling(false); // End of sync scroll
+    if (isSyncScrolling) {
+      const outer = outerRef.current;
+      if (outer && highlightedSite != null) {
+        const rect = outer.getBoundingClientRect();
+        const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
+        const x = rect.left + (highlightedSite * itemWidth) - scrollLeft + (itemWidth / 2);
+        const y = rect.top + (rect.height / 2);
+        setTooltipPos({ x, y });
       }
+      setIsSyncScrolling(false);
+    }
 
-      if (linkedTo != null && scrollLeft != null && hoveredPanelId === id) {
-        onSyncScroll(scrollLeft, id);
-      }
-    }, 90),
-    [onSyncScroll, linkedTo, id, isSyncScrolling, highlightedSite, codonMode]
-  );
+    if (linkedTo != null && scrollLeft != null && hoveredPanelId === id) {
+      onSyncScroll(scrollLeft, id);
+    }
+  }, 90),
+  [onSyncScroll, linkedTo, id, isSyncScrolling, highlightedSite, codonMode, hoveredPanelId]
+);
 
   const setCodonMode = useCallback(
     (fnOrValue) => {
@@ -746,32 +748,31 @@ const throttledOnScroll = useCallback(
     if (linkedTo && hoveredPanelId === linkedTo) return;
   }, [hoveredPanelId, id, linkedTo, highlightOrigin, onHighlight, setHighlightedSequenceId]);
 
- useEffect(() => {
-    if (!gridRef.current || typeof externalScrollLeft !== 'number') return;
-    const viewportWidth = dims.width - LABEL_WIDTH;
-    const outer = gridRef.current._outerRef;
-    if (!outer) return;
-    const currentScrollLeft = outer.scrollLeft;
-    const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
-    const colStart = externalScrollLeft;
-    const colEnd = colStart + itemWidth;
-    const padding = viewportWidth / 3;
-    const maxScroll = outer.scrollWidth - viewportWidth + itemWidth + padding;
+useEffect(() => {
+  if (!gridRef.current || typeof externalScrollLeft !== 'number') return;
+  const outer = outerRef.current;
+  if (!outer) return;
 
-    let targetScroll = null;
-    if (colStart < currentScrollLeft) {
-      targetScroll = colStart - padding;
-    } else if (colEnd > currentScrollLeft + viewportWidth) {
-      targetScroll = colStart - viewportWidth + itemWidth + padding;
-    }
+  const viewportWidth = dims.width - LABEL_WIDTH;
+  const currentScrollLeft = outer.scrollLeft;
+  const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
+  const colStart = externalScrollLeft;
+  const colEnd = colStart + itemWidth;
+  const padding = viewportWidth / 3;
+  const maxScroll = outer.scrollWidth - viewportWidth + itemWidth + padding;
 
-    if (targetScroll !== null) {
-      setIsSyncScrolling(true); // Start of sync scroll
-      gridRef.current.scrollTo({
-        scrollLeft: Math.max(0, Math.min(maxScroll, targetScroll)),
-      });
-    }
-  }, [externalScrollLeft, dims.width, codonMode]);
+  let targetScroll = null;
+  if (colStart < currentScrollLeft) {
+    targetScroll = colStart - padding;
+  } else if (colEnd > currentScrollLeft + viewportWidth) {
+    targetScroll = colStart - viewportWidth + itemWidth + padding;
+  }
+
+  if (targetScroll !== null) {
+    setIsSyncScrolling(true);
+    gridRef.current.scrollTo({ scrollLeft: Math.max(0, Math.min(maxScroll, targetScroll)) });
+  }
+}, [externalScrollLeft, dims.width, codonMode]);
 
 
   const rowCount = msaData.length;
@@ -1037,6 +1038,7 @@ const handleGridMouseLeave = useCallback(() => {
           {/* Virtualized grid */}
           <Grid
             ref={gridRef}
+            outerRef={outerRef}
             columnCount={colCount}
             columnWidth={CELL_SIZE}
             height={dims.height}
@@ -1559,8 +1561,10 @@ function App() {
   const [titleFlipKey, setTitleFlipKey] = useState(() => Date.now());
   const hideErrors = true;
 
-  if (hideErrors) {
+  // Suppress known-but-benign errors from 3Dmol.js and WebGL
+
   useEffect(() => {
+    if (!hideErrors) return;
     //if (process.env.NODE_ENV !== 'development') return;
 
     const matches = (msg = '') => {
@@ -1604,6 +1608,7 @@ function App() {
 
   useEffect(() => {
   //if (process.env.NODE_ENV !== 'development') return;
+  if (!hideErrors) return;
 
   const origErr = console.error.bind(console);
   const origWarn = console.warn.bind(console);
@@ -1627,7 +1632,7 @@ function App() {
     console.error = origErr;
     console.warn  = origWarn;
   };
-  }, []); }
+  }, []);
 
 const upsertHistory = useCallback((a, b) => {
   setPanelLinkHistory(prev => {
