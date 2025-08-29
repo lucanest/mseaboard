@@ -1714,35 +1714,28 @@ const upsertHistory = useCallback((a, b) => {
   const [linkColors, setLinkColors] = useState({}); // {"a|b": idx}
   const pairKey = useCallback((a,b) => [String(a), String(b)].sort().join('|'), []);
 
-  // Allocate a color for a new pair, avoiding duplicates within either panel if possible
-  const assignPairColor = useCallback((a, b) => {
-    const key = pairKey(a, b);
-    setLinkColors(prev => {
-      if (prev[key] != null) return prev;
-      // colors already used with either endpoint
-      const used = new Set(
-        Object.entries(prev)
-          .filter(([k]) => {
-            const [x,y] = k.split('|');
-            return x === String(a) || y === String(a) || x === String(b) || y === String(b);
-          })
-          .map(([, idx]) => idx)
-      );
-      let idx = 0;
-      while (idx < palette.length && used.has(idx)) idx++;
-      if (idx >= palette.length) {
-        // pick least-used globally
-        const counts = Array(palette.length).fill(0);
-        for (const v of Object.values(prev)) counts[v] = (counts[v] || 0) + 1;
-        let best = 0, bestCnt = counts[0];
-        for (let i = 1; i < counts.length; i++) {
-          if (counts[i] < bestCnt) { best = i; bestCnt = counts[i]; }
-        }
-        idx = best;
+const assignPairColor = useCallback((a, b) => {
+  const key = pairKey(a, b);
+  setLinkColors(prev => {
+    if (prev[key] != null) return prev;
+    // Find all colors currently in use
+    const used = new Set(Object.values(prev));
+    let idx = 0;
+    // Pick the first unused color globally
+    while (idx < palette.length && used.has(idx)) idx++;
+    if (idx >= palette.length) {
+      // If all are used, pick the least-used color
+      const counts = Array(palette.length).fill(0);
+      for (const v of Object.values(prev)) counts[v] = (counts[v] || 0) + 1;
+      let best = 0, bestCnt = counts[0];
+      for (let i = 1; i < counts.length; i++) {
+        if (counts[i] < bestCnt) { best = i; bestCnt = counts[i]; }
       }
-      return { ...prev, [key]: idx };
-    });
-  }, [palette, pairKey]);
+      idx = best;
+    }
+    return { ...prev, [key]: idx };
+  });
+}, [palette, pairKey]);
 
   
   // Resolve badge color (active=pair color, inactive=gray; falls back to hash if unseen)
