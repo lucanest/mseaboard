@@ -3370,9 +3370,27 @@
     }
   },
   "panelLinks": {
-    "histogram-1752490668403": "histogram-1752500938729",
-    "histogram-1752500938729": "histogram-1752490668403",
+    "alignment-1750103636847": "tree-1750103933069",
     "tree-1750103933069": "alignment-1750103636847",
-    "alignment-1750103636847": "tree-1750103933069"
+    "histogram-1752490668403": "histogram-1752500938729",
+    "histogram-1752500938729": "histogram-1752490668403"
+  },
+  "panelLinkHistory": {
+    "alignment-1750103636847": [
+      "tree-1750103933069",
+      "histogram-1752490668403",
+      "histogram-1752500938729"
+    ],
+    "tree-1750103933069": [
+      "alignment-1750103636847"
+    ],
+    "histogram-1752500938729": [
+      "histogram-1752490668403",
+      "alignment-1750103636847"
+    ],
+    "histogram-1752490668403": [
+      "histogram-1752500938729",
+      "alignment-1750103636847"
+    ]
   }
 }
