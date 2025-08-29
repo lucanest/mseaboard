@@ -232,9 +232,6 @@ className={`border rounded-2xl overflow-hidden h-full flex flex-col bg-white
       onMouseEnter={() => setHoveredPanelId(id)}
       onMouseLeave={() => {
         setHoveredPanelId(null);
-        if (typeof window.clearAlignmentHighlight === 'function') {
-          window.clearAlignmentHighlight(id);
-        }
       }}
       onDoubleClick={onDoubleClick}
     >
