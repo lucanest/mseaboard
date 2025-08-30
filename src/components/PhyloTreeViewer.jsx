@@ -293,12 +293,7 @@ g.append('g')
     const length = event?.target?.data?.length;
     tooltip
       .style("display", "block")
-      .html(`Branch length: ${length !== undefined ? d3.format(".4f")(length) : 'N/A'}`);
-  })
-  .on('mousemove', function () {
-    tooltip
-      .style("bottom", `10px`)
-      .style("left", `10px`);
+      .html(`<strong>Branch length:</strong> ${length !== undefined ? d3.format(".4f")(length) : 'N/A'}`);
   })
   .on('mouseleave', function (event, d) {
     const idx = links.indexOf(event);
@@ -332,10 +327,6 @@ if (radial) {
     })
     .on('mousemove', function (event) {
       setHighlightedNode(event.data?.name || null);
-      tooltip
-        .style("display", "block")
-        .style("bottom", `10px`)
-        .style("left", `10px`);
     })
     .on('mouseleave', (event, d) => {
       const toElement = event.relatedTarget;
@@ -368,57 +359,41 @@ const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
     const { isHighlight, isPersistentHighlight } = getHighlightState(d);
     return isHighlight || isPersistentHighlight ? 2 : 1;
   })
-.on('mouseenter', (event, d) => {
+.on('mouseenter', function (event, d) {
   const nodeName = event.data?.name;
-  const isLeaf = event.height ==0;
+  const isLeaf = event.height == 0;
   const nhxData = event.data?.nhx || {};
 
   const nhxString = Object.entries(nhxData)
     .map(([key, val]) => `<div><strong>${key}</strong>: ${val}</div>`)
     .join('') || '<div>No NHX data</div>';
 
+  d3.select(this)
+    .attr('fill', MAGENTA_COLOR);
 
   tooltip
     .style("display", "block")
     .html(`${nhxString}`);
-  
-  
 
   if (isLeaf) {
-  onHoverTip?.(nodeName || '', id);
-  setHighlightedNode(nodeName || null);
-  }
-  else {
+    onHoverTip?.(nodeName || '', id);
+    setHighlightedNode(nodeName || null);
+  } else {
     onHoverTip?.(null, null);
-  setHighlightedNode(null);
+    setHighlightedNode(null);
   }
-
-/*
-const { isHighlight, isPersistentHighlight } = getHighlightState(event);
-const isnameinLinkedHighlights = linkedHighlights.includes(nodeName); 
-
- console.log('Hover tip:', {
-    nodeName,
-    isHighlight,
-    linkedHighlights,
-    isnameinLinkedHighlights,
-    id,
-    linkedTo,
-    highlightedNodes,
-    highlightOrigin}); */
-
 })
 
-.on('mousemove', function (event) {
-  tooltip
-    .style("bottom", `10px`)
-    .style("left", `10px`);
-})
-.on('mouseleave', () => {
+.on('mouseleave', function () {
+  d3.select(this)
+    .attr('fill', d => {  
+      const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
+      return val ? colorMap[val] : DARK_GRAY_COLOR;
+    });
   tooltip.style("display", "none");
   onHoverTip?.(null, null);
-  setHighlightedNode(null)
-  })
+  setHighlightedNode(null);
+})
 .on('click', (event, d) => {
 
   const name = event.data?.name;
