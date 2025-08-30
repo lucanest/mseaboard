@@ -9,7 +9,7 @@ export function DuplicateButton({ onClick }) {
       title="Duplicate panel"
     >
       <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-blue-300">
-        <DocumentDuplicateIcon className="w-5 h-5 text-gray-700 flex-shrink-0 -translate-y-[0px]" />
+        <DocumentDuplicateIcon className="w-5 h-5 text-blue-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
@@ -24,7 +24,7 @@ export function RemoveButton({ onClick }) {
     >
       <span className="inline-flex items-center justify-center w-6 h-6
        rounded bg-gray-200 border border-gray-400 hover:bg-red-300">
-       <XMarkIcon className="w-5 h-5 text-gray-700 flex-shrink-0 -translate-y-[0px]" />
+       <XMarkIcon className="w-5 h-5 text-red-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
@@ -42,7 +42,7 @@ ${isLinkModeActive ? 'bg-blue-200' :'bg-gray-200'}
 ${isEligibleLinkTarget ? 'border-2 border-blue-400' : 'border border-gray-400'}`}>
           <LinkIcon
           className={`w-5 h-5 flex-shrink-0 -translate-y-[0px]
-            ${isLinkModeActive ? 'text-blue-700' : 'text-gray-500'}`
+            ${isLinkModeActive ? 'text-blue-700' : 'text-yellow-700'}`
             }
           />
       </span>
@@ -95,7 +95,7 @@ export function SiteStatsButton({ onClick }) {
     >
       <span className="inline-flex items-center justify-center w-6 h-6
        rounded bg-gray-200 border border-gray-400 hover:bg-orange-300">
-       <ChartBarIcon className="w-5 h-5 text-gray-700 flex-shrink-0 -translate-y-[0px]" />
+       <ChartBarIcon className="w-5 h-5 text-orange-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
@@ -127,7 +127,7 @@ export function TranslateButton({ onClick }) {
       onClick={onClick}
       title="Duplicate and translate to protein"
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-orange-300">
+      <span className="inline-flex items-center text-orange-700 justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-orange-300">
           <LanguageIcon className="w-5 h-5 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
@@ -138,9 +138,9 @@ export function TranslateButton({ onClick }) {
 function SeqLogoGlyph(props) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
-      <text x="1"  y="20" fill="gray" fontSize="18" >A</text>
-      <text x="14" y="13" fill="gray" fontSize="14">C</text>
-      <text x="16" y="22" fill="gray" fontSize="4">G</text>
+      <text x="1"  y="20" fill="#be185d" fontSize="20" fontWeight="500">A</text>
+      <text x="14" y="13" fill="#be185d" fontSize="14" fontWeight="500">C</text>
+      <text x="16" y="22" fill="#be185d" fontSize="4" fontWeight="500">G</text>
     </svg>
   );
 }
@@ -170,7 +170,7 @@ export function SequenceButton({ onClick }) {
       title="Create sequence from structure"
     >
       <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-yellow-200">
-        <CodeBracketIcon className="w-5 h-5 flex-shrink-0 -translate-y-[0px]" />
+        <CodeBracketIcon className="w-5 h-5 text-yellow-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
@@ -185,7 +185,7 @@ export function DistanceMatrixButton({ onClick, title = "Build distance matrix f
       title={title}
     >
       <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-purple-300">
-        <Squares2X2Icon className="w-5 h-5 flex-shrink-0 -translate-y-[0px]" />
+        <Squares2X2Icon className="w-5 h-5 text-purple-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
@@ -200,7 +200,7 @@ export function DownloadButton({ onClick, title = "Download" }) {
       title={title}
     >
       <span className="inline-flex items-center justify-center w-6 h-6 rounded bg-gray-200 border border-gray-400 hover:bg-cyan-200">
-        <ArrowDownTrayIcon className="w-5 h-5 flex-shrink-0 -translate-y-[0px]" />
+        <ArrowDownTrayIcon className="w-5 h-5 text-cyan-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
@@ -210,9 +210,9 @@ export function DownloadButton({ onClick, title = "Download" }) {
 function LogGlyph(props) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
-      <text x="0"  y="18" fill="gray" fontSize="16" >l</text>
-      <text x="4.5" y="18" fill="gray" fontSize="16">o</text>
-      <text x="14" y="18" fill="gray" fontSize="16">g</text>
+      <text x="1"  y="18" fill="#c2410c" fontSize="16" fontWeight="500" >l</text>
+      <text x="4.2" y="18" fill="#c2410c" fontSize="16" fontWeight="500">o</text>
+      <text x="13" y="18" fill="#c2410c" fontSize="16" fontWeight="500">g</text>
     </svg>
   );
 }
