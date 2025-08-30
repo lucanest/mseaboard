@@ -79,7 +79,7 @@ export function CodonToggleButton({ onClick, isActive }) {
         ${isActive ? 'bg-purple-200' : 'bg-gray-200'}
         border border-gray-400 hover:bg-purple-300`}>
         <span className="text-xs font-bold text-purple-800 leading-none">
-          <Bars3Icon className="w-5 h-5 flex-shrink-0 -translate-y-[0px]" />
+          <Bars3Icon className="w-5 h-5 flex-shrink-0 -translate-y-[0px] rotate-90" />
         </span>
       </span>
     </button>
