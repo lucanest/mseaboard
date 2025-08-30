@@ -30,7 +30,7 @@ export function RemoveButton({ onClick }) {
   );
 }
 
-export function LinkButton({ onClick, isLinked, isLinkModeActive, isEligibleLinkTarget }) {
+export function LinkButton({ onClick, isLinkModeActive, isEligibleLinkTarget }) {
   return (
     <button
         onClick={onClick}
@@ -135,7 +135,7 @@ export function TranslateButton({ onClick }) {
 }
 
 
-function SeqLogoGlyph(props: React.SVGProps<SVGSVGElement>) {
+function SeqLogoGlyph(props) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
       <text x="1"  y="20" fill="gray" fontSize="18" >A</text>
@@ -145,15 +145,11 @@ function SeqLogoGlyph(props: React.SVGProps<SVGSVGElement>) {
   );
 }
 
-export function SeqlogoButton({
-  onClick,
-}: {
-  onClick?: React.MouseEventHandler<HTMLButtonElement>;
-}) {
+export function SeqlogoButton({ onClick }){
   return (
     <button
       type="button"
-      className="p-0.5 focus:outline-none focus:ring-2 focus:ring-pink-400 rounded"
+      className="p-0.5"
       onClick={onClick}
       title="Generate sequence logo"
       aria-label="Generate sequence logo"
@@ -211,7 +207,7 @@ export function DownloadButton({ onClick, title = "Download" }) {
 }
 
 
-function LogGlyph(props: React.SVGProps<SVGSVGElement>) {
+function LogGlyph(props) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
       <text x="0"  y="18" fill="gray" fontSize="16" >l</text>
@@ -248,6 +244,7 @@ export function GitHubButton() {
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center px-2 py-1 rounded hover:bg-gray-200"
+        title="GitHub repository"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -259,9 +256,9 @@ export function GitHubButton() {
           <path d="M12 2C6.477 2 2 6.484 2 12.021c0 4.428 2.867 8.184 6.839 9.504.5.092.682-.217.682-.482 0-.237-.009-.868-.014-1.703-2.782.605-3.369-1.342-3.369-1.342-.454-1.154-1.11-1.462-1.11-1.462-.908-.62.069-.608.069-.608 1.004.07 1.532 1.032 1.532 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.339-2.221-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.254-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.025A9.564 9.564 0 0 1 12 6.844c.85.004 1.705.115 2.504.337 1.909-1.295 2.748-1.025 2.748-1.025.546 1.378.202 2.396.1 2.65.64.7 1.028 1.595 1.028 2.688 0 3.847-2.337 4.695-4.566 4.944.36.31.68.921.68 1.857 0 1.34-.012 2.421-.012 2.751 0 .267.18.578.688.48C19.135 20.2 22 16.447 22 12.021 22 6.484 17.523 2 12 2z" />
         </svg>
       </a>
-      <div className="absolute top-full mb-2 left-1/2 -translate-x-1/2 translate-y-12 bg-blue-200 text-black text-xs px-1 py-1 rounded-md opacity-0 group-hover:opacity-80 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-50">
+        {/* <div className="absolute top-full mb-2 left-1/2 -translate-x-1/2 translate-y-12 bg-blue-200 text-black text-xs px-1 py-1 rounded-md opacity-0 group-hover:opacity-80 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-50">
         GitHub: <br /> - Read <br /> &nbsp; docs <br />  - Run <br /> &nbsp; locally <br /> - Report <br /> &nbsp; issues <br /> - Request <br /> &nbsp; features <br /> - Help to <br /> &nbsp; improve
-      </div>
+      </div> */}
     </div>
   );
 }
