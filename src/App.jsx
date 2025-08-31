@@ -128,7 +128,7 @@ function EditableFilename({ id, filename, setPanelData, prefix = '', className =
       className={`inline ${className}`}
     >
       <input
-        className="border rounded py-1 w-32 text-sm"
+        className="border rounded py w-32 text-sm mt-2"
         value={filenameInput}
         onChange={e => setFilenameInput(e.target.value)}
         autoFocus
