@@ -716,9 +716,7 @@ const throttledOnScroll = useCallback(
       setIsSyncScrolling(false);
     }
 
-    if (linkedTo != null && scrollLeft != null && hoveredPanelId === id) {
-      onSyncScroll(scrollLeft, id);
-    }
+
   }, 90),
   [onSyncScroll, linkedTo, id, isSyncScrolling, highlightedSite, codonMode, hoveredPanelId]
 );
