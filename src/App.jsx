@@ -927,7 +927,7 @@ const handleGridMouseLeave = useCallback(() => {
     >
       <div
         ref={containerRef}
-        className="relative flex flex-col h-full border rounded-xl bg-white"
+        className="relative flex flex-col h-full border rounded-xl bg-white overflow-hidden"
         onMouseLeave={handleGridMouseLeave}
       >
         <PanelHeader
@@ -2997,10 +2997,10 @@ const canLink = (typeA, typeB) =>
 >
   {isDragging && (
   <div className="pointer-events-none fixed inset-0 z-[10000] bg-black/30 flex items-center justify-center">
-    <div className="pointer-events-none bg-white rounded-2xl shadow-xl px-6 py-4 text-center">
+    <div className="pointer-events-none bg-white rounded-xl shadow-xl px-6 py-4 text-center">
       <div className="text-2xl font-bold">Drop files to open</div>
       <div className="text-sm text-gray-600 mt-1">
-        • JSON: Load board • FASTA/NWK/PDB/PHY/TSV/CSV/TXT: Open in a panel
+        • JSON: Load board <br></br> • Other formats: Open in a panel
       </div>
     </div>
   </div>
