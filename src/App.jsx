@@ -625,7 +625,15 @@ const MSACell = React.memo(function MSACell({
       data-cell="1"
       data-row={rowIndex}
       data-col={columnIndex}
-      style={style}
+      style={{
+        ...style,
+        height: (style.height ? style.height + 1 : undefined), // overlap by 1px
+        width: (style.width ? style.width + 1 : undefined),
+        marginBottom: -1,
+        marginRight: -1,
+        boxSizing: 'border-box',
+        //border: '1px solid transparent'
+      }}
       className={`flex items-center justify-center ${background} ${
         isHoverHighlight || isLinkedHighlight
           ? 'alignment-highlight'
@@ -996,7 +1004,7 @@ const handleGridMouseLeave = useCallback(() => {
           onMouseMove={handleGridMouseMove}
           onClick={handleGridClick}
         >
-          {/* Left labels (unchanged) */}
+          {/* Left labels */}
           <div
             style={{
               width: LABEL_WIDTH * 1.9,
