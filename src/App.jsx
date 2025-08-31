@@ -128,7 +128,7 @@ function EditableFilename({ id, filename, setPanelData, prefix = '', className =
       className={`inline ${className}`}
     >
       <input
-        className="border rounded px-1 w-32 text-sm"
+        className="border rounded py-1 w-32 text-sm"
         value={filenameInput}
         onChange={e => setFilenameInput(e.target.value)}
         autoFocus
@@ -143,7 +143,7 @@ function EditableFilename({ id, filename, setPanelData, prefix = '', className =
       <span>{prefix}{filename}</span>
       <button
         type="button"
-        className="ml-2 p-0.5"
+        className="ml-2 p-0.5 hover:bg-gray-200 rounded-lg"
         onClick={() => setEditing(true)}
         title="Edit filename"
       >
