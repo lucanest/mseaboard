@@ -95,7 +95,9 @@ function PanelHeader({
       />
     </div>
   )}
-        <RemoveButton onClick={() => onRemove(id)} />
+        <div className="w-7 h-7 flex items-center justify-center">
+  <RemoveButton onClick={() => onRemove(id)} />
+</div>
       </div>
     </div>
   );
