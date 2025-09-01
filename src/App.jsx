@@ -10,8 +10,8 @@ CodonToggleButton, TranslateButton, SurfaceToggleButton, SiteStatsButton, LogYBu
 SeqlogoButton, SequenceButton, DistanceMatrixButton, DownloadButton, GitHubButton} from './components/Buttons.jsx';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, threeToOne,
-   parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick, newickToDistanceMatrix,
- downloadText, detectFileType, toFasta, toPhylip, computeSiteStats} from './components/Utils.jsx';
+parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick, newickToDistanceMatrix,
+downloadText, detectFileType, toFasta, toPhylip, computeSiteStats} from './components/Utils.jsx';
 import { residueColors, logoColors } from './constants/colors.js';
 import { TitleFlip, AnimatedList } from './components/Animations.jsx';
 import { FixedSizeGrid as Grid } from 'react-window';
@@ -2362,7 +2362,7 @@ const handleLinkClick = useCallback((id) => {
                 structureChainsLengths[cid] = (seq || '').length;
               }
 
-              // Preferred chain from MSA IDs like "..._chain_A" or bare "A"
+              // Preferred chain from MSA IDs
               const preferredFromId =
                 chainIdFromSeqId(alnData.data[0]?.id) || null;
 
@@ -2981,6 +2981,36 @@ const handleDrop = async (e) => {
   }
 };
 
+function DelayedTooltip({ children, delay = 200, ...props }) {
+  const [visible, setVisible] = React.useState(false);
+  const timer = React.useRef();
+
+  const show = () => {
+    timer.current = setTimeout(() => setVisible(true), delay);
+  };
+  const hide = () => {
+    clearTimeout(timer.current);
+    setVisible(false);
+  };
+
+  return (
+    <span
+      onMouseEnter={show}
+      onMouseLeave={hide}
+      onFocus={show}
+      onBlur={hide}
+      style={{ position: 'relative', display: 'inline-block' }}
+    >
+      {props.trigger}
+      {visible && (
+        <span className="absolute text-center left-1/2 -translate-x-1/2 top-16 z-10 px-2 py-1 rounded-xl bg-gray-300 text-black text-xs pointer-events-none transition-opacity whitespace-nowrap opacity-100">
+          {children}
+        </span>
+      )}
+    </span>
+  );
+}
+
 const LINK_COMPAT = {
   alignment: new Set(['alignment','seqlogo','histogram','structure','tree', 'heatmap']),
   seqlogo:   new Set(['alignment','histogram','seqlogo']),
@@ -3017,34 +3047,38 @@ const canLink = (typeA, typeB) =>
           <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors}/>
 <div className="flex items-center gap-5">
   <div className="flex items-center gap-2 mr-8">
-  {/* Save Board Button */}
-  <div className="relative group">
-    <button
-      onClick={handleSaveBoard}
-      className="w-12 h-12 bg-gray-200 text-black rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center"
-    >
-      <ArrowDownTrayIcon className="w-8 h-8" />
-    </button>
-    <span className="absolute text-center left-1/2 -translate-x-1/2 top-16 z-10 px-2 py-1 rounded-xl bg-gray-300 text-black text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap">
-      <b>Save Board</b>
-      <br />
-      Save this board layout, data<br /> and links to a file
-    </span>
-  </div>
-  {/* Load Board Button */}
-  <div className="relative group">
-    <button
-      onClick={() => fileInputRefBoard.current.click()}
-      className="w-12 h-12 bg-gray-200 text-black rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center"
-    >
-      <ArrowUpTrayIcon className="w-8 h-8" />
-    </button>
-        <span className="absolute text-center left-1/2 -translate-x-1/2 top-16 z-10 px-2 py-1 rounded-xl bg-gray-300 text-black text-xs opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap">
-      <b>Load Board</b>
-      <br />
-      Load a saved board <br /> from a file
-    </span>
-  </div>
+<div className="relative group">
+  <DelayedTooltip
+    trigger={
+      <button
+        onClick={handleSaveBoard}
+        className="w-12 h-12 bg-gray-200 text-black rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center"
+      >
+        <ArrowDownTrayIcon className="w-8 h-8" />
+      </button>
+    }
+  >
+    <b>Save Board</b>
+    <br />
+    Save this board layout, data<br /> and links to a file
+  </DelayedTooltip>
+</div>
+<div className="relative group">
+  <DelayedTooltip
+    trigger={
+      <button
+        onClick={() => fileInputRefBoard.current.click()}
+        className="w-12 h-12 bg-gray-200 text-black rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center"
+      >
+        <ArrowUpTrayIcon className="w-8 h-8" />
+      </button>
+    }
+  >
+    <b>Load Board</b>
+    <br />
+    Load a saved board <br /> from a file
+  </DelayedTooltip>
+</div>
 </div>
   <button
   onClick={() => {
