@@ -1003,6 +1003,7 @@ const handleGridMouseLeave = useCallback(() => {
           // event delegation lives on the same wrapper that contains the Grid
           onMouseMove={handleGridMouseMove}
           onClick={handleGridClick}
+          onMouseLeave={handleGridMouseLeave}
         >
           {/* Left labels */}
           <div
