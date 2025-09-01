@@ -11,7 +11,7 @@
 }
 
 html, body {
-  font-size: clamp(10px, 0.9vw + 10px, 12px);;
+  font-size: clamp(10px, 0.9vw + 10px, 16px);;
   zoom: 100%;
   transform: none !important;
 }

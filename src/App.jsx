@@ -188,7 +188,7 @@ function MSATooltip({ x, y, children }) {
   return ReactDOM.createPortal(
     <div
       ref={ref}
-      className="fixed px-1 py-0.5 text-xs bg-gray-200 rounded-xl pointer-events-none z-[9999] shadow border border-gray-400"
+      className="fixed px-1 py-0.5 text-sm bg-gray-200 rounded-xl pointer-events-none z-[9999] shadow border border-gray-400"
       style={{
         left: clampedLeft,
         top: clampedTop,
@@ -977,7 +977,7 @@ const handleGridMouseLeave = useCallback(() => {
                 {codonMode ? `Codon ${hoveredCol + 1}` : `Site ${hoveredCol + 1}`}
               </span>
               {hoveredRow != null && msaData[hoveredRow] && (
-                <span className="text-gray-700 font-mono text-xs">{msaData[hoveredRow].id}</span>
+                <span className="text-gray-700 font-mono text-sm">{msaData[hoveredRow].id}</span>
               )}
             </div>
           </MSATooltip>
@@ -3005,7 +3005,7 @@ function DelayedTooltip({ children, delay = 100,top=54, ...props }) {
       {props.trigger}
       {visible && (
         <span className="absolute text-center left-1/2 -translate-x-1/2 top-16 z-10 px-2 py-1
-         rounded-xl bg-gray-200 text-black text-xs pointer-events-none
+         rounded-xl bg-gray-200 text-black text-sm pointer-events-none
         transition-opacity whitespace-nowrap opacity-100 border border-gray-400"
           style={{ top: top}}
         >
@@ -3052,6 +3052,7 @@ const canLink = (typeA, typeB) =>
         <div className="p-2 flex justify-between items-center">
           <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors}/>
 <div className="flex items-center gap-4">
+<div className="p-1/2 flex justify-between items-center"></div>
   <div className="flex items-center gap-2 mr-8">
 <div className="relative group">
   <DelayedTooltip
