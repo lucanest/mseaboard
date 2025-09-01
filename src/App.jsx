@@ -188,7 +188,7 @@ function MSATooltip({ x, y, children }) {
   return ReactDOM.createPortal(
     <div
       ref={ref}
-      className="fixed px-1 py-0.5 text-xs bg-gray-200 rounded-xl pointer-events-none z-[9999] shadow"
+      className="fixed px-1 py-0.5 text-xs bg-gray-200 rounded-xl pointer-events-none z-[9999] shadow border border-gray-400"
       style={{
         left: clampedLeft,
         top: clampedTop,
@@ -3004,7 +3004,9 @@ function DelayedTooltip({ children, delay = 100,top=54, ...props }) {
     >
       {props.trigger}
       {visible && (
-        <span className="absolute text-center left-1/2 -translate-x-1/2 top-16 z-10 px-2 py-1 rounded-xl bg-gray-300 text-black text-xs pointer-events-none transition-opacity whitespace-nowrap opacity-100"
+        <span className="absolute text-center left-1/2 -translate-x-1/2 top-16 z-10 px-2 py-1
+         rounded-xl bg-gray-200 text-black text-xs pointer-events-none
+        transition-opacity whitespace-nowrap opacity-100 border border-gray-400"
           style={{ top: top}}
         >
 
