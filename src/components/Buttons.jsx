@@ -60,7 +60,7 @@ export function RadialToggleButton({ onClick, isActive }) {
       <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg
         ${isActive ? 'bg-gray-100' : 'bg-gray-100'}
         border border-gray-400 hover:bg-orange-300`}>
-        <span className="text-xs font-bold text-purple-800 leading-none">
+        <span className="text-xs font-bold text-orange-800 leading-none">
           <EyeIcon className="w-5 h-5 flex-shrink-0 -translate-y-[0px]" />
         </span>
       </span>
@@ -78,7 +78,7 @@ export function CodonToggleButton({ onClick, isActive }) {
       <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg
         ${isActive ? 'bg-purple-200' : 'bg-gray-100'}
         border border-gray-400 hover:bg-purple-300`}>
-        <span className="text-xs font-bold text-purple-800 leading-none">
+        <span className="text-xs font-bold text-orange-800 leading-none">
           <Bars3Icon className="w-5 h-5 flex-shrink-0 -translate-y-[0px] rotate-90" />
         </span>
       </span>
@@ -226,7 +226,7 @@ export function LogYButton({ onClick, isActive, title = "Toggle log scale on Y" 
       title={title}
     >
       <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg
-       ${isActive ? 'bg-orange-300' : 'bg-gray-100'}
+       ${isActive ? 'bg-orange-200' : 'bg-gray-100'}
         border border-gray-400 hover:bg-orange-200`}>
         <LogGlyph className="w-5 h-5 text-gray-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
