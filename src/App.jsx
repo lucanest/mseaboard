@@ -2981,7 +2981,7 @@ const handleDrop = async (e) => {
   }
 };
 
-function DelayedTooltip({ children, delay = 200, ...props }) {
+function DelayedTooltip({ children, delay = 100,top=54, ...props }) {
   const [visible, setVisible] = React.useState(false);
   const timer = React.useRef();
 
@@ -3003,7 +3003,10 @@ function DelayedTooltip({ children, delay = 200, ...props }) {
     >
       {props.trigger}
       {visible && (
-        <span className="absolute text-center left-1/2 -translate-x-1/2 top-16 z-10 px-2 py-1 rounded-xl bg-gray-300 text-black text-xs pointer-events-none transition-opacity whitespace-nowrap opacity-100">
+        <span className="absolute text-center left-1/2 -translate-x-1/2 top-16 z-10 px-2 py-1 rounded-xl bg-gray-300 text-black text-xs pointer-events-none transition-opacity whitespace-nowrap opacity-100"
+          style={{ top: top}}
+        >
+
           {children}
         </span>
       )}
@@ -3045,7 +3048,7 @@ const canLink = (typeA, typeB) =>
 )}
         <div className="p-2 flex justify-between items-center">
           <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors}/>
-<div className="flex items-center gap-5">
+<div className="flex items-center gap-4">
   <div className="flex items-center gap-2 mr-8">
 <div className="relative group">
   <DelayedTooltip
@@ -3080,40 +3083,84 @@ const canLink = (typeA, typeB) =>
   </DelayedTooltip>
 </div>
 </div>
-  <button
-  onClick={() => {
-      addPanel({
-        type: 'notepad',
-        data: { filename: "Notes", text: "" },
-        layoutHint: { w: 4, h: 10 }
-      });
-    }}
-    className="w-40 h-20 bg-yellow-100 text-black px-4 py-2 rounded-xl hover:bg-yellow-200 shadow-lg hover:shadow-xl"
+  <DelayedTooltip delay={150} top={74}
+  trigger={
+    <button
+      onClick={() => {
+        addPanel({
+          type: 'notepad',
+          data: { filename: "Notes", text: "" },
+          layoutHint: { w: 4, h: 10 }
+        });
+      }}
+      className="w-28 whitespace-normal break-words h-20 bg-yellow-100 text-black px-4 py-2 rounded-xl hover:bg-yellow-200 shadow-lg hover:shadow-xl leading-tight"
+    >
+      New Notepad
+    </button>
+  }
+>
+  <b>New Notepad</b>
+  <br />
+  Add a notepad panel <br /> for notes and comments
+  </DelayedTooltip>
+    <input
+      ref={fileInputRefBoard}
+      type="file"
+      accept=".json"
+      onChange={handleLoadBoard}
+      style={{ display: 'none' }}
+    />        
+  <DelayedTooltip delay={150} top={74}
+    trigger={
+            <button onClick={() => triggerUpload('alignment')} className="w-28 whitespace-normal break-words h-20 bg-green-200 text-black px-4 py-2 rounded-xl hover:bg-green-300 shadow-lg hover:shadow-xl leading-tight">
+              Upload MSA
+              </button>}
   >
-    New Notepad
-  </button>
-  <input
-    ref={fileInputRefBoard}
-    type="file"
-    accept=".json"
-    onChange={handleLoadBoard}
-    style={{ display: 'none' }}
-  />
-            <button onClick={() => triggerUpload('alignment')} className="w-40 h-20 bg-green-200 text-black px-4 py-2 rounded-xl hover:bg-green-300 shadow-lg hover:shadow-xl leading-tight">
-              Upload MSA (.fasta/.fas)
-            </button>
-            <button onClick={() => triggerUpload('tree')} className="w-40 h-20 bg-blue-200 text-black px-4 py-2 rounded-xl hover:bg-blue-300 shadow-lg hover:shadow-xl leading-tight">
-              Upload Tree (.nwk/.nhx)
-            </button>
-            <button onClick={() => triggerUpload('histogram')} className="w-40 h-20 bg-orange-200 text-black px-4 py-2 rounded-xl hover:bg-orange-300 shadow-lg hover:shadow-xl leading-tight">
-              Upload Data (.txt/.tsv/.csv)
-            </button>
-            <button onClick={() => triggerUpload('heatmap')} className="w-40 h-20 bg-red-200 text-black px-4 py-2 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl leading-tight">
-              Upload Distance Matrix (.phy/.phylip/.dist)
-            </button>
-            <button onClick={() => triggerUpload('structure')} className="w-40 h-20 bg-indigo-200 text-black px-4 py-2 rounded-xl hover:bg-indigo-300 shadow-lg hover:shadow-xl">
-              Upload Structure (.pdb)
-            </button>
+    <b>Upload MSA</b>
+    <br />
+    Upload a multiple sequence alignment <br /> in FASTA format (.fasta/.fas)
+  </DelayedTooltip>
+  <DelayedTooltip delay={150} top={74}
+    trigger={
+            <button onClick={() => triggerUpload('tree')} className="w-28 whitespace-normal break-words h-20 bg-blue-200 text-black px-4 py-2 rounded-xl hover:bg-blue-300 shadow-lg hover:shadow-xl leading-tight">
+              Upload Tree
+            </button>}
+  >
+    <b>Upload Tree</b>
+    <br />
+    Upload a phylogenetic tree <br /> in Newick format (.nwk/.nhx)
+  </DelayedTooltip>
+  <DelayedTooltip delay={150} top={74}
+    trigger={
+            <button onClick={() => triggerUpload('histogram')}  className="w-28 whitespace-normal break-words h-20 bg-orange-200 text-black px-4 py-2 rounded-xl hover:bg-orange-300 shadow-lg hover:shadow-xl leading-tight">
+              Upload Data
+            </button>}
+  >
+    <b>Upload Data</b>
+    <br />
+    Upload tabular data (.tsv/.csv) <br /> or a list of numbers (.txt)
+  </DelayedTooltip>
+  <DelayedTooltip delay={150} top={74}
+    trigger={
+  
+            <button onClick={() => triggerUpload('heatmap')}  className="w-28 whitespace-normal break-words h-20 bg-red-200 text-black px-4 py-2 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl leading-tight">
+              Upload Distance Matrix
+            </button>}
+  >
+    <b>Upload Distance Matrix</b>
+    <br />
+    Upload a distance matrix <br /> in PHYLIP format (.phy/.phylip/.dist)
+  </DelayedTooltip>
+  <DelayedTooltip delay={150} top={74}
+    trigger={
+            <button onClick={() => triggerUpload('structure')} className="w-28 whitespace-normal break-words h-20 bg-purple-200 text-black px-4 py-2 rounded-xl hover:bg-purple-300 shadow-lg hover:shadow-xl leading-tight">
+              Upload Structure
+            </button>}
+  >
+    <b>Upload Structure</b>
+    <br />
+    Upload a molecular structure <br /> in PDB format (.pdb)
+  </DelayedTooltip>
             <GitHubButton />
             <input ref={fileInputRef} type="file" accept=".fasta,.nwk,.nhx,.txt,.tsv,.csv,.fas,.phy,.phylip,.dist,.pdb" onChange={handleFileUpload} style={{ display: 'none' }} />
           </div>
