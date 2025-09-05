@@ -41,7 +41,60 @@ function PanelHeader({
   onRestoreLink,
   onUnlink,
   colorForLink,
-}) {
+  forceHideTooltip = false,
+}) {// Track which button is hovered
+  const [hoveredBtn, setHoveredBtn] = useState(null);
+  const [showTooltip, setShowTooltip] = useState(false);
+  const tooltipTimer = useRef();
+
+  function handleBtnEnter(name) {
+    clearTimeout(tooltipTimer.current);
+    setHoveredBtn(name);
+    tooltipTimer.current = setTimeout(() => setShowTooltip(true), 150); // 150ms delay
+  }
+  function handleBtnLeave() {
+    clearTimeout(tooltipTimer.current);
+    setShowTooltip(false);
+    setHoveredBtn(null);
+}
+  useEffect(() => {
+  // Cleanup on unmount
+  return () => {
+    clearTimeout(tooltipTimer.current);
+    setShowTooltip(false);
+    setHoveredBtn(null);
+  };
+}, []);
+
+  useEffect(() => {
+    if (forceHideTooltip) {
+      clearTimeout(tooltipTimer.current);
+      setShowTooltip(false);
+      setHoveredBtn(null);
+    }
+  }, [forceHideTooltip]);
+
+  // Tooltip text for each button
+  const tooltipMap = {
+    duplicate: "Duplicate panel",
+    remove: "Remove panel",
+    link: "Link panel",
+  };
+
+  // Helper to wrap buttons with hover tracking
+function ButtonWithHover({ name, children, ...props }) {
+  return (
+    <div
+      className="w-7 h-7 flex items-center justify-center"
+      onMouseEnter={() => handleBtnEnter(name)}
+      onMouseLeave={handleBtnLeave}
+      onFocus={() => handleBtnEnter(name)}
+      onBlur={handleBtnLeave}
+    >
+      {children}
+    </div>
+  );
+}
     const LinkBadge = ({ partnerId, active, title }) => {
     const baseColor = colorForLink?.(id, partnerId, true) ?? 'bg-blue-400';
     return (
@@ -63,6 +116,9 @@ function PanelHeader({
     <div
   className="panel-drag-handle bg-gradient-to-b from-gray-100 to-white p-1 mb-2 cursor-move
              flex flex-wrap items-center justify-between gap-x-2 gap-y-1 font-bold"
+  onMouseLeave={handleBtnLeave}
+  onBlur={handleBtnLeave}
+  tabIndex={-1}
 >
       <div className="flex items-center gap-1 pl-1">
         {linkBadges.map(({ partnerId, active, title }) => (
@@ -79,26 +135,56 @@ function PanelHeader({
           prefix={prefix}
         />
       </div>
-      <div className="flex flex-wrap items-center gap-1">
-        {extraButtons.map((btn, i) => (
-    <div key={i} className="w-7 h-7 flex items-center justify-center">{btn}</div>
-  ))}
-  <div className="w-7 h-7 flex items-center justify-center">
-    <DuplicateButton onClick={() => onDuplicate(id)} />
-  </div>
-  {onLinkClick && (
-    <div className="w-7 h-7 flex items-center justify-center">
-      <LinkButton
-        onClick={() => onLinkClick(id)}
-        isLinkModeActive={isLinkModeActive}
-        isEligibleLinkTarget={isEligibleLinkTarget}
-      />
-    </div>
-  )}
-        <div className="w-7 h-7 flex items-center justify-center">
-  <RemoveButton onClick={() => onRemove(id)} />
-</div>
+  <div
+  className="flex flex-wrap items-center gap-1"
+  onMouseLeave={handleBtnLeave}
+  onBlur={handleBtnLeave}
+  tabIndex={-1}
+>
+            <div className="flex flex-wrap items-center gap-1">
+        {extraButtons.map((btn, i) => {
+          // Support both old (element only) and new ({element, tooltip}) formats
+          const name = `extra${i}`;
+          const tooltipText = btn.tooltip || tooltipMap[name] || "Extra action";
+          const element = btn.element || btn; // fallback for old usage
+          tooltipMap[name] = tooltipText; // ensure tooltipMap has it
+
+          return (
+            <ButtonWithHover key={i} name={name}>
+              {element}
+            </ButtonWithHover>
+          );
+        })}
+        <ButtonWithHover name="duplicate">
+          <DuplicateButton
+            tooltip={null}
+            onClick={() => onDuplicate(id)}
+          />
+        </ButtonWithHover>
+        {onLinkClick && (
+          <ButtonWithHover name="link">
+            <LinkButton
+              onClick={() => onLinkClick(id)}
+              isLinkModeActive={isLinkModeActive}
+              isEligibleLinkTarget={isEligibleLinkTarget}
+            />
+          </ButtonWithHover>
+        )}
+        <ButtonWithHover name="remove">
+          <RemoveButton
+            onClick={() => onRemove(id)}/>
+        </ButtonWithHover>
       </div>
+      </div>
+      {/* Fixed tooltip in upper right of panel header */}
+      {showTooltip && hoveredBtn && (
+  <div className="absolute text-center top-12 right-2 z-30 px-2 py-1
+         rounded-xl bg-gray-200 text-black text-sm pointer-events-none
+        transition-opacity whitespace-nowrap opacity-100 border border-gray-400">
+    {tooltipMap[hoveredBtn] ||
+      (hoveredBtn.startsWith("extra") ? "Extra action" : "")}
+  </div>
+)}
     </div>
   );
 }
@@ -215,6 +301,7 @@ function PanelContainer({
   justLinkedPanels = [],            
 }) {
   const isJustLinked = justLinkedPanels.includes(id);
+  const [forceHideTooltip, setForceHideTooltip] = useState(false);
   return (
     <div
 className={`border rounded-2xl overflow-hidden h-full flex flex-col bg-white
@@ -234,6 +321,7 @@ className={`border rounded-2xl overflow-hidden h-full flex flex-col bg-white
       onMouseEnter={() => setHoveredPanelId(id)}
       onMouseLeave={() => {
         setHoveredPanelId(null);
+        setForceHideTooltip(true);
       }}
       onDoubleClick={onDoubleClick}
     >
@@ -341,7 +429,8 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
         onUnlink={onUnlink}
         colorForLink={colorForLink}
         extraButtons={[
-           <DownloadButton key="dl" onClick={handleDownloadPNG} title="Download PNG" />
+                { element: <DownloadButton onClick={handleDownloadPNG} />,
+       tooltip: "Download png" }
         ]}
       />
       <div
@@ -436,7 +525,9 @@ return (
           colorForLink={colorForLink}
           onRemove={onRemove}
           extraButtons={[
-            <DownloadButton onClick={handleDownload} />,]}
+            { element: <DownloadButton onClick={handleDownload} />,
+             tooltip: "Download distance matrix" }
+          ]}
     />
     {/* Add padding container around the heatmap */}
     <div ref={containerRef} className="flex-1 p-2 pb-4 pr-4 overflow-hidden">
@@ -553,10 +644,14 @@ const pickChain = React.useCallback((choice) => {
         onDuplicate={onDuplicate}
         onRemove={onRemove}
         extraButtons={[
-          <SurfaceToggleButton key="surf" onClick={handleSurfaceToggle} isActive={surface} />,
-          <SequenceButton key="seq" onClick={() => onCreateSequenceFromStructure(id)} />,
-          <DistanceMatrixButton key="dm" onClick={handleMatrixClick} title='Build distance matrix from structure' />,
-          <DownloadButton key="dl" onClick={handleDownload} />
+          { element: <SurfaceToggleButton onClick={handleSurfaceToggle} isActive={surface} />,
+           tooltip: surface ? "Hide surface" : "Show surface" },
+          { element: <SequenceButton onClick={() => onCreateSequenceFromStructure(id)} />,
+           tooltip: "Extract sequences from structure" },
+          { element: <DistanceMatrixButton onClick={handleMatrixClick} title='Build distance matrix from structure' />,
+           tooltip: "Generate residue distance matrix" },
+          { element: <DownloadButton onClick={handleDownload} />,
+           tooltip: "Download PDB file" }
         ]}
       />
 
@@ -945,19 +1040,24 @@ const handleGridMouseLeave = useCallback(() => {
           setPanelData={setPanelData}
           extraButtons={
             isNuc
-              ? [  
-                  <CodonToggleButton
-                    onClick={() => setCodonMode(m => !m)}
-                    isActive={codonMode}
-                  />,
-                  <TranslateButton onClick={() => onDuplicateTranslate(id)} />,
-                  <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />,
-                  <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />,
-                  <DistanceMatrixButton onClick={() => onGenerateDistance(id)} title="Build matrix with normalized hamming distance" />,
-                  <DownloadButton onClick={handleDownload} />
+              ? [
+                  { element: <CodonToggleButton onClick={() => setCodonMode(m => !m)} isActive={codonMode} />, tooltip: "Toggle codon mode" },
+                  { element: <TranslateButton onClick={() => onDuplicateTranslate(id)} />, tooltip: "Translate to amino acids" },
+                  { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
+                  { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />,
+                   tooltip: "Compute per-site statistics (conservation and gap fraction)" },
+                  { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)}/>,
+                   tooltip: "Build distance matrix (normalized hamming)" },
+                  { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
                 ]
-              : [  <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />,
-          <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />,<DistanceMatrixButton onClick={() => onGenerateDistance(id)} title="Build matrix with normalized hamming distance" />,<DownloadButton onClick={handleDownload} />]
+              : [
+                  { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
+                  { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, 
+                   tooltip: "Compute per-site statistics (conservation and gap fraction)" },
+                  { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)} />,
+                   tooltip: "Build distance matrix (normalized hamming)" },
+                  { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
+                ]
           }
           onDuplicate={onDuplicate}
           onLinkClick={onLinkClick}
@@ -1120,15 +1220,13 @@ const TreePanel = React.memo(function TreePanel({
       isEligibleLinkTarget={isEligibleLinkTarget}
       isLinkModeActive={isLinkModeActive}
       extraButtons={[
-          <RadialToggleButton
-            onClick={handleRadialToggle}
-            isActive={RadialMode}
-          />,
-          <DistanceMatrixButton
-            onClick={() => onGenerateDistance(id)}
-          />,
-          <DownloadButton onClick={handleDownload} />
-        ]}
+      { element: <RadialToggleButton onClick={handleRadialToggle} isActive={RadialMode}  />,
+       tooltip: "Switch tree view" },
+      { element: <DistanceMatrixButton   onClick={() => onGenerateDistance(id)}  />,
+       tooltip: "Build distance matrix from tree" },
+      { element: <DownloadButton onClick={handleDownload} />,
+       tooltip: "Download tree" }
+     ]}
         linkBadges={linkBadges}
         onRestoreLink={onRestoreLink}
         onUnlink={onUnlink}
@@ -1192,7 +1290,9 @@ const NotepadPanel = React.memo(function NotepadPanel({
         setPanelData={setPanelData}
         onDuplicate={onDuplicate}
         onRemove={onRemove}
-        extraButtons={[ <DownloadButton onClick={handleDownload} /> ]}
+        extraButtons={[  
+        { element: <DownloadButton onClick={handleDownload} />,
+          tooltip: "Download txt" } ]}
       />
       <div className="flex-1 p-2">
 <textarea
@@ -1325,16 +1425,18 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
       onUnlink={onUnlink}
       colorForLink={colorForLink}
       onRemove={onRemove}
-      extraButtons={[ 
-        <LogYButton
-        onClick={() => {
+      extraButtons={[
+      { element: <LogYButton onClick={() => {
           setPanelData(prev => ({
             ...prev,
             [id]: { ...prev[id], yLog: !yLog }
           }));
           setYLog(v => !v);
-        }} isActive={yLog}/>,
-        <DownloadButton onClick={handleDownload} />]}
+        }} isActive={yLog} />,
+       tooltip: "Toggle log scale on the y axis"},
+      { element: <DownloadButton onClick={handleDownload} />,
+       tooltip: "Download data" }
+      ]}
       />
     <div className="p-2">
       {isTabular && (

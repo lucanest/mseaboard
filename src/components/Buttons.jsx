@@ -6,7 +6,7 @@ export function DuplicateButton({ onClick }) {
     <button
       onClick={onClick}
       className="p-0.5"
-      title="Duplicate panel"
+      //title="Duplicate panel"
     >
       <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 border border-gray-400 hover:bg-blue-300">
         <DocumentDuplicateIcon className="w-5 h-5 text-blue-700 flex-shrink-0 -translate-y-[0px]" />
@@ -20,7 +20,7 @@ export function RemoveButton({ onClick }) {
     <button
       onClick={onClick}
       className="p-0.5"
-      title="Remove panel"
+      //title="Remove panel"
     >
       <span className="inline-flex items-center justify-center w-7 h-7
        rounded-lg bg-gray-100 border border-gray-400 hover:bg-red-300">
@@ -35,7 +35,7 @@ export function LinkButton({ onClick, isLinkModeActive, isEligibleLinkTarget }) 
     <button
         onClick={onClick}
         className="p-0.5"
-        title={'Link panel'}
+        //title={'Link panel'}
     >
       <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg hover:bg-yellow-300
 ${isLinkModeActive ? 'bg-blue-200' :'bg-gray-100'}
@@ -55,7 +55,7 @@ export function RadialToggleButton({ onClick, isActive }) {
     <button
       onClick={onClick}
       className="p-0.5"
-      title="Switch tree view"
+      //title="Switch tree view"
     >
       <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg
         ${isActive ? 'bg-gray-100' : 'bg-gray-100'}
@@ -73,7 +73,7 @@ export function CodonToggleButton({ onClick, isActive }) {
     <button
       onClick={onClick}
       className="p-0.5"
-      title="Toggle codon view"
+      //title="Toggle codon view"
     >
       <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg
         ${isActive ? 'bg-purple-200' : 'bg-gray-100'}
@@ -91,7 +91,7 @@ export function SiteStatsButton({ onClick }) {
     <button
       onClick={onClick}
       className="p-0.5"
-      title="Compute per-site conservation and gap fraction"
+      //title="Compute per-site conservation and gap fraction"
     >
       <span className="inline-flex items-center justify-center w-7 h-7
        rounded-lg bg-gray-100 border border-gray-400 hover:bg-orange-300">
@@ -106,7 +106,7 @@ export function SurfaceToggleButton({ onClick, isActive }) {
     <button
       onClick={onClick}
       className="p-0.5"
-      title="Show/hide surface"
+      //title="Show/hide surface"
     >
       <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg
         ${isActive ? 'bg-blue-200' : 'bg-gray-100'}
@@ -125,7 +125,7 @@ export function TranslateButton({ onClick }) {
       type="button"
       className="p-0.5"
       onClick={onClick}
-      title="Duplicate and translate to protein"
+      //title="Duplicate and translate to protein"
     >
       <span className="inline-flex items-center text-orange-700 justify-center w-7 h-7 rounded-lg bg-gray-100 border border-gray-400 hover:bg-orange-300">
           <LanguageIcon className="w-5 h-5 flex-shrink-0 -translate-y-[0px]" />
@@ -151,8 +151,7 @@ export function SeqlogoButton({ onClick }){
       type="button"
       className="p-0.5"
       onClick={onClick}
-      title="Generate sequence logo"
-      aria-label="Generate sequence logo"
+      //title="Generate sequence logo"
     >
       <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 border border-gray-400 hover:bg-pink-200">
         <SeqLogoGlyph className="w-5 h-5 text-gray-700 flex-shrink-0 -translate-y-[0px]" />
@@ -167,7 +166,7 @@ export function SequenceButton({ onClick }) {
       type="button"
       className="p-0.5"
       onClick={onClick}
-      title="Create sequence from structure"
+      //title="Extract sequences from structure"
     >
       <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 border border-gray-400 hover:bg-yellow-200">
         <CodeBracketIcon className="w-5 h-5 text-yellow-700 flex-shrink-0 -translate-y-[0px]" />
@@ -182,7 +181,7 @@ export function DistanceMatrixButton({ onClick, title = "Build distance matrix f
       type="button"
       className="p-0.5"
       onClick={onClick}
-      title={title}
+      //title={title}
     >
       <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 border border-gray-400 hover:bg-purple-300">
         <Squares2X2Icon className="w-5 h-5 text-purple-700 flex-shrink-0 -translate-y-[0px]" />
@@ -197,7 +196,7 @@ export function DownloadButton({ onClick, title = "Download" }) {
       type="button"
       onClick={onClick}
       className='p-0.5'
-      title={title}
+      //title={title}
     >
       <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 border border-gray-400 hover:bg-cyan-200">
         <ArrowDownTrayIcon className="w-5 h-5 text-cyan-700 flex-shrink-0 -translate-y-[0px]" />
@@ -217,13 +216,14 @@ function LogGlyph(props) {
   );
 }
 
-export function LogYButton({ onClick, isActive, title = "Toggle log scale on Y" }) {
+export function LogYButton({ onClick, isActive,  title = "Toggle log scale on Y" 
+}) {
   return (
     <button
       type="button"
       onClick={onClick}
       className='p-0.5'
-      title={title}
+      //title={title}
     >
       <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg
        ${isActive ? 'bg-orange-200' : 'bg-gray-100'}
