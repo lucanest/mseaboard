@@ -828,7 +828,7 @@ const throttledHighlight = useMemo(
       (col, originId) => {
         onHighlight(col, originId);
       },
-      0,
+      90,
       { leading: true, trailing: true }
     ),
   [onHighlight]
@@ -1145,6 +1145,7 @@ const handleGridMouseLeave = useCallback(() => {
               overflow: 'hidden',
               position: 'relative'
             }}
+            onMouseEnter={handleGridMouseLeave}
           >
             <div
               style={{
@@ -1172,9 +1173,11 @@ const handleGridMouseLeave = useCallback(() => {
                     title={rawId}
                     onMouseEnter={() => {
                       if (linkedTo) setHighlightedSequenceId(seqId);
+                      isNameHighlight || setHoveredRow(index);
                     }}
                     onMouseLeave={() => {
                       if (linkedTo) setHighlightedSequenceId(null);
+                      isNameHighlight || setHoveredRow(null);
                     }}
                   >
                     {shortId}
