@@ -1,4 +1,3 @@
-# MSEABOARD
 
 <img src="./animatedtitle.gif"/>
 
