@@ -46,7 +46,31 @@ function PanelHeader({
   const [hoveredBtn, setHoveredBtn] = useState(null);
   const [showTooltip, setShowTooltip] = useState(false);
   const tooltipTimer = useRef();
+  const [hoveredBadge, setHoveredBadge] = useState(null);
+  const [showBadgeTooltip, setShowBadgeTooltip] = useState(false);
+  const badgeTooltipTimer = useRef();
 
+
+  function handleBadgeEnter(partnerId) {
+  clearTimeout(badgeTooltipTimer.current);
+  setHoveredBadge(partnerId);
+  badgeTooltipTimer.current = setTimeout(() => setShowBadgeTooltip(true), 150);
+}
+function handleBadgeLeave() {
+  clearTimeout(badgeTooltipTimer.current);
+  setShowBadgeTooltip(false);
+  setHoveredBadge(null);
+}
+useEffect(() => {
+  return () => {
+    clearTimeout(tooltipTimer.current);
+    clearTimeout(badgeTooltipTimer.current);
+    setShowBadgeTooltip(false);
+    setHoveredBadge(null);
+    setShowTooltip(false);
+    setHoveredBtn(null);
+  };
+}, []);
   function handleBtnEnter(name) {
     clearTimeout(tooltipTimer.current);
     setHoveredBtn(name);
@@ -63,6 +87,9 @@ function PanelHeader({
     clearTimeout(tooltipTimer.current);
     setShowTooltip(false);
     setHoveredBtn(null);
+    clearTimeout(badgeTooltipTimer.current);
+    setShowBadgeTooltip(false);
+    setHoveredBadge(null);
   };
 }, []);
 
@@ -95,23 +122,29 @@ function ButtonWithHover({ name, children, ...props }) {
     </div>
   );
 }
-    const LinkBadge = ({ partnerId, active, title }) => {
-    const baseColor = colorForLink?.(id, partnerId, true) ?? 'bg-blue-400';
-    return (
-      <button
-        type="button"
-        className={`w-4 h-4 rounded-full shadow hover:scale-110
-          ${active ? baseColor : 'bg-gray-300'} 
-          ${!active ? `hover:bg-blue-300` : ''}`}
-        title={title}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (active) onUnlink?.(id, partnerId);
-          else onRestoreLink?.(id, partnerId);
-        }}
-      />
-    );
-  };
+
+const LinkBadge = ({ partnerId, active, title }) => {
+  const baseColor = colorForLink?.(id, partnerId, true) ?? 'bg-blue-400';
+  return (
+    <button
+      type="button"
+      className={`w-4 h-4 rounded-full shadow hover:scale-110
+        ${active ? baseColor : 'bg-gray-300'} 
+        ${!active ? `hover:bg-blue-300` : ''}`}
+      title={title}
+      onMouseEnter={() => handleBadgeEnter(partnerId)}
+      onMouseLeave={handleBadgeLeave}
+      onFocus={() => handleBadgeEnter(partnerId)}
+      onBlur={handleBadgeLeave}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (active) onUnlink?.(id, partnerId);
+        else onRestoreLink?.(id, partnerId);
+      }}
+    />
+  );
+};
+
   return (
     <div
   className="panel-drag-handle bg-gradient-to-b from-gray-100 to-white p-1 mb-2 cursor-move
@@ -123,9 +156,16 @@ function ButtonWithHover({ name, children, ...props }) {
       <div className="flex items-center gap-1 pl-1">
         {linkBadges.map(({ partnerId, active, title }) => (
           <div key={partnerId} className="w-5 h-5">
-            <LinkBadge partnerId={partnerId} active={active} title={title} />
+            <LinkBadge partnerId={partnerId} active={active} />
           </div>
         ))}
+      {showBadgeTooltip && hoveredBadge && (
+  <div className="absolute top-12 left-2 z-30 px-2 py-1
+    rounded-xl bg-gray-200 text-black text-sm pointer-events-none
+    transition-opacity whitespace-nowrap opacity-100 border border-gray-400">
+    {linkBadges.find(b => b.partnerId === hoveredBadge)?.title || hoveredBadge}
+  </div>
+)}
       </div>
       <div className="flex-1 flex justify-center">
         <EditableFilename
@@ -135,6 +175,7 @@ function ButtonWithHover({ name, children, ...props }) {
           prefix={prefix}
         />
       </div>
+
   <div
   className="flex flex-wrap items-center gap-1"
   onMouseLeave={handleBtnLeave}
