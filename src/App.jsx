@@ -25,7 +25,6 @@ import useElementSize from './hooks/useElementSize.js'
 const LABEL_WIDTH = 66;
 const CELL_SIZE = 24;
 
-
 function PanelHeader({
   id,
   prefix = '',
@@ -45,58 +44,50 @@ function PanelHeader({
 }) {
   const [hoveredBtn, setHoveredBtn] = useState(null);
   const [showTooltip, setShowTooltip] = useState(false);
-  const tooltipTimer = useRef();
   const [hoveredBadge, setHoveredBadge] = useState(null);
   const [showBadgeTooltip, setShowBadgeTooltip] = useState(false);
-  const badgeTooltipTimer = useRef();
 
+  // Refs for managing show/hide timers to prevent race conditions
+  const showTimer = useRef();
+  const hideTimer = useRef();
 
-// Centralized cleanup function for tooltips
+  // Centralized cleanup function for tooltips
   const clearAllTooltips = useCallback(() => {
-    clearTimeout(tooltipTimer.current);
+    clearTimeout(showTimer.current);
     setShowTooltip(false);
     setHoveredBtn(null);
-    clearTimeout(badgeTooltipTimer.current);
     setShowBadgeTooltip(false);
     setHoveredBadge(null);
   }, []);
 
-
   useEffect(() => {
     return () => {
-      clearAllTooltips();
+      clearTimeout(showTimer.current);
+      clearTimeout(hideTimer.current);
     };
+  }, []);
+
+
+  const handleEnter = useCallback((name, isBadge = false) => {
+    clearTimeout(hideTimer.current); // Cancel any pending hide action
+    showTimer.current = setTimeout(() => {
+      if (isBadge) {
+        setHoveredBadge(name);
+        setShowBadgeTooltip(true);
+      } else {
+        setHoveredBtn(name);
+        setShowTooltip(true);
+      }
+    }, 150);
+  }, []);
+
+  const handleLeave = useCallback(() => {
+    clearTimeout(showTimer.current); // Cancel any pending show action
+    hideTimer.current = setTimeout(() => {
+      clearAllTooltips();
+    }, 5); // Give a 5ms grace period for moving to the tooltip
   }, [clearAllTooltips]);
 
-const hoverToken = useRef(0);
-
-function handleBtnEnter(name) {
-  setHoveredBtn(name);
-  hoverToken.current++;
-  const token = hoverToken.current;
-  tooltipTimer.current = setTimeout(() => {
-    if (hoverToken.current === token && hoveredBtn === name) {
-      setShowTooltip(true);
-    }
-  }, 150);
-}
-function handleBtnLeave() {
-  clearAllTooltips();
-}
-
-function handleBadgeEnter(partnerId) {
-  setHoveredBadge(partnerId);
-  hoverToken.current++;
-  const token = hoverToken.current;
-  badgeTooltipTimer.current = setTimeout(() => {
-    if (hoverToken.current === token && hoveredBadge === partnerId) {
-      setShowBadgeTooltip(true);
-    }
-  }, 150);
-}
-function handleBadgeLeave() {
-  clearAllTooltips();
-}
 
   useEffect(() => {
     if (forceHideTooltip) {
@@ -104,72 +95,73 @@ function handleBadgeLeave() {
     }
   }, [forceHideTooltip, clearAllTooltips]);
 
-  // Tooltip text for each button
   const tooltipMap = {
     duplicate: "Duplicate panel",
     remove: "Remove panel",
     link: "Link panel",
   };
 
-// Helper to wrap buttons with hover tracking
-function ButtonWithHover({ name, children, ...props }) {
-  return (
-    <div
-      className="w-7 h-7 flex items-center justify-center"
-      onMouseEnter={() => handleBtnEnter(name)}
-      onMouseLeave={handleBtnLeave}
-      onFocus={() => handleBtnEnter(name)}
-      onBlur={handleBtnLeave}
-    >
-      {children}
-    </div>
-  );
-}
+  function ButtonWithHover({ name, children }) {
+    return (
+      <div
+        className="w-7 h-7 flex items-center justify-center"
+        onMouseEnter={() => handleEnter(name, false)}
+        onMouseLeave={handleLeave}
+        onFocus={() => handleEnter(name, false)}
+        onBlur={handleLeave}
+      >
+        {children}
+      </div>
+    );
+  }
 
-const LinkBadge = ({ partnerId, active, title }) => {
-  const baseColor = colorForLink?.(id, partnerId, true) ?? 'bg-blue-400';
-  return (
-    <button
-      type="button"
-      className={`w-4 h-4 rounded-full shadow hover:scale-110
-        ${active ? baseColor : 'bg-gray-300'} 
-        ${!active ? `hover:bg-blue-300` : ''}`}
-      title={title}
-      onMouseEnter={() => handleBadgeEnter(partnerId)}
-      onMouseLeave={handleBadgeLeave}
-      onFocus={() => handleBadgeEnter(partnerId)}
-      onBlur={handleBadgeLeave}
-      onClick={(e) => {
-        e.stopPropagation();
-        if (active) onUnlink?.(id, partnerId);
-        else onRestoreLink?.(id, partnerId);
-      }}
-    />
-  );
-};
+  const LinkBadge = ({ partnerId, active }) => {
+    const baseColor = colorForLink?.(id, partnerId, true) ?? 'bg-blue-400';
+    return (
+      <button
+        type="button"
+        className={`w-4 h-4 rounded-full shadow hover:scale-110
+          ${active ? baseColor : 'bg-gray-300'} 
+          ${!active ? `hover:bg-blue-300` : ''}`}
+        onMouseEnter={() => handleEnter(partnerId, true)}
+        onMouseLeave={handleLeave}
+        onFocus={() => handleEnter(partnerId, true)}
+        onBlur={handleLeave}
+        onClick={(e) => {
+          e.stopPropagation();
+          if (active) onUnlink?.(id, partnerId);
+          else onRestoreLink?.(id, partnerId);
+        }}
+      />
+    );
+  };
 
   return (
     <div
-  className="panel-drag-handle bg-gradient-to-b from-gray-100 to-white p-1 mb-2 cursor-move
+      className="panel-drag-handle bg-gradient-to-b from-gray-100 to-white p-1 mb-2 cursor-move
              flex flex-wrap items-center justify-between gap-x-2 gap-y-1 font-bold"
-  onMouseLeave={clearAllTooltips}
-  onBlur={clearAllTooltips}
-  tabIndex={-1}
->
+      onBlur={handleLeave}
+      tabIndex={-1}
+    >
       <div className="flex items-center gap-1 pl-1">
-        {linkBadges.map(({ partnerId, active, title }) => (
+        {linkBadges.map(({ partnerId, active }) => (
           <div key={partnerId} className="w-5 h-5">
             <LinkBadge partnerId={partnerId} active={active} />
           </div>
         ))}
-      {showBadgeTooltip && hoveredBadge && (
-  <div className="absolute top-12 left-2 z-30 px-2 py-1
-    rounded-xl bg-gray-200 text-black text-sm
-    transition-opacity whitespace-nowrap opacity-100 border border-gray-400">
-    {linkBadges.find(b => b.partnerId === hoveredBadge)?.title || hoveredBadge}
-  </div>
-)}
       </div>
+
+      {showBadgeTooltip && hoveredBadge && (
+        <div className="absolute top-12 left-2 z-30 px-2 py-1
+          rounded-xl bg-gray-200 text-black text-sm
+          transition-opacity whitespace-nowrap opacity-100 border border-gray-400"
+          onMouseEnter={() => clearTimeout(hideTimer.current)}
+          onMouseLeave={handleLeave}
+        >
+          {linkBadges.find(b => b.partnerId === hoveredBadge)?.title || hoveredBadge}
+        </div>
+      )}
+
       <div className="flex-1 flex justify-center">
         <EditableFilename
           id={id}
@@ -179,60 +171,56 @@ const LinkBadge = ({ partnerId, active, title }) => {
         />
       </div>
 
-  <div
-  className="flex flex-wrap items-center gap-1"
-  onMouseLeave={handleBtnLeave}
-  onBlur={handleBtnLeave}
-  tabIndex={-1}
->
-            <div className="flex flex-wrap items-center gap-1">
-        {extraButtons.map((btn, i) => {
-          // Support both old (element only) and new ({element, tooltip}) formats
-          const name = `extra${i}`;
-          const tooltipText = btn.tooltip || tooltipMap[name] || "Extra action";
-          const element = btn.element || btn; // fallback for old usage
-          tooltipMap[name] = tooltipText; // ensure tooltipMap has it
+      <div
+        className="flex flex-wrap items-center gap-1"
+        onBlur={handleLeave}
+        tabIndex={-1}
+      >
+        <div className="flex flex-wrap items-center gap-1">
+          {extraButtons.map((btn, i) => {
+            const name = `extra${i}`;
+            const tooltipText = btn.tooltip || tooltipMap[name] || "Extra action";
+            const element = btn.element || btn;
+            tooltipMap[name] = tooltipText;
 
-          return (
-            <ButtonWithHover key={i} name={name}>
-              {element}
-            </ButtonWithHover>
-          );
-        })}
-        <ButtonWithHover name="duplicate">
-          <DuplicateButton
-            tooltip={null}
-            onClick={() => onDuplicate(id)}
-          />
-        </ButtonWithHover>
-        {onLinkClick && (
-          <ButtonWithHover name="link">
-            <LinkButton
-              onClick={() => onLinkClick(id)}
-              isLinkModeActive={isLinkModeActive}
-              isEligibleLinkTarget={isEligibleLinkTarget}
-            />
+            return (
+              <ButtonWithHover key={i} name={name}>
+                {element}
+              </ButtonWithHover>
+            );
+          })}
+          <ButtonWithHover name="duplicate">
+            <DuplicateButton tooltip={null} onClick={() => onDuplicate(id)} />
           </ButtonWithHover>
-        )}
-        <ButtonWithHover name="remove">
-          <RemoveButton
-            onClick={() => onRemove(id)}/>
-        </ButtonWithHover>
+          {onLinkClick && (
+            <ButtonWithHover name="link">
+              <LinkButton
+                onClick={() => onLinkClick(id)}
+                isLinkModeActive={isLinkModeActive}
+                isEligibleLinkTarget={isEligibleLinkTarget}
+              />
+            </ButtonWithHover>
+          )}
+          <ButtonWithHover name="remove">
+            <RemoveButton onClick={() => onRemove(id)} />
+          </ButtonWithHover>
+        </div>
       </div>
-      </div>
-      {/* Fixed tooltip in upper right of panel header */}
+
       {showTooltip && hoveredBtn && (
-  <div className="absolute text-center top-12 right-2 z-30 px-2 py-1
-         rounded-xl bg-gray-200 text-black text-sm
-        transition-opacity whitespace-nowrap opacity-100 border border-gray-400">
-    {tooltipMap[hoveredBtn] ||
-      (hoveredBtn.startsWith("extra") ? "Extra action" : "")}
-  </div>
-)}
+        <div className="absolute text-center top-12 right-2 z-30 px-2 py-1
+               rounded-xl bg-gray-200 text-black text-sm
+              transition-opacity whitespace-nowrap opacity-100 border border-gray-400"
+          onMouseEnter={() => clearTimeout(hideTimer.current)} // <-- Keep tooltip open
+          onMouseLeave={handleLeave} // <-- Hide when mouse leaves tooltip
+        >
+          {tooltipMap[hoveredBtn] ||
+            (hoveredBtn.startsWith("extra") ? "Extra action" : "")}
+        </div>
+      )}
     </div>
   );
 }
-
 function EditableFilename({ id, filename, setPanelData, prefix = '', className = '' }) {
   const [editing, setEditing] = useState(false);
   const [filenameInput, setFilenameInput] = useState(filename);
