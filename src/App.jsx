@@ -71,23 +71,20 @@ function PanelHeader({
 const hoverToken = useRef(0);
 
 function handleBtnEnter(name) {
-  clearAllTooltips();
   setHoveredBtn(name);
   hoverToken.current++;
   const token = hoverToken.current;
   tooltipTimer.current = setTimeout(() => {
-    // Only show if still valid
     if (hoverToken.current === token && hoveredBtn === name) {
       setShowTooltip(true);
     }
   }, 150);
 }
-  function handleBtnLeave() {
-    clearAllTooltips();
-  }
+function handleBtnLeave() {
+  clearAllTooltips();
+}
 
 function handleBadgeEnter(partnerId) {
-  clearAllTooltips();
   setHoveredBadge(partnerId);
   hoverToken.current++;
   const token = hoverToken.current;
@@ -97,9 +94,9 @@ function handleBadgeEnter(partnerId) {
     }
   }, 150);
 }
-  function handleBadgeLeave() {
-    clearAllTooltips();
-  }
+function handleBadgeLeave() {
+  clearAllTooltips();
+}
 
   useEffect(() => {
     if (forceHideTooltip) {
@@ -167,7 +164,7 @@ const LinkBadge = ({ partnerId, active, title }) => {
         ))}
       {showBadgeTooltip && hoveredBadge && (
   <div className="absolute top-12 left-2 z-30 px-2 py-1
-    rounded-xl bg-gray-200 text-black text-sm pointer-events-none
+    rounded-xl bg-gray-200 text-black text-sm
     transition-opacity whitespace-nowrap opacity-100 border border-gray-400">
     {linkBadges.find(b => b.partnerId === hoveredBadge)?.title || hoveredBadge}
   </div>
@@ -226,7 +223,7 @@ const LinkBadge = ({ partnerId, active, title }) => {
       {/* Fixed tooltip in upper right of panel header */}
       {showTooltip && hoveredBtn && (
   <div className="absolute text-center top-12 right-2 z-30 px-2 py-1
-         rounded-xl bg-gray-200 text-black text-sm pointer-events-none
+         rounded-xl bg-gray-200 text-black text-sm
         transition-opacity whitespace-nowrap opacity-100 border border-gray-400">
     {tooltipMap[hoveredBtn] ||
       (hoveredBtn.startsWith("extra") ? "Extra action" : "")}
