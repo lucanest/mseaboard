@@ -42,7 +42,7 @@ function PanelHeader({
   onUnlink,
   colorForLink,
   forceHideTooltip = false,
-}) {// Track which button is hovered
+}) {
   const [hoveredBtn, setHoveredBtn] = useState(null);
   const [showTooltip, setShowTooltip] = useState(false);
   const tooltipTimer = useRef();
@@ -51,55 +51,61 @@ function PanelHeader({
   const badgeTooltipTimer = useRef();
 
 
-  function handleBadgeEnter(partnerId) {
-  clearTimeout(badgeTooltipTimer.current);
-  setHoveredBadge(partnerId);
-  badgeTooltipTimer.current = setTimeout(() => setShowBadgeTooltip(true), 150);
-}
-function handleBadgeLeave() {
-  clearTimeout(badgeTooltipTimer.current);
-  setShowBadgeTooltip(false);
-  setHoveredBadge(null);
-}
-useEffect(() => {
-  return () => {
+// Centralized cleanup function for tooltips
+  const clearAllTooltips = useCallback(() => {
     clearTimeout(tooltipTimer.current);
+    setShowTooltip(false);
+    setHoveredBtn(null);
     clearTimeout(badgeTooltipTimer.current);
     setShowBadgeTooltip(false);
     setHoveredBadge(null);
-    setShowTooltip(false);
-    setHoveredBtn(null);
-  };
-}, []);
-  function handleBtnEnter(name) {
-    clearTimeout(tooltipTimer.current);
-    setHoveredBtn(name);
-    tooltipTimer.current = setTimeout(() => setShowTooltip(true), 150); // 150ms delay
-  }
-  function handleBtnLeave() {
-    clearTimeout(tooltipTimer.current);
-    setShowTooltip(false);
-    setHoveredBtn(null);
-}
+  }, []);
+
+
   useEffect(() => {
-  // Cleanup on unmount
-  return () => {
-    clearTimeout(tooltipTimer.current);
-    setShowTooltip(false);
-    setHoveredBtn(null);
-    clearTimeout(badgeTooltipTimer.current);
-    setShowBadgeTooltip(false);
-    setHoveredBadge(null);
-  };
-}, []);
+    return () => {
+      clearAllTooltips();
+    };
+  }, [clearAllTooltips]);
+
+const hoverToken = useRef(0);
+
+function handleBtnEnter(name) {
+  clearAllTooltips();
+  setHoveredBtn(name);
+  hoverToken.current++;
+  const token = hoverToken.current;
+  tooltipTimer.current = setTimeout(() => {
+    // Only show if still valid
+    if (hoverToken.current === token && hoveredBtn === name) {
+      setShowTooltip(true);
+    }
+  }, 150);
+}
+  function handleBtnLeave() {
+    clearAllTooltips();
+  }
+
+function handleBadgeEnter(partnerId) {
+  clearAllTooltips();
+  setHoveredBadge(partnerId);
+  hoverToken.current++;
+  const token = hoverToken.current;
+  badgeTooltipTimer.current = setTimeout(() => {
+    if (hoverToken.current === token && hoveredBadge === partnerId) {
+      setShowBadgeTooltip(true);
+    }
+  }, 150);
+}
+  function handleBadgeLeave() {
+    clearAllTooltips();
+  }
 
   useEffect(() => {
     if (forceHideTooltip) {
-      clearTimeout(tooltipTimer.current);
-      setShowTooltip(false);
-      setHoveredBtn(null);
+      clearAllTooltips();
     }
-  }, [forceHideTooltip]);
+  }, [forceHideTooltip, clearAllTooltips]);
 
   // Tooltip text for each button
   const tooltipMap = {
@@ -108,7 +114,7 @@ useEffect(() => {
     link: "Link panel",
   };
 
-  // Helper to wrap buttons with hover tracking
+// Helper to wrap buttons with hover tracking
 function ButtonWithHover({ name, children, ...props }) {
   return (
     <div
@@ -149,8 +155,8 @@ const LinkBadge = ({ partnerId, active, title }) => {
     <div
   className="panel-drag-handle bg-gradient-to-b from-gray-100 to-white p-1 mb-2 cursor-move
              flex flex-wrap items-center justify-between gap-x-2 gap-y-1 font-bold"
-  onMouseLeave={handleBtnLeave}
-  onBlur={handleBtnLeave}
+  onMouseLeave={clearAllTooltips}
+  onBlur={clearAllTooltips}
   tabIndex={-1}
 >
       <div className="flex items-center gap-1 pl-1">
