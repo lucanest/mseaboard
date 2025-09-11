@@ -398,3 +398,122 @@ export function computeSiteStats(msa, codonMode = false){
   const siteHeader = codonMode ? "codon" : "site";
   return { headers: [siteHeader, "conservation", "gap_fraction"], rows };
 };
+
+/**
+ * Neighbor Joining algorithm to build a phylogenetic tree from a distance matrix
+ * Based on the algorithm by Saitou and Nei (1987)
+ */
+
+function neighborJoining(distanceMatrix, labels) {
+  // Create a deep copy of the distance matrix to avoid modifying the original array.
+  let D = distanceMatrix.map(row => [...row]);
+  let currentLabels = [...labels];
+
+  // The base case for the recursion: if only two taxa are left, join them.
+  if (currentLabels.length === 2) {
+    const dist = D[0][1] / 2;
+    return `(${currentLabels[0]}:${dist.toFixed(6)},${currentLabels[1]}:${dist.toFixed(6)});`;
+  }
+
+  // The main loop continues until only two nodes (clusters) remain.
+  while (currentLabels.length > 2) {
+    const n = currentLabels.length;
+
+    // Calculate the net divergence (sum of distances) for each node.
+    const r = D.map(row => row.reduce((sum, val) => sum + val, 0));
+
+    // Calculate the Q-matrix, which adjusts distances based on net divergence.
+    const Q = D.map((row, i) =>
+      row.map((val, j) => {
+        if (i === j) {
+          return 0;
+        }
+        return (n - 2) * val - r[i] - r[j];
+      })
+    );
+
+    // Find the pair of nodes with the minimum Q value. These are the neighbors to be joined.
+    let minQ = Infinity;
+    let minI = -1;
+    let minJ = -1;
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        if (Q[i][j] < minQ) {
+          minQ = Q[i][j];
+          minI = i;
+          minJ = j;
+        }
+      }
+    }
+
+    // Calculate the branch lengths from the new internal node to the two joined nodes.
+    const dist_i_u = 0.5 * D[minI][minJ] + (r[minI] - r[minJ]) / (2 * (n - 2));
+    const dist_j_u = D[minI][minJ] - dist_i_u;
+
+    // Create the new node's label in Newick format, preserving the tree structure.
+    const newNodeLabel = `(${currentLabels[minI]}:${dist_i_u.toFixed(6)},${currentLabels[minJ]}:${dist_j_u.toFixed(6)})`;
+
+    // Calculate the distances from the new node to all other existing nodes.
+    const newDistances = [];
+    for (let k = 0; k < n; k++) {
+      if (k !== minI && k !== minJ) {
+        const dist = 0.5 * (D[minI][k] + D[minJ][k] - D[minI][minJ]);
+        newDistances.push(dist);
+      }
+    }
+
+    // --- Update the distance matrix and labels for the next iteration ---
+
+    // Create a new matrix by removing the rows and columns of the joined nodes.
+    const newD = [];
+    const newLabels = [];
+    for (let i = 0; i < n; i++) {
+      if (i !== minI && i !== minJ) {
+        const newRow = [];
+        for (let j = 0; j < n; j++) {
+          if (j !== minI && j !== minJ) {
+            newRow.push(D[i][j]);
+          }
+        }
+        newD.push(newRow);
+        newLabels.push(currentLabels[i]);
+      }
+    }
+
+    // Add the new distances for the newly created node.
+    for (let i = 0; i < newDistances.length; i++) {
+      newD[i].push(newDistances[i]);
+    }
+    newD.push([...newDistances, 0]); // Add the row for the new node.
+    newLabels.push(newNodeLabel);
+
+    // Set the updated matrix and labels for the next loop iteration.
+    D = newD;
+    currentLabels = newLabels;
+  }
+
+  // Once two nodes are left, join them to form the final tree.
+  const dist = D[0][1] / 2;
+  return `(${currentLabels[0]}:${dist.toFixed(6)},${currentLabels[1]}:${dist.toFixed(6)});`;
+}
+
+
+/**
+ * Wrapper function to build tree from distance matrix data
+ */
+export function buildTreeFromDistanceMatrix(labels, matrix) {
+  try {
+    // Validate input
+    if (!labels || !matrix || labels.length !== matrix.length) {
+      throw new Error('Invalid distance matrix data');
+    }
+
+    // Run neighbor joining algorithm
+    const newickTree = neighborJoining(matrix, labels);
+    
+    return newickTree;
+  } catch (error) {
+    console.error('Error building tree:', error);
+    throw new Error(`Failed to build tree: ${error.message}`);
+  }
+}

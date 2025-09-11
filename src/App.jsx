@@ -7,11 +7,12 @@ import GridLayout from 'react-grid-layout';
 import ReactDOM from 'react-dom';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SurfaceToggleButton, SiteStatsButton, LogYButton,
-SeqlogoButton, SequenceButton, DistanceMatrixButton, DownloadButton, GitHubButton} from './components/Buttons.jsx';
+SeqlogoButton, SequenceButton, DistanceMatrixButton, TreeButton,
+ DownloadButton, GitHubButton} from './components/Buttons.jsx';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, threeToOne,
 parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick, newickToDistanceMatrix,
-downloadText, detectFileType, toFasta, toPhylip, computeSiteStats} from './components/Utils.jsx';
+downloadText, detectFileType, toFasta, toPhylip, computeSiteStats,buildTreeFromDistanceMatrix} from './components/Utils.jsx';
 import { residueColors, logoColors } from './constants/colors.js';
 import { TitleFlip, AnimatedList } from './components/Animations.jsx';
 import { FixedSizeGrid as Grid } from 'react-window';
@@ -492,7 +493,7 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
 const HeatmapPanel = React.memo(function HeatmapPanel({
   id, data, onRemove, onDuplicate, onLinkClick, isLinkModeActive,isEligibleLinkTarget,
   hoveredPanelId, setHoveredPanelId, setPanelData, onReupload, highlightedSite,
-  highlightOrigin, onHighlight, justLinkedPanels,linkBadges, onRestoreLink, colorForLink, onUnlink,
+  highlightOrigin, onHighlight, justLinkedPanels,linkBadges, onRestoreLink, colorForLink, onUnlink, onGenerateTree
 }) {
   const { labels, matrix, filename } = data || {};
   const [containerRef, dims] = useElementSize({ debounceMs: 90 });
@@ -557,8 +558,14 @@ return (
           colorForLink={colorForLink}
           onRemove={onRemove}
           extraButtons={[
-            { element: <DownloadButton onClick={handleDownload} />,
-             tooltip: "Download distance matrix" }
+            { 
+              element: <TreeButton onClick={() => onGenerateTree(id)} />,
+              tooltip: "Build tree from distance matrix (Neighbor Joining)" 
+            },
+            { 
+              element: <DownloadButton onClick={handleDownload} />,
+              tooltip: "Download distance matrix" 
+            }
           ]}
     />
     {/* Add padding container around the heatmap */}
@@ -1827,6 +1834,7 @@ const PanelWrapper = React.memo(({
   handleCreateSiteStatsHistogram,
   handleAlignmentToDistance,
   handleTreeToDistance,
+  handleHeatmapToTree,
   handleCreateSequenceFromStructure,
   handleStructureToDistance,
   setPanelData
@@ -1876,7 +1884,8 @@ const PanelWrapper = React.memo(({
       onGenerateDistance: handleTreeToDistance
     }),
     ...(panel.type === 'heatmap' && {
-      onHighlight: handleHighlight
+      onHighlight: handleHighlight,
+      onGenerateTree: handleHeatmapToTree 
     }),
     ...(panel.type === 'structure' && {
       onCreateSequenceFromStructure: handleCreateSequenceFromStructure,
@@ -2427,6 +2436,36 @@ const handleAlignmentToDistance = useCallback((id) => {
   });
 }, [panelData, addPanel]);
 
+const handleHeatmapToTree = useCallback((id) => {
+  const heatmapData = panelData[id];
+  if (!heatmapData?.labels || !heatmapData?.matrix) {
+    alert('No valid distance matrix data found.');
+    return;
+  }
+
+  try {
+    // Use the actual neighbor joining implementation
+    const newickString = buildTreeFromDistanceMatrix(heatmapData.labels, heatmapData.matrix);
+    
+    const baseName = (heatmapData.filename || 'distance_matrix').replace(/\.[^.]+$/, '');
+    
+    addPanel({
+      type: 'tree',
+      data: {
+        data: newickString,
+        filename: `${baseName}.nwk`,
+        isNhx: false
+      },
+      basedOnId: id,
+      layoutHint: { w: 4, h: 20 },
+      autoLinkTo: id,
+    });
+  } catch (e) {
+    alert(`Failed to build tree from distance matrix: ${e.message}`);
+    console.error('Tree building error:', e);
+  }
+}, [panelData, addPanel]);
+
   const handleRestoreLink = useCallback((selfId, partnerId) => {
     // Must exist to restore
     const selfExists   = panels.some(p => p.i === selfId);
@@ -2448,6 +2487,8 @@ const handleAlignmentToDistance = useCallback((id) => {
     setJustLinkedPanels([selfId, partnerId]);
     setTimeout(() => setJustLinkedPanels([]), 1000);
 }, [panels, assignPairColor]);
+
+
 
 const handleLinkClick = useCallback((id) => {
   
@@ -3434,6 +3475,7 @@ const canLink = (typeA, typeB) =>
         handleCreateSiteStatsHistogram={handleCreateSiteStatsHistogram}
         handleAlignmentToDistance={handleAlignmentToDistance}
         handleTreeToDistance={handleTreeToDistance}
+        handleHeatmapToTree={handleHeatmapToTree}
         handleCreateSequenceFromStructure={handleCreateSequenceFromStructure}
         handleStructureToDistance={handleStructureToDistance}
         setPanelData={setPanelData}
