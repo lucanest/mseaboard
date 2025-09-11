@@ -774,6 +774,15 @@ const MSACell = React.memo(function MSACell({
   );
 });
 
+const MemoizedMSACell = React.memo(MSACell, (prevProps, nextProps) => {
+  return (
+    prevProps.char === nextProps.char &&
+    prevProps.isHoverHighlight === nextProps.isHoverHighlight &&
+    prevProps.isLinkedHighlight === nextProps.isLinkedHighlight &&
+    prevProps.isPersistentHighlight === nextProps.isPersistentHighlight
+  );
+});
+
 const AlignmentPanel = React.memo(function AlignmentPanel({
   id,
   data,
@@ -990,50 +999,51 @@ const handleGridMouseLeave = useCallback(() => {
   );
 
 
-  const Cell = useCallback(
-    ({ columnIndex, rowIndex, style }) => {
-      const char = msaData[rowIndex].sequence[columnIndex];
-      const codonIndex = Math.floor(columnIndex / 3);
-      const idx = codonMode ? codonIndex : columnIndex;
+const Cell = useCallback(
+  ({ columnIndex, rowIndex, style }) => {
+    const char = msaData[rowIndex].sequence[columnIndex];
+    const codonIndex = Math.floor(columnIndex / 3);
+    const idx = codonMode ? codonIndex : columnIndex;
 
-      const persistentHighlights = data.highlightedSites || [];
-      const isPersistentHighlight = persistentHighlights.includes(idx);
+    const persistentHighlights = data.highlightedSites || [];
+    const isPersistentHighlight = persistentHighlights.includes(idx);
 
-      const isHoverHighlight = codonMode
-        ? hoveredCol != null && hoveredCol === codonIndex
-        : hoveredCol === columnIndex;
+    const isHoverHighlight = codonMode
+      ? hoveredCol != null && hoveredCol === codonIndex
+      : hoveredCol === columnIndex;
 
-      const isLinkedHighlight =
-        linkedTo &&
-        highlightedSite != null &&
-        hoveredPanelId !== id &&   
-        (linkedTo === highlightOrigin || id === highlightOrigin) &&
-        (codonMode ? codonIndex === highlightedSite : columnIndex === highlightedSite);
+    const isLinkedHighlight =
+      linkedTo &&
+      highlightedSite != null &&
+      hoveredPanelId !== id &&   
+      (linkedTo === highlightOrigin || id === highlightOrigin) &&
+      (codonMode ? codonIndex === highlightedSite : columnIndex === highlightedSite);
 
-      return (
-        <MSACell
-          key={`${rowIndex}-${columnIndex}`}
-          columnIndex={columnIndex}
-          rowIndex={rowIndex}
-          style={style}
-          char={char}
-          isHoverHighlight={isHoverHighlight}
-          isLinkedHighlight={isLinkedHighlight}
-          isPersistentHighlight={isPersistentHighlight}
-        />
-      );
-    },
-    [
-      msaData,
-      codonMode,
-      hoveredCol,
-      highlightedSite,
-      highlightOrigin,
-      linkedTo,
-      id,
-      data.highlightedSites
-    ]
-  );
+    return (
+      <MemoizedMSACell
+        key={`${rowIndex}-${columnIndex}`}
+        columnIndex={columnIndex}
+        rowIndex={rowIndex}
+        style={style}
+        char={char}
+        isHoverHighlight={isHoverHighlight}
+        isLinkedHighlight={isLinkedHighlight}
+        isPersistentHighlight={isPersistentHighlight}
+      />
+    );
+  },
+  [
+    msaData,
+    codonMode,
+    hoveredCol,
+    highlightedSite,
+    highlightOrigin,
+    linkedTo,
+    id,
+    data.highlightedSites,
+    hoveredPanelId
+  ]
+);
 
   const sequenceLabels = useMemo(() => {
     return msaData.map((seq, index) => {
