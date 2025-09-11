@@ -560,7 +560,14 @@ return (
           extraButtons={[
             { 
               element: <TreeButton onClick={() => onGenerateTree(id)} />,
-              tooltip: "Build tree from distance matrix (Neighbor Joining)" 
+              tooltip: (
+
+                <>
+                Build tree from distances<br />
+                (Neighbor-Joining)
+                </>
+              )
+              
             },
             { 
               element: <DownloadButton onClick={handleDownload} />,
@@ -1094,17 +1101,41 @@ const Cell = useCallback(
                   { element: <TranslateButton onClick={() => onDuplicateTranslate(id)} />, tooltip: "Translate to amino acids" },
                   { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
                   { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />,
-                   tooltip: "Compute per-site statistics (conservation and gap fraction)" },
+                   tooltip: (
+                              <>
+                                Compute per-site statistics<br />
+                                (conservation and gap fraction)
+                              </>
+                  ) },
                   { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)}/>,
-                   tooltip: "Build distance matrix (normalized hamming)" },
+                   tooltip: (
+                    <>
+                    Build distance matrix <br />
+                    (normalized hamming)
+                    </>
+                   )
+                  
+                  },
                   { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
                 ]
               : [
                   { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
                   { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, 
-                   tooltip: "Compute per-site statistics (conservation and gap fraction)" },
+                   tooltip: (
+                              <>
+                                Compute per-site statistics<br />
+                                (conservation and gap fraction)
+                              </>
+                  ) },
                   { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)} />,
-                   tooltip: "Build distance matrix (normalized hamming)" },
+                    tooltip: (
+                    <>
+                    Build distance matrix <br />
+                    (normalized hamming)
+                    </>
+                   )
+                  
+                  },
                   { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
                 ]
           }
@@ -2444,7 +2475,6 @@ const handleHeatmapToTree = useCallback((id) => {
   }
 
   try {
-    // Use the actual neighbor joining implementation
     const newickString = buildTreeFromDistanceMatrix(heatmapData.labels, heatmapData.matrix);
     
     const baseName = (heatmapData.filename || 'distance_matrix').replace(/\.[^.]+$/, '');
