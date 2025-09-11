@@ -1548,6 +1548,15 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
     </div>
   </PanelContainer>
 );
+},(prevProps, nextProps) => {
+  return (
+    prevProps.id === nextProps.id &&
+    prevProps.data === nextProps.data &&
+    prevProps.hoveredPanelId === nextProps.hoveredPanelId &&
+    prevProps.highlightedSite === nextProps.highlightedSite &&
+    prevProps.highlightOrigin === nextProps.highlightOrigin &&
+    prevProps.justLinkedPanels.join() === nextProps.justLinkedPanels.join()
+  );
 });
 
 // --- download helpers -------------------------
