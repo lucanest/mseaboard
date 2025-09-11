@@ -218,11 +218,11 @@ function LogGlyph(props) {
 
 function TreeGlyph(props) {
   return (
-    <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" {...props}>
+<svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" {...props}>
   <path d="M12 3V21
            M12 7 Q 9 7 5 2
-           M12 12 Q 18 12 21 3
-           M12 15 Q 9 15 4 10" />
+           M12 12 Q 18 12 19 5
+           M12 15 Q 9 15 4 12" />
 </svg>
   );
 }
