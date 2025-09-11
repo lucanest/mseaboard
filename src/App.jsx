@@ -1884,7 +1884,7 @@ const PanelWrapper = React.memo(({
       onLinkClick: handleLinkClick,
       isLinkModeActive: linkMode === panel.i
     })
-  };
+  }
 
   switch (panel.type) {
     case 'alignment':
@@ -1904,6 +1904,20 @@ const PanelWrapper = React.memo(({
     default:
       return null;
   }
+},(prevProps, nextProps) => {
+  // Only re-render if these specific props change
+  return (
+    prevProps.panel.i === nextProps.panel.i &&
+    prevProps.linkMode === nextProps.linkMode &&
+    prevProps.panelData[prevProps.panel.i] === nextProps.panelData[nextProps.panel.i] &&
+    prevProps.panelLinks[prevProps.panel.i] === nextProps.panelLinks[nextProps.panel.i] &&
+    prevProps.highlightSite === nextProps.highlightSite &&
+    prevProps.highlightOrigin === nextProps.highlightOrigin &&
+    prevProps.hoveredPanelId === nextProps.hoveredPanelId &&
+    prevProps.justLinkedPanels.join() === nextProps.justLinkedPanels.join() &&
+    prevProps.scrollPositions[prevProps.panel.i] === nextProps.scrollPositions[nextProps.panel.i] &&
+    prevProps.highlightedSequenceId === nextProps.highlightedSequenceId
+  );
 });
 
 
