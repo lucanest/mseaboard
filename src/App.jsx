@@ -3535,7 +3535,7 @@ const canLink = (typeA, typeB) =>
     trigger={
       <button
         onClick={handleSaveBoard}
-        className="w-12 h-12 bg-gray-200 text-black rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center"
+        className="w-12 h-12 bg-gray-200 text-gray-500 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center"
       >
         <ArrowDownTrayIcon className="w-8 h-8 " />
       </button>
@@ -3551,7 +3551,7 @@ const canLink = (typeA, typeB) =>
     trigger={
       <button
         onClick={() => fileInputRefBoard.current.click()}
-        className="w-12 h-12 bg-gray-200 text-black rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center"
+        className="w-12 h-12 bg-gray-200 text-gray-500 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center"
       >
         <ArrowUpTrayIcon className="w-8 h-8" />
       </button>
@@ -3663,7 +3663,21 @@ const canLink = (typeA, typeB) =>
       }}
     >
       <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors}/>
-    </div>
+    </div><div
+      style={{
+        height: 77,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        width: '100%',
+        position: 'relative',
+        left: 0,
+        top: 0,
+        marginLeft: 0,
+        marginRight: 0,
+      }}
+    >
+      </div>
             <div className="text-2xl font-bold mb-4 text-gray-700">
               Drag and drop files, use the upload buttons above
             </div>
