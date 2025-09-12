@@ -8,7 +8,7 @@ import ReactDOM from 'react-dom';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SurfaceToggleButton, SiteStatsButton, LogYButton,
 SeqlogoButton, SequenceButton, DistanceMatrixButton, TreeButton,
- DownloadButton, GitHubButton,
+ DownloadButton, GitHubButton, SearchButton,
  DiamondButton} from './components/Buttons.jsx';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, threeToOne,
@@ -774,6 +774,7 @@ const MSACell = React.memo(function MSACell({
   isHoverHighlight,
   isLinkedHighlight,
   isPersistentHighlight,
+  isSearchHighlight,
   rowIndex,
   columnIndex
 }) {
@@ -798,7 +799,7 @@ const MSACell = React.memo(function MSACell({
           : isPersistentHighlight
           ? 'persistent-alignment-highlight'
           : ''
-      }`}
+      } ${isSearchHighlight ? 'search-alignment-highlight' : ''}`}
     >
       {char}
     </div>
@@ -810,7 +811,8 @@ const MemoizedMSACell = React.memo(MSACell, (prevProps, nextProps) => {
     prevProps.char === nextProps.char &&
     prevProps.isHoverHighlight === nextProps.isHoverHighlight &&
     prevProps.isLinkedHighlight === nextProps.isLinkedHighlight &&
-    prevProps.isPersistentHighlight === nextProps.isPersistentHighlight
+        prevProps.isPersistentHighlight === nextProps.isPersistentHighlight &&
+    prevProps.isSearchHighlight === nextProps.isSearchHighlight
   );
 });
 
@@ -831,6 +833,29 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [gridContainerRef, dims] = useElementSize({ debounceMs: 90 });
   const gridRef = useRef(null);
   const outerRef = useRef(null); 
+    // Search UI state
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const searchInputRef = useRef(null);
+
+useEffect(() => {
+  if (showSearch) {
+    // Next tick to ensure the input is mounted
+    setTimeout(() => {
+      const el = searchInputRef.current;
+      if (!el) return;
+      el.focus();
+      // optional: select existing contents for quick overwrite
+      el.setSelectionRange(0, el.value.length);
+    }, 0);
+  }
+}, [showSearch]);
+
+  // Columns that should be highlighted (whole-column highlight)
+  const [searchMask, setSearchMask] = useState(new Set());     // Set<number> of column indices
+  // Contiguous highlighted column ranges for navigation
+  const [searchRanges, setSearchRanges] = useState([]);        // [{start, end}] half-open
+  const [searchActiveIdx, setSearchActiveIdx] = useState(0);
 
   const [hoveredCol, setHoveredCol] = useState(null);
   const [hoveredRow, setHoveredRow] = useState(null);
@@ -839,12 +864,39 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [scrollTop, setScrollTop] = useState(0);
   const [isSyncScrolling, setIsSyncScrolling] = useState(false);
   const isNuc = useMemo(() => isNucleotide(msaData), [msaData]);
+
   const handleDownload = useCallback(() => {
     const msa = data?.data || [];
     const content = toFasta(msa);
     const base = baseName(data?.filename, 'alignment');
     mkDownload(base, content, 'fasta')();
   }, [data]);
+
+  const rangesFromMask = useCallback((mask, totalCols) => {
+    if (!mask || totalCols <= 0) return [];
+    const cols = Array.from(mask).sort((a, b) => a - b);
+    if (cols.length === 0) return [];
+    const out = [];
+    let s = cols[0];
+    let prev = cols[0];
+    for (let i = 1; i < cols.length; i++) {
+      const c = cols[i];
+      if (c === prev + 1) {
+        prev = c;
+      } else {
+        out.push({ start: s, end: prev + 1 }); // half-open
+        s = c; prev = c;
+      }
+    }
+    out.push({ start: s, end: prev + 1 });
+    return out;
+  }, []);
+    const scrollToColumn = useCallback((col) => {
+    if (col == null || !outerRef.current || !gridRef.current) return;
+    const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
+    const targetPx = col * itemWidth-2; // -2 for border compensation
+    gridRef.current.scrollTo({ scrollLeft: targetPx });
+  }, [codonMode]);
 
 useEffect(() => {
   if (
@@ -895,6 +947,63 @@ const throttledOnScroll = useCallback(
   }, 90),
   [onSyncScroll, linkedTo, id, isSyncScrolling, highlightedSite, codonMode, hoveredPanelId]
 );
+
+  const runSearch = useCallback(() => {
+    if (!searchQuery?.trim() || !Array.isArray(msaData) || msaData.length === 0) return;
+    const q = searchQuery.trim();
+    const asInt = Number(q);
+    // Reset previous results
+   setSearchMask(new Set());
+   setSearchRanges([]);
+    setSearchActiveIdx(0);
+    setPanelData(prev => ({ ...prev, [id]: { ...prev[id], searchHighlight: undefined }}));
+
+    // 1) Numeric site (1-based → 0-based)
+    if (Number.isInteger(asInt) && String(asInt) === q) {
+      const col = Math.max(0, Math.min((msaData[0]?.sequence?.length || 1) - 1, asInt - 1));
+     scrollToColumn(col);
+     const mask = new Set([col]);
+     setSearchMask(mask);
+     const ranges = [{ start: col, end: col + 1 }];
+     setSearchRanges(ranges);
+     setSearchActiveIdx(0);
+     setPanelData(prev => ({ ...prev, [id]: { ...prev[id], searchHighlight: { row: null, start: col, end: col + 1 }}}));
+      return;
+    }
+
+    // 2) Motif (search occurrence in any row, exact consecutive, case-insensitive)
+    const motif = q.toUpperCase();
+    const mask = new Set();
+    for (let r = 0; r < msaData.length; r++) {
+      const seq = (msaData[r]?.sequence || '').toUpperCase();
+      let idx = seq.indexOf(motif);
+      while (idx >= 0) {
+        for (let c = idx; c < idx + motif.length; c++) mask.add(c); // mark ALL columns in motif span
+        idx = seq.indexOf(motif, idx + 1);
+      }
+    }
+   if (mask.size === 0) { alert('No match found.'); return; }
+   const totalCols = msaData[0]?.sequence?.length || 0;
+   const ranges = rangesFromMask(mask, totalCols);
+   setSearchMask(mask);
+   setSearchRanges(ranges);
+   setSearchActiveIdx(0);
+   // Scroll to start of the first contiguous run
+   scrollToColumn(ranges[0].start);
+   setPanelData(prev => ({ ...prev, [id]: { ...prev[id], searchHighlight: ranges[0] }}));
+  }, [searchQuery, msaData, id, setPanelData, scrollToColumn]);
+
+  const closeSearch = useCallback(() => {
+    setShowSearch(false);
+    setSearchQuery('');
+   setSearchMask(new Set());
+   setSearchRanges([]);
+    setSearchActiveIdx(0);
+    setPanelData(prev => ({
+      ...prev,
+      [id]: { ...prev[id], searchHighlight: undefined }
+    }));
+  }, [id, setPanelData]);
 
   const setCodonMode = useCallback(
     (fnOrValue) => {
@@ -1031,13 +1140,16 @@ const handleGridMouseLeave = useCallback(() => {
 
 
 const Cell = useCallback(
-  ({ columnIndex, rowIndex, style }) => {
+  ({ columnIndex, rowIndex, style, data:itemData }) => {
     const char = msaData[rowIndex].sequence[columnIndex];
     const codonIndex = Math.floor(columnIndex / 3);
     const idx = codonMode ? codonIndex : columnIndex;
 
     const persistentHighlights = data.highlightedSites || [];
     const isPersistentHighlight = persistentHighlights.includes(idx);
+    // Whole-column highlight: any column present in the mask is blue on ALL rows
+    const maskCols = itemData?.searchMaskCols || [];
+    const isSearchHighlight = maskCols.includes(columnIndex);
 
     const isHoverHighlight = codonMode
       ? hoveredCol != null && hoveredCol === codonIndex
@@ -1060,6 +1172,7 @@ const Cell = useCallback(
         isHoverHighlight={isHoverHighlight}
         isLinkedHighlight={isLinkedHighlight}
         isPersistentHighlight={isPersistentHighlight}
+        isSearchHighlight={isSearchHighlight}
       />
     );
   },
@@ -1097,7 +1210,7 @@ const Cell = useCallback(
       linkedTo={linkedTo}
       hoveredPanelId={hoveredPanelId}
       setHoveredPanelId={setHoveredPanelId}
-      onDoubleClick={() => onReupload(id)}
+      //onDoubleClick={() => onReupload(id)}
       isEligibleLinkTarget={isEligibleLinkTarget}
       justLinkedPanels={justLinkedPanels}
     >
@@ -1113,7 +1226,7 @@ const Cell = useCallback(
           setPanelData={setPanelData}
           extraButtons={
             isNuc
-              ? [
+              ? [ { element: <SearchButton onClick={() => setShowSearch(s => !s)} />, tooltip: "Search site or motif" },
                   { element: <CodonToggleButton onClick={() => setCodonMode(m => !m)} isActive={codonMode} />, tooltip: "Toggle codon mode" },
                   { element: <TranslateButton onClick={() => onDuplicateTranslate(id)} />, tooltip: "Translate to amino acids" },
                   { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
@@ -1135,7 +1248,7 @@ const Cell = useCallback(
                   },
                   { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
                 ]
-              : [
+              : [ { element: <SearchButton onClick={() => setShowSearch(s => !s)} />, tooltip: "Search site or motif" },
                   { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
                   { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, 
                    tooltip: (
@@ -1166,6 +1279,71 @@ const Cell = useCallback(
           colorForLink={colorForLink}
           onRemove={onRemove}
         />
+                {showSearch && (
+          <div className="absolute right-2 top-14 z-[1100] bg-white border rounded-xl shadow p-2 flex items-center gap-2">
+            <input
+            ref={searchInputRef}
+            autoFocus
+              className="border rounded-md px-2 py-1 w-48"
+              placeholder="e.g. 128  or  ACTT"
+              value={searchQuery}
+              onChange={e => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') runSearch();
+                if (e.key === 'Escape') closeSearch();
+              }}
+            />
+            <button
+              className="px-2 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700"
+              onClick={runSearch}
+            >
+              Go
+            </button>
+               {/* Prev / Next for motif hits */}
+    <button
+      className="px-2 py-0 rounded-md text-gray-700 bg-gray-300 hover:bg-gray-400 disabled:opacity-50 text-lg"
+      onClick={() => {
+ if (!searchRanges.length) return;
+        const next = (searchActiveIdx - 1 + searchRanges.length) % searchRanges.length;
+        setSearchActiveIdx(next);
+        const r = searchRanges[next];
+        scrollToColumn(r.start);
+        setPanelData(prev => ({ ...prev, [id]: { ...prev[id], searchHighlight: r }}));
+      }}
+      disabled={searchRanges.length < 2}
+      title="Previous hit"
+    >
+      ‹
+    </button>
+    <button
+      className="px-2 py-0 rounded-md text-gray-700 bg-gray-300 hover:bg-gray-400 disabled:opacity-50 text-lg"
+      onClick={() => {
+        if (!searchRanges.length) return;
+        const next = (searchActiveIdx + 1) % searchRanges.length;
+        setSearchActiveIdx(next);
+        const r = searchRanges[next];
+        scrollToColumn(r.start);
+        setPanelData(prev => ({ ...prev, [id]: { ...prev[id], searchHighlight: r }}));
+      }}
+      disabled={searchRanges.length < 2}
+      title="Next hit"
+    >
+      ›
+    </button>
+    {searchRanges.length > 0 && (
+      <span className="text-sm text-gray-600 w-12 text-center tabular-nums">
+        {searchActiveIdx + 1}/{searchRanges.length}
+      </span>
+    )}
+            <button
+              className="px-2 py-1 text-gray-600 rounded-md bg-gray-200 hover:bg-red-300"
+              onClick={closeSearch}
+              title="Close search"
+            >
+              ✕
+            </button>
+          </div>
+        )}
 
         {hoveredCol != null && hoveredPanelId === id && (
           <MSATooltip x={tooltipPos.x} y={tooltipPos.y}>
@@ -1265,6 +1443,11 @@ const Cell = useCallback(
             onScroll={throttledOnScroll}
             overscanRowCount={6}
             overscanColumnCount={6}
+   itemData={
+     searchMask.size
+       ? { searchHighlight: data.searchHighlight, searchMaskCols: Array.from(searchMask.values()) }
+       : { searchHighlight: undefined, searchMaskCols: [] }
+   }
           >
             {Cell}
           </Grid>

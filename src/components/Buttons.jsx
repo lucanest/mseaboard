@@ -1,5 +1,5 @@
 // Buttons.jsx
-import { LinkIcon, ChartBarIcon , Squares2X2Icon, DocumentDuplicateIcon, XMarkIcon, Bars3Icon, EyeIcon, LanguageIcon, CodeBracketIcon, ArrowDownTrayIcon } from '@heroicons/react/24/outline';
+import { LinkIcon, MagnifyingGlassIcon, ChartBarIcon , Squares2X2Icon, DocumentDuplicateIcon, XMarkIcon, Bars3Icon, EyeIcon, LanguageIcon, CodeBracketIcon, ArrowDownTrayIcon, MagnifyingGlassCircleIcon } from '@heroicons/react/24/outline';
 
 export function DuplicateButton({ onClick }) {
   return (
@@ -214,6 +214,20 @@ export function DownloadButton({ onClick, title = "Download" }) {
     >
       <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 border border-gray-400 hover:bg-cyan-200">
         <ArrowDownTrayIcon className="w-5 h-5 text-cyan-700 flex-shrink-0 -translate-y-[0px]" />
+      </span>
+    </button>
+  );
+}
+
+export function SearchButton({ onClick }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className='p-0.5'
+    >
+      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 border border-gray-400 hover:bg-cyan-200">
+        <MagnifyingGlassIcon className="w-5 h-5 text-cyan-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
