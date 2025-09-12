@@ -19,6 +19,14 @@ const PhyloTreeViewer = ({
   const [highlightedNode, setHighlightedNode] = useState(null);
   const [highlightedLink, setHighlightedLink] = useState(null);
 
+
+  const minFontSize = 6;
+  const maxFontSize = 24;
+  const minNodeRadius = 3;
+  const maxNodeRadius = 10;
+
+  const scaleFactor = Math.max(0.7, Math.min(1.5, Math.sqrt(size.width * size.height) / 600));
+
   const parseNewick = (newickString) => {
     let pos = 0;
     const parseNode = () => {
@@ -346,7 +354,11 @@ g.append('g')
   : null)
 .attr('cx', d => radial ? null : d.y)
 .attr('cy', d => radial ? null : d.x)
-      .attr('r', 4)
+  .attr('r', d => {
+    // Scale node radius
+    //return 4
+    return Math.max(minNodeRadius, Math.min(maxNodeRadius, 3 * scaleFactor));
+  })
 .attr('fill', d => {  
 const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
     return val ? colorMap[val] : DARK_GRAY_COLOR;
@@ -431,7 +443,9 @@ g.append('g')
 .text(d => (d.data && typeof d.data.name !== 'undefined') ? d.data.name : '')
   .style('font-size', d => {
     const { isHighlight, isPersistentHighlight } = getHighlightState(d);
-    return isHighlight || isPersistentHighlight ? '20px' : '12px';
+    // Scale font size
+    const baseSize = Math.max(minFontSize, Math.min(maxFontSize, 8.5 * scaleFactor));
+    return isHighlight || isPersistentHighlight ? `${baseSize * 1.6}px` : `${baseSize}px`;
   })
   .style('fill', d => {
     const { isHighlight, isPersistentHighlight } = getHighlightState(d);
