@@ -162,6 +162,8 @@ const convertToD3Hierarchy = (node) => {
 
 const data = convertToD3Hierarchy(parsed);
 const root = d3.hierarchy(data);
+const leavesCount = root.leaves().length;
+const fontScale = 2.7*scaleFactor / Math.sqrt(leavesCount / 10 + 1);
 const maxLabelLength = d3.max(root.leaves(), d => (d.data.name || '').length);
 const approxCharWidth = 4;
 const minMargin = 10;
@@ -444,7 +446,7 @@ g.append('g')
   .style('font-size', d => {
     const { isHighlight, isPersistentHighlight } = getHighlightState(d);
     // Scale font size
-    const baseSize = Math.max(minFontSize, Math.min(maxFontSize, 8.5 * scaleFactor));
+    const baseSize = Math.max(minFontSize, Math.min(maxFontSize, 12 * fontScale));
     return isHighlight || isPersistentHighlight ? `${baseSize * 1.6}px` : `${baseSize}px`;
   })
   .style('fill', d => {
