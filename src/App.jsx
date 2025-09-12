@@ -778,31 +778,51 @@ const MSACell = React.memo(function MSACell({
   rowIndex,
   columnIndex
 }) {
-  const background = residueColors[char?.toUpperCase()] || 'bg-white';
+  // Precompute styles to avoid object creation on every render
+  const cellStyle = React.useMemo(() => ({
+    ...style,
+    height: style.height ? style.height + 1 : undefined,
+    width: style.width ? style.width + 1 : undefined,
+    marginBottom: -1,
+    marginRight: -1,
+    boxSizing: 'border-box',
+  }), [style]);
+
+  // Precompute class names
+  const className = React.useMemo(() => {
+    const base = 'flex items-center justify-center';
+    const background = residueColors[char?.toUpperCase()] || 'bg-white';
+    const highlightClass = isHoverHighlight || isLinkedHighlight
+      ? 'alignment-highlight'
+      : isPersistentHighlight
+      ? 'persistent-alignment-highlight'
+      : '';
+    const searchClass = isSearchHighlight ? 'search-alignment-highlight' : '';
+    
+    return `${base} ${background} ${highlightClass} ${searchClass}`.trim();
+  }, [char, isHoverHighlight, isLinkedHighlight, isPersistentHighlight, isSearchHighlight]);
+
   return (
     <div
       data-cell="1"
       data-row={rowIndex}
       data-col={columnIndex}
-      style={{
-        ...style,
-        height: (style.height ? style.height + 1 : undefined), // overlap by 1px
-        width: (style.width ? style.width + 1 : undefined),
-        marginBottom: -1,
-        marginRight: -1,
-        boxSizing: 'border-box',
-        //border: '1px solid transparent'
-      }}
-      className={`flex items-center justify-center ${background} ${
-        isHoverHighlight || isLinkedHighlight
-          ? 'alignment-highlight'
-          : isPersistentHighlight
-          ? 'persistent-alignment-highlight'
-          : ''
-      } ${isSearchHighlight ? 'search-alignment-highlight' : ''}`}
+      style={cellStyle}
+      className={className}
     >
       {char}
     </div>
+  );
+}, (prevProps, nextProps) => {
+  // More aggressive comparison
+  return (
+    prevProps.char === nextProps.char &&
+    prevProps.isHoverHighlight === nextProps.isHoverHighlight &&
+    prevProps.isLinkedHighlight === nextProps.isLinkedHighlight &&
+    prevProps.isPersistentHighlight === nextProps.isPersistentHighlight &&
+    prevProps.isSearchHighlight === nextProps.isSearchHighlight &&
+    prevProps.style.width === nextProps.style.width &&
+    prevProps.style.height === nextProps.style.height
   );
 });
 
@@ -815,6 +835,8 @@ const MemoizedMSACell = React.memo(MSACell, (prevProps, nextProps) => {
     prevProps.isSearchHighlight === nextProps.isSearchHighlight
   );
 });
+
+
 
 const AlignmentPanel = React.memo(function AlignmentPanel({
   id,
