@@ -988,10 +988,25 @@ const throttledOnScroll = useCallback(
    setSearchMask(mask);
    setSearchRanges(ranges);
    setSearchActiveIdx(0);
-   // Scroll to start of the first contiguous run
-   scrollToColumn(ranges[0].start);
-   setPanelData(prev => ({ ...prev, [id]: { ...prev[id], searchHighlight: ranges[0] }}));
-  }, [searchQuery, msaData, id, setPanelData, scrollToColumn]);
+  if (outerRef.current) {
+    const outer = outerRef.current;
+    const viewportLeft = outer.scrollLeft;
+    const viewportRight = viewportLeft + outer.offsetWidth;
+    const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
+    const motifStartPx = ranges[0].start * itemWidth;
+    const motifEndPx = ranges[0].end * itemWidth;
+
+    // If motif is not fully in view, scroll
+    if (motifStartPx < viewportLeft || motifEndPx > viewportRight) {
+      scrollToColumn(ranges[0].start);
+    }
+  } else {
+    // fallback: always scroll if ref missing
+    scrollToColumn(ranges[0].start);
+  }
+
+  setPanelData(prev => ({ ...prev, [id]: { ...prev[id], searchHighlight: ranges[0] }}));
+}, [searchQuery, msaData, id, setPanelData, scrollToColumn, codonMode, rangesFromMask]);
 
   const closeSearch = useCallback(() => {
     setShowSearch(false);
@@ -1139,6 +1154,7 @@ const handleGridMouseLeave = useCallback(() => {
   );
 
 
+
 const Cell = useCallback(
   ({ columnIndex, rowIndex, style, data:itemData }) => {
     const char = msaData[rowIndex].sequence[columnIndex];
@@ -1147,9 +1163,22 @@ const Cell = useCallback(
 
     const persistentHighlights = data.highlightedSites || [];
     const isPersistentHighlight = persistentHighlights.includes(idx);
-    // Whole-column highlight: any column present in the mask is blue on ALL rows
-    const maskCols = itemData?.searchMaskCols || [];
-    const isSearchHighlight = maskCols.includes(columnIndex);
+
+    // Highlight all motif letters in each matching row
+    let isSearchHighlight = false;
+    if (itemData?.searchHighlight && searchQuery) {
+      const motif = searchQuery.toUpperCase();
+      const seq = msaData[rowIndex].sequence.toUpperCase();
+      // Check if this cell is part of any motif occurrence in this row
+      for (let i = 0; i <= seq.length - motif.length; i++) {
+        if (seq.slice(i, i + motif.length) === motif) {
+          if (columnIndex >= i && columnIndex < i + motif.length) {
+            isSearchHighlight = true;
+            break;
+          }
+        }
+      }
+    }
 
     const isHoverHighlight = codonMode
       ? hoveredCol != null && hoveredCol === codonIndex
@@ -1185,7 +1214,8 @@ const Cell = useCallback(
     linkedTo,
     id,
     data.highlightedSites,
-    hoveredPanelId
+    hoveredPanelId,
+    searchQuery
   ]
 );
 
@@ -1280,7 +1310,9 @@ const Cell = useCallback(
           onRemove={onRemove}
         />
                 {showSearch && (
-          <div className="absolute right-2 top-14 z-[1100] bg-white border rounded-xl shadow p-2 flex items-center gap-2">
+          <div className="absolute right-2 top-14 z-[1100] bg-white border rounded-xl shadow p-2 flex items-center gap-2"
+          onMouseEnter={handleGridMouseLeave}
+          >
             <input
             ref={searchInputRef}
             autoFocus
@@ -1288,6 +1320,7 @@ const Cell = useCallback(
               placeholder="e.g. 128  or  ACTT"
               value={searchQuery}
               onChange={e => setSearchQuery(e.target.value)}
+              onMouseEnter={handleGridMouseLeave}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') runSearch();
                 if (e.key === 'Escape') closeSearch();
@@ -1441,8 +1474,8 @@ const Cell = useCallback(
             rowHeight={CELL_SIZE}
             width={Math.max(dims.width - LABEL_WIDTH, 0)}
             onScroll={throttledOnScroll}
-            overscanRowCount={6}
-            overscanColumnCount={6}
+            overscanRowCount={2}
+            overscanColumnCount={2}
    itemData={
      searchMask.size
        ? { searchHighlight: data.searchHighlight, searchMaskCols: Array.from(searchMask.values()) }
