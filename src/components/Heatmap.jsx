@@ -126,7 +126,7 @@ function PhylipHeatmap({
     gridHeight  = cellSize * steps; // diamond bounding square height
   }
 
-  const showGridLines = !diamondView && cellSize > 10;
+  const showGridLines = cellSize > 10;
   const showHoverHighlight = cellSize > 6;
 
   const { min, max } = useMemo(() => {
@@ -273,6 +273,7 @@ function PhylipHeatmap({
         }
       }
       // thin outlines for legibility
+      if (showGridLines) {
       ctx.strokeStyle = "rgba(220,220,220,0.6)";
       ctx.lineWidth = 1 / dpr;
       for (let i = 1; i < n; i++) {
@@ -281,7 +282,7 @@ function PhylipHeatmap({
           drawDiamond(ctx, cx, cy, cellSize);
           ctx.stroke();
         }
-      }
+      }}
     }
 
     // shared highlights
@@ -569,7 +570,7 @@ function PhylipHeatmap({
         <div
           style={{
             position: "absolute",
-            right: 20,
+            right: 26,
             top: labelSpace,
             height: gridHeight,
             width: 36,
@@ -603,11 +604,11 @@ function PhylipHeatmap({
               alignItems: "flex-start",
             }}
           >
-            <span style={{position: "absolute", top: -10, left:28}}>{max.toFixed(3)}</span>
-            <span style={{position: "absolute", left:28, top: -5+gridHeight/4 - 8}}>{((min+max)/4*3).toFixed(3)}</span>
+            <span style={{position: "absolute", top: -10, left:28}}>{min.toFixed(3)}</span>
+            <span style={{position: "absolute", left:28, top: -5+gridHeight/4 - 8}}>{((min+max)/4).toFixed(3)}</span>
             <span style={{position: "absolute",left:28, top: -5+gridHeight/2 - 8}}>{((min+max)/2).toFixed(3)}</span>
-            <span style={{position: "absolute",left:28, top: -5+gridHeight*3/4 - 8}}>{((min+max)/4).toFixed(3)}</span>
-            <span style={{position: "absolute",left:28, top: -5+gridHeight*4/4 - 18}}>{min.toFixed(3)}</span>
+            <span style={{position: "absolute",left:28, top: -5+gridHeight*3/4 - 8}}>{((min+max)/4*3).toFixed(3)}</span>
+            <span style={{position: "absolute",left:28, top: -5+gridHeight*4/4 - 18}}>{max.toFixed(3)}</span>
           </div>
         </div>
       ) : (
