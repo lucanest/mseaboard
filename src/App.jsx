@@ -3523,11 +3523,13 @@ const canLink = (typeA, typeB) =>
     </div>
   </div>
 )}
-        <div className="p-2 flex justify-between items-center">
-          <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors}/>
-<div className="flex items-center gap-4">
+        <div className="p-0 flex justify-between items-center fixed top-0 left-0 w-full z-50"
+        style={{ pointerEvents: 'none' }}>
+          <div style={{ height: 77 }} /> {/* Spacer for fixed header */}
+<div className="flex items-center gap-2"  style={{ pointerEvents: 'auto' }}>
 <div className="p-1/2 flex justify-between items-center"></div>
   <div className="flex items-center gap-2 mr-8">
+    
 <div className="relative group">
   <DelayedTooltip
     trigger={
@@ -3535,7 +3537,7 @@ const canLink = (typeA, typeB) =>
         onClick={handleSaveBoard}
         className="w-12 h-12 bg-gray-200 text-black rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center"
       >
-        <ArrowDownTrayIcon className="w-8 h-8" />
+        <ArrowDownTrayIcon className="w-8 h-8 " />
       </button>
     }
   >
@@ -3644,12 +3646,29 @@ const canLink = (typeA, typeB) =>
           </div>
         </div>
          {/* instructions and example */}
-         {panels.length === 0 && (
-          <div className="flex flex-col items-center justify-center py-24">
+{panels.length === 0 && (
+  <div className="flex flex-col items-center justify-center px-2 w-full">
+    <div
+      style={{
+        height: 77,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        width: '100%',
+        position: 'relative',
+        left: 0,
+        top: 0,
+        marginLeft: 0,
+        marginRight: 0,
+      }}
+    >
+      <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors}/>
+    </div>
             <div className="text-2xl font-bold mb-4 text-gray-700">
-              Drag and drop files, use the upload buttons above,
+              Drag and drop files, use the upload buttons above
             </div>
-<div className="flex items-center gap-4 mt-2">
+<div className="flex items-center gap-2 mt-2">
+  
   <span className="text-2xl font-bold text-gray-700">or</span>
   <button
     className="bg-gray-200 hover:bg-gray-300 text-black text-2xl font-semibold px-3 py-3 rounded-xl shadow-lg transition"
@@ -3677,7 +3696,25 @@ const canLink = (typeA, typeB) =>
         )}
 
               {panels.length > 0 && (
-        <div className="flex-grow overflow-auto pb-20">
+        <div className="flex-grow overflow-auto pb-20 ">
+ <div
+      style={{
+        height: 77,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'flex-start',
+        width: '100%',
+        position: 'relative',
+        left: 0,
+        top: 0,
+        marginLeft: 0,
+        marginRight: 0,
+      }}
+    >
+      <div className="flex flex-col items-center justify-center px-2 w-full">
+      <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors}/>
+      </div>
+    </div>
           <GridLayout
             className="layout"
             layout={layout}
