@@ -8,7 +8,8 @@ import ReactDOM from 'react-dom';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SurfaceToggleButton, SiteStatsButton, LogYButton,
 SeqlogoButton, SequenceButton, DistanceMatrixButton, TreeButton,
- DownloadButton, GitHubButton} from './components/Buttons.jsx';
+ DownloadButton, GitHubButton,
+ DiamondButton} from './components/Buttons.jsx';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, threeToOne,
 parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick, newickToDistanceMatrix,
@@ -495,8 +496,17 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
   hoveredPanelId, setHoveredPanelId, setPanelData, onReupload, highlightedSite,
   highlightOrigin, onHighlight, justLinkedPanels,linkBadges, onRestoreLink, colorForLink, onUnlink, onGenerateTree
 }) {
-  const { labels, matrix, filename } = data || {};
+  const { labels, matrix, filename, diamondMode=false } = data || {};
   const [containerRef, dims] = useElementSize({ debounceMs: 90 });
+  const handleDiamondToggle = useCallback(() => {
+  setPanelData(pd => ({
+    ...pd,
+    [id]: {
+      ...pd[id],
+      diamondMode: !diamondMode
+    }
+  }));
+}, [id, setPanelData, diamondMode]);
   const handleDownload = useCallback(() => {
     const base = baseName(filename, 'distmatrix');
     const content = toPhylip(labels, matrix);
@@ -570,6 +580,12 @@ return (
               
             },
             { 
+              element:  diamondMode? <DistanceMatrixButton onClick={() => handleDiamondToggle(id)}/>
+              : <DiamondButton onClick={() => handleDiamondToggle(id)} />,
+              tooltip: (diamondMode? <>Switch to square view</>: <>Switch to diamond view</>)
+              
+            },
+            { 
               element: <DownloadButton onClick={handleDownload} />,
               tooltip: "Download distance matrix" 
             }
@@ -586,6 +602,7 @@ return (
         highlightOrigin={highlightOrigin}
         onHighlight={onHighlight}
         onCellClick={handleCellClick}
+        diamondView={diamondMode}
         highlightedCells={data.highlightedCells || []}
         linkedHighlightCell={data.linkedHighlightCell}
         />

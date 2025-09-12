@@ -62,7 +62,7 @@ function PhylipHeatmap({
   onCellClick,
   linkedHighlightCell,
   showlegend = true,
-  LDView = false,
+  diamondView = true,
 }) {
   const containerRef = useRef();
   const canvasRef = useRef();
@@ -103,7 +103,7 @@ function PhylipHeatmap({
   const hideLabelThreshold = 10.5;
 
   // In LD view we’ll render our own top labels; suppress the row/col ones.
-  const hideLabels = LDView || labelFontSize < hideLabelThreshold || n > 80;
+  const hideLabels = diamondView || labelFontSize < hideLabelThreshold || n > 80;
 
   const labelSpace = hideLabels ? 4 : Math.ceil(labelFontSize * 2.3);
 
@@ -115,7 +115,7 @@ function PhylipHeatmap({
   let gridWidth;
   let gridHeight;
 
-  if (!LDView) {
+  if (!diamondView) {
     cellSize   = Math.min(availableWidth / n, availableHeight / n);
     gridWidth  = cellSize * n;
     gridHeight = cellSize * n;
@@ -126,7 +126,7 @@ function PhylipHeatmap({
     gridHeight  = cellSize * steps; // diamond bounding square height
   }
 
-  const showGridLines = !LDView && cellSize > 10;
+  const showGridLines = !diamondView && cellSize > 10;
   const showHoverHighlight = cellSize > 6;
 
   const { min, max } = useMemo(() => {
@@ -143,7 +143,7 @@ function PhylipHeatmap({
     const y = event.clientY - rect.top;
     if (x < 0 || y < 0 || x >= rect.width || y >= rect.height) return null;
 
-    if (!LDView) {
+    if (!diamondView) {
       const col = Math.floor(x / cellSize);
       const row = Math.floor(y / cellSize);
       if (row < 0 || col < 0 || row >= n || col >= n) return null;
@@ -245,7 +245,7 @@ function PhylipHeatmap({
     }
     ctx.clearRect(0, 0, gridWidth, gridHeight);
 
-    if (!LDView) {
+    if (!diamondView) {
       for (let i = 0; i < n; i++) {
         for (let j = 0; j < n; j++) {
           ctx.fillStyle = valueToColor(matrix[i][j], min, max);
@@ -289,7 +289,7 @@ function PhylipHeatmap({
       if (row == null || col == null) return;
       ctx.save();
       ctx.strokeStyle = color; ctx.lineWidth = 2;
-      if (!LDView) {
+      if (!diamondView) {
         ctx.strokeRect(col * cellSize, row * cellSize, cellSize, cellSize);
       } else if (row > col) {
         const { cx, cy } = ldCenterFromIJ(row, col, cellSize, gridWidth);
@@ -304,7 +304,7 @@ function PhylipHeatmap({
     highlightedCells.forEach(({ row, col }) => strokeSel(row, col, "#cc0066"));
     if (linkedHighlightCellIdx) strokeSel(linkedHighlightCellIdx.row, linkedHighlightCellIdx.col, "rgb(13,245,241)");
     if (hoverCell && showHoverHighlight)  strokeSel(hoverCell.row, hoverCell.col, "rgb(13,245,241)");
-  }, [LDView, matrix, gridWidth, gridHeight, cellSize, n, min, max, hoverCell, highlightedCells, linkedHighlightCellIdx, showGridLines]);
+  }, [diamondView, matrix, gridWidth, gridHeight, cellSize, n, min, max, hoverCell, highlightedCells, linkedHighlightCellIdx, showGridLines]);
 
   /* ----- linked tooltip when not hovered ----- */
   let linkedTooltip = null;
@@ -347,10 +347,10 @@ function PhylipHeatmap({
   }
 
   /* ----- LD label thinning (for top labels) ----- */
-  const stepX = LDView && n > 1 ? gridWidth / (n - 1) : 0;
+  const stepX = diamondView && n > 1 ? gridWidth / (n - 1) : 0;
   const minLabelSpacing = Math.max(10, labelFontSize * 1.1); // px between labels
-  const showEvery = LDView ? Math.max(1, Math.ceil(minLabelSpacing / stepX)) : 1;
-  const diamondHeight = LDView ? cellSize * (n/2) : 0;
+  const showEvery = diamondView ? Math.max(1, Math.ceil(minLabelSpacing / stepX)) : 1;
+  const diamondHeight = diamondView ? cellSize * (n/2) : 0;
 
   return (
     <div
@@ -365,10 +365,11 @@ function PhylipHeatmap({
           height: gridHeight + labelSpace,
           fontFamily: "monospace",
           margin: "0 auto",
+          marginTop: diamondView ? 30 : 0,
         }}
       >
         {/* Column/Row labels for square view only */}
-        {!LDView && !hideLabels && (
+        {!diamondView && !hideLabels && (
           <div
             style={{
               position: "absolute",
@@ -406,7 +407,7 @@ function PhylipHeatmap({
           </div>
         )}
 
-        {!LDView && !hideLabels && (
+        {!diamondView && !hideLabels && (
           <div
             style={{
               position: "absolute",
@@ -461,7 +462,7 @@ function PhylipHeatmap({
         </div>
 
         {/* --- LD diamond top ticks + labels --- */}
-        {LDView && (
+        {diamondView && (
           <>
             {/* ticks */}
             <svg
@@ -498,10 +499,9 @@ function PhylipHeatmap({
               style={{
                 position: "absolute",
                 align: "right",
-                left: labelSpace,
-                fontSize: `4px`,
+                left: 0,
                 textAlign: "left",
-                top: diamondHeight+20*labelSpace,
+                top: diamondHeight+labelSpace+8,
                 width: gridWidth,
                 overflow: "visible",
                 height: labelSpace,
@@ -518,12 +518,12 @@ function PhylipHeatmap({
                     style={{
                       position: "absolute",
                       left: x,
-                      top: labelSpace * 0.15,
-                      transform: "translateX(-50%) rotate(-60deg)",
-                      transformOrigin: "50% 0%",
+                      //top: labelSpace * 0.15,
+                      transform: "translateX(-100%) rotate(-60deg)",
+                      transformOrigin: "100% 0%",
                       fontSize: `${labelFontSize}px`,
                       fontFamily: "monospace",
-                      fontWeight: 600,
+                      fontWeight: 200,
                       whiteSpace: "nowrap",
                       pointerEvents: "none",
                     }}
@@ -564,12 +564,58 @@ function PhylipHeatmap({
       {linkedTooltip}
 
       {/* --- Color Legend --- */}
-      {showlegend && (
+    {showlegend && (
+      diamondView ? (
+        <div
+          style={{
+            position: "absolute",
+            right: 20,
+            top: labelSpace,
+            height: gridHeight,
+            width: 36,
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            pointerEvents: "none",
+            userSelect: "none",
+          }}
+        >
+          <div
+            style={{
+              width: 12,
+              height: "1600%",
+              background: `linear-gradient(to top, ${Array.from({length: 20}, (_, i) => valueToColor(min + (max-min)*i/19, min, max)).reverse().join(',')})`,
+              borderRadius: 4,
+              border: "1px solid #ccc",
+            }}
+          />
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              justifyContent: "space-between",
+              height: "100%",
+              fontSize: 10,
+              marginTop: 2,
+              marginBottom: 2,
+              color: "#333",
+              width: 36,
+              alignItems: "flex-start",
+            }}
+          >
+            <span style={{position: "absolute", top: -10, left:28}}>{max.toFixed(3)}</span>
+            <span style={{position: "absolute", left:28, top: -5+gridHeight/4 - 8}}>{((min+max)/4*3).toFixed(3)}</span>
+            <span style={{position: "absolute",left:28, top: -5+gridHeight/2 - 8}}>{((min+max)/2).toFixed(3)}</span>
+            <span style={{position: "absolute",left:28, top: -5+gridHeight*3/4 - 8}}>{((min+max)/4).toFixed(3)}</span>
+            <span style={{position: "absolute",left:28, top: -5+gridHeight*4/4 - 18}}>{min.toFixed(3)}</span>
+          </div>
+        </div>
+      ) : (
         <div
           style={{
             width: gridWidth,
             marginLeft: labelSpace,
-            marginTop: LDView? -90: 20,
+            marginTop: 20,
             alignSelf: "center",
             height: 36,
             display: "flex",
@@ -604,9 +650,10 @@ function PhylipHeatmap({
             <span>{max.toFixed(3)}</span>
           </div>
         </div>
-      )}
-    </div>
-  );
-}
+      )
+    )}
+        </div>
+      );
+    }
 
 export default React.memo(PhylipHeatmap);

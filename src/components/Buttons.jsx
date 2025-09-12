@@ -190,6 +190,20 @@ export function DistanceMatrixButton({ onClick, title = "Build distance matrix f
   );
 }
 
+export function DiamondButton({ onClick }) {
+  return (
+    <button
+      type="button"
+      className="p-0.5"
+      onClick={onClick}
+    >
+      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 border border-gray-400 hover:bg-purple-300">
+        <DiamondGlyph className="w-5 h-5 text-gray-700 flex-shrink-0 -translate-y-[0px]" />
+      </span>
+    </button>
+  );
+}
+
 export function DownloadButton({ onClick, title = "Download" }) {
   return (
     <button
@@ -202,6 +216,58 @@ export function DownloadButton({ onClick, title = "Download" }) {
         <ArrowDownTrayIcon className="w-5 h-5 text-cyan-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
+  );
+}
+
+function DiamondGlyph(props) {
+  return (
+<svg
+    xmlns="http://www.w3.org/2000/svg"
+    width={400}
+    height={400}
+    viewBox="0 0 124 124"
+    fill="none"
+    {...props}
+  >
+    <g transform="translate(-8,12)">
+      <rect
+        opacity={1}
+        x={90}
+        y={20}
+        width={36}
+        height={36}
+        rx={12}
+        transform="rotate(-45 81.1332 80.7198)"
+        fill="none"
+        stroke="#7B1FA2"
+        strokeWidth={7}
+      />
+      <rect
+        opacity={1}
+        x={40}
+        y={20}
+        width={36}
+        height={36}
+        rx={12}
+        transform="rotate(-45 81.1332 80.7198)"
+        fill="none"
+        stroke="#7B1FA2"
+        strokeWidth={7}
+      />
+      <rect
+        opacity={1}
+        x={90}
+        y={70}
+        width={36}
+        height={36}
+        rx={12}
+        transform="rotate(-45 81.1332 80.7198)"
+        fill="none"
+        stroke="#7B1FA2"
+        strokeWidth={7}
+      />
+    </g>
+  </svg>
   );
 }
 
@@ -219,10 +285,12 @@ function LogGlyph(props) {
 function TreeGlyph(props) {
   return (
 <svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" {...props}>
+  <g transform="translate(0,2)">
   <path d="M12 3V21
            M12 7 Q 9 7 5 2
            M12 12 Q 18 12 19 5
            M12 15 Q 9 15 4 12" />
+  </g>
 </svg>
   );
 }
