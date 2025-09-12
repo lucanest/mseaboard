@@ -1256,6 +1256,24 @@ const Cell = useCallback(
     };
   }, [throttledHighlight, throttledOnScroll]);
 
+  const gridItemData = useMemo(() => ({
+    msaData,
+    searchMask: Array.from(searchMask),
+    searchHighlight: data.searchHighlight,
+    codonMode,
+    hoveredCol,
+    highlightedSite,
+    highlightOrigin,
+    linkedTo,
+    hoveredPanelId,
+    id,
+    highlightedSites: data.highlightedSites || []
+  }), [
+    msaData, searchMask, data.searchHighlight, codonMode, hoveredCol,
+    highlightedSite, highlightOrigin, linkedTo, hoveredPanelId, id, data.highlightedSites
+  ]);
+
+
   return (
     <PanelContainer
       id={id}
@@ -1498,11 +1516,7 @@ const Cell = useCallback(
             onScroll={throttledOnScroll}
             overscanRowCount={2}
             overscanColumnCount={2}
-   itemData={
-     searchMask.size
-       ? { searchHighlight: data.searchHighlight, searchMaskCols: Array.from(searchMask.values()) }
-       : { searchHighlight: undefined, searchMaskCols: [] }
-   }
+            itemData={gridItemData}
           >
             {Cell}
           </Grid>
