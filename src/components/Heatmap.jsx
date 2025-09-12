@@ -11,7 +11,7 @@ function valueToColor(val, min, max) {
   return `rgb(${r},${g},${b})`;
 }
 
-/* ---------- LD diamond helpers ---------- */
+/* ---------- diamond helpers ---------- */
 function drawDiamond(ctx, cx, cy, d) {
   const r = d / 2;
   ctx.beginPath();
@@ -22,7 +22,7 @@ function drawDiamond(ctx, cx, cy, d) {
   ctx.closePath();
 }
 
-function ldCenterFromIJ(i, j, d, width) {
+function dCenterFromIJ(i, j, d, width) {
   // map matrix indices (i>j) to diamond center
   const a = j;
   const b = i - 1 - j;
@@ -31,7 +31,7 @@ function ldCenterFromIJ(i, j, d, width) {
   return { cx, cy };
 }
 
-function ijFromXY_LD(x, y, d, width, n) {
+function ijFromXY_D(x, y, d, width, n) {
   // inverse mapping to find nearest (i,j) from mouse x/y
   const u = (x - width / 2) / (d / 2);  // a - b
   const v = (y - (d / 2)) / (d / 2);    // a + b
@@ -68,6 +68,7 @@ function PhylipHeatmap({
   const canvasRef = useRef();
   const rafIdRef = useRef(null);
   const lastHoverRef = useRef({ row: null, col: null });
+  
 
   const [dims, setDims] = useState({ width: 500, height: 500 });
   const [hoverCell, setHoverCell] = useState(null);
@@ -102,9 +103,8 @@ function PhylipHeatmap({
   const labelFontSize = Math.max(10, base / 60);
   const hideLabelThreshold = 10.5;
 
-  // In LD view we’ll render our own top labels; suppress the row/col ones.
+  // In diamond view we render our own top labels; suppress the row/col ones.
   const hideLabels = diamondView || labelFontSize < hideLabelThreshold || n > 80;
-
   const labelSpace = hideLabels ? 4 : Math.ceil(labelFontSize * 2.3);
 
   /* ----- grid sizing ----- */
@@ -149,7 +149,7 @@ function PhylipHeatmap({
       if (row < 0 || col < 0 || row >= n || col >= n) return null;
       return { row, col, x, y };
     } else {
-      const ij = ijFromXY_LD(x, y, cellSize, gridWidth, n);
+      const ij = ijFromXY_D(x, y, cellSize, gridWidth, n);
       if (!ij) return null;
       return { row: ij.i, col: ij.j, x, y };
     }
@@ -261,12 +261,12 @@ function PhylipHeatmap({
         }
       }
     } else {
-      // LD diamond (lower triangle)
+      // diamond (lower triangle)
       const d = cellSize;
       for (let i = 1; i < n; i++) {
         for (let j = 0; j < i; j++) {
           const val = matrix[i][j];
-          const { cx, cy } = ldCenterFromIJ(i, j, d, gridWidth);
+          const { cx, cy } = dCenterFromIJ(i, j, d, gridWidth);
           ctx.fillStyle = valueToColor(val, min, max);
           drawDiamond(ctx, cx, cy, d);
           ctx.fill();
@@ -278,7 +278,7 @@ function PhylipHeatmap({
       ctx.lineWidth = 1 / dpr;
       for (let i = 1; i < n; i++) {
         for (let j = 0; j < i; j++) {
-          const { cx, cy } = ldCenterFromIJ(i, j, cellSize, gridWidth);
+          const { cx, cy } = dCenterFromIJ(i, j, cellSize, gridWidth);
           drawDiamond(ctx, cx, cy, cellSize);
           ctx.stroke();
         }
@@ -293,10 +293,10 @@ function PhylipHeatmap({
       if (!diamondView) {
         ctx.strokeRect(col * cellSize, row * cellSize, cellSize, cellSize);
       } else if (row > col) {
-        const { cx, cy } = ldCenterFromIJ(row, col, cellSize, gridWidth);
+        const { cx, cy } = dCenterFromIJ(row, col, cellSize, gridWidth);
         drawDiamond(ctx, cx, cy, cellSize); ctx.stroke();
       } else if (col > row) {
-        const { cx, cy } = ldCenterFromIJ(col, row, cellSize, gridWidth);
+        const { cx, cy } = dCenterFromIJ(col, row, cellSize, gridWidth);
         drawDiamond(ctx, cx, cy, cellSize); ctx.stroke();
       }
       ctx.restore();
@@ -347,25 +347,38 @@ function PhylipHeatmap({
     );
   }
 
-  /* ----- LD label thinning (for top labels) ----- */
+  /* ----- diamond label thinning (for top labels) ----- */
   const stepX = diamondView && n > 1 ? gridWidth / (n - 1) : 0;
   const minLabelSpacing = Math.max(10, labelFontSize * 1.1); // px between labels
   const showEvery = diamondView ? Math.max(1, Math.ceil(minLabelSpacing / stepX)) : 1;
   const diamondHeight = diamondView ? cellSize * (n/2) : 0;
+    const needToHideLegend =
+  diamondView && (labelSpace + gridWidth + 10 + 46 /* legend width */ > dims.width);
+  const showLegend = showlegend && !needToHideLegend;
 
   return (
+  <div
+    ref={containerRef}
+    className="flex-1 relative overflow-visible w-full h-full"
+    style={{ display: "flex", flexDirection: "column" }}
+  >
+    {/* Row wrapper so the legend can live OUTSIDE the grid+labels block */}
     <div
-      ref={containerRef}
-      className="flex-1 relative overflow-visible w-full h-full"
-      style={{ display: "flex", flexDirection: "column" }}
+      style={{
+        display: "flex",
+        justifyContent: "center",
+        alignItems: "flex-start",
+        width: "100%",
+        position: "relative",
+      }}
     >
+      {/* ---- Heatmap block (grid + its own labels) ---- */}
       <div
         className="relative"
         style={{
           width: gridWidth + labelSpace,
           height: gridHeight + labelSpace,
           fontFamily: "monospace",
-          margin: "0 auto",
           marginTop: diamondView ? 30 : 0,
         }}
       >
@@ -462,7 +475,7 @@ function PhylipHeatmap({
           <canvas ref={canvasRef} />
         </div>
 
-        {/* --- LD diamond top ticks + labels --- */}
+        {/* --- diamond top ticks + labels --- */}
         {diamondView && (
           <>
             {/* ticks */}
@@ -496,13 +509,12 @@ function PhylipHeatmap({
 
             {/* text labels */}
             <div
-            
               style={{
                 position: "absolute",
                 align: "right",
                 left: 0,
                 textAlign: "left",
-                top: diamondHeight+labelSpace+8,
+                top: diamondHeight + labelSpace + 8,
                 width: gridWidth,
                 overflow: "visible",
                 height: labelSpace,
@@ -519,7 +531,6 @@ function PhylipHeatmap({
                     style={{
                       position: "absolute",
                       left: x,
-                      //top: labelSpace * 0.15,
                       transform: "translateX(-100%) rotate(-60deg)",
                       transformOrigin: "100% 0%",
                       fontSize: `${labelFontSize}px`,
@@ -538,123 +549,139 @@ function PhylipHeatmap({
         )}
       </div>
 
-      {/* Tooltip for hover */}
-      {tooltip.visible && tooltip.content && (
-        <div
-          className="absolute pointer-events-none z-50 bg-black text-white text-sm px-2 py-1 rounded-lg shadow-lg"
-          style={{
-            left: tooltip.x,
-            top: tooltip.y,
-            transform: `${
-              tooltip.x > dims.width / 2 ? "translateX(-120%)" : "translateX(0)"
-            } ${tooltip.y > dims.height / 2 ? "translateY(-100%)" : "translateY(0)"}`,
-          }}
-        >
-          <div>
-            <strong>
-              {tooltip.content.rowLabel}:{tooltip.content.colLabel}
-            </strong>
-          </div>
-          <div>
-            <strong>{tooltip.content.value.toFixed(4)}</strong>{" "}
-          </div>
-        </div>
-      )}
-
-      {/* Tooltip for linked highlight cell */}
-      {linkedTooltip}
-
-      {/* --- Color Legend --- */}
-    {showlegend && (
-      diamondView ? (
+      {/* ---- Colorbar outside the grid+labels area (right side) ---- */}
+      {showLegend && diamondView && (
         <div
           style={{
-            position: "absolute",
-            right: 26,
-            top: labelSpace,
+            marginLeft: 20,            // distance from grid block
+            marginTop: labelSpace,     // align top with the grid area
             height: gridHeight,
-            width: 36,
+            width: 46,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             pointerEvents: "none",
             userSelect: "none",
+            position: "relative",
           }}
         >
           <div
             style={{
               width: 12,
-              height: "1600%",
-              background: `linear-gradient(to top, ${Array.from({length: 20}, (_, i) => valueToColor(min + (max-min)*i/19, min, max)).reverse().join(',')})`,
+              height: gridHeight,
+              background: `linear-gradient(to top, ${Array.from(
+                { length: 20 },
+                (_, i) => valueToColor(min + ((max - min) * i) / 19, min, max)
+              )
+                .reverse()
+                .join(",")})`,
               borderRadius: 4,
               border: "1px solid #ccc",
             }}
           />
+          {/* Tick labels to the right of the bar */}
           <div
             style={{
-              display: "flex",
-              flexDirection: "column",
-              justifyContent: "space-between",
-              height: "100%",
+              position: "absolute",
+              left: 34,
+              top: 0,
+              height: gridHeight,
+              width: 60,
               fontSize: 10,
-              marginTop: 2,
-              marginBottom: 2,
               color: "#333",
-              width: 36,
-              alignItems: "flex-start",
             }}
           >
-            <span style={{position: "absolute", top: -10, left:28}}>{min.toFixed(3)}</span>
-            <span style={{position: "absolute", left:28, top: -5+gridHeight/4 - 8}}>{((min+max)/4).toFixed(3)}</span>
-            <span style={{position: "absolute",left:28, top: -5+gridHeight/2 - 8}}>{((min+max)/2).toFixed(3)}</span>
-            <span style={{position: "absolute",left:28, top: -5+gridHeight*3/4 - 8}}>{((min+max)/4*3).toFixed(3)}</span>
-            <span style={{position: "absolute",left:28, top: -5+gridHeight*4/4 - 18}}>{max.toFixed(3)}</span>
+            <span style={{ position: "absolute", top: -10 }}>{min.toFixed(3)}</span>
+            <span style={{ position: "absolute", top: gridHeight * 0.25 - 13 }}>
+              {((min + max) / 4).toFixed(3)}
+            </span>
+            <span style={{ position: "absolute", top: gridHeight * 0.5 - 13 }}>
+              {((min + max) / 2).toFixed(3)}
+            </span>
+            <span style={{ position: "absolute", top: gridHeight * 0.75 - 13 }}>
+              {(((min + max) / 4) * 3).toFixed(3)}
+            </span>
+            <span style={{ position: "absolute", top: gridHeight - 12 }}>
+              {max.toFixed(3)}
+            </span>
           </div>
         </div>
-      ) : (
+      )}
+    </div>
+
+    {/* Tooltip for hover */}
+    {tooltip.visible && tooltip.content && (
+      <div
+        className="absolute pointer-events-none z-50 bg-black text-white text-sm px-2 py-1 rounded-lg shadow-lg"
+        style={{
+          left: tooltip.x,
+          top: tooltip.y,
+          transform: `${
+            tooltip.x > dims.width / 2 ? "translateX(-120%)" : "translateX(0)"
+          } ${tooltip.y > dims.height / 2 ? "translateY(-100%)" : "translateY(0)"}`,
+        }}
+      >
+        <div>
+          <strong>
+            {tooltip.content.rowLabel}:{tooltip.content.colLabel}
+          </strong>
+        </div>
+        <div>
+          <strong>{tooltip.content.value.toFixed(4)}</strong>{" "}
+        </div>
+      </div>
+    )}
+
+    {/* Tooltip for linked highlight cell */}
+    {linkedTooltip}
+
+    {/* Bottom color legend for square view */}
+    {showlegend && !diamondView && (
+      <div
+        style={{
+          width: gridWidth,
+          marginLeft: labelSpace,
+          marginTop: 20,
+          alignSelf: "center",
+          height: 36,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "stretch",
+          pointerEvents: "none",
+          userSelect: "none",
+        }}
+      >
         <div
           style={{
-            width: gridWidth,
-            marginLeft: labelSpace,
-            marginTop: 20,
-            alignSelf: "center",
-            height: 36,
+            width: "100%",
+            height: 12,
+            background: `linear-gradient(to right, ${Array.from(
+              { length: 20 },
+              (_, i) => valueToColor(min + ((max - min) * i) / 19, min, max)
+            ).join(",")})`,
+            borderRadius: 4,
+            border: "1px solid #ccc",
+          }}
+        />
+        <div
+          style={{
             display: "flex",
-            flexDirection: "column",
-            alignItems: "stretch",
-            pointerEvents: "none",
-            userSelect: "none",
+            justifyContent: "space-between",
+            fontSize: 10,
+            marginTop: 2,
+            color: "#333",
           }}
         >
-          <div
-            style={{
-              width: "100%",
-              height: 12,
-              background: `linear-gradient(to right, ${Array.from({length: 20}, (_, i) => valueToColor(min + (max-min)*i/19, min, max)).join(',')})`,
-              borderRadius: 4,
-              border: "1px solid #ccc",
-            }}
-          />
-          <div
-            style={{
-              display: "flex",
-              justifyContent: "space-between",
-              fontSize: 10,
-              marginTop: 2,
-              color: "#333",
-            }}
-          >
-            <span>{min.toFixed(3)}</span>
-            <span>{((min+max)/4).toFixed(3)}</span>
-            <span>{((min+max)/2).toFixed(3)}</span>
-            <span>{(3*(min+max)/4).toFixed(3)}</span>
-            <span>{max.toFixed(3)}</span>
-          </div>
+          <span>{min.toFixed(3)}</span>
+          <span>{((min + max) / 4).toFixed(3)}</span>
+          <span>{((min + max) / 2).toFixed(3)}</span>
+          <span>{(3 * (min + max) / 4).toFixed(3)}</span>
+          <span>{max.toFixed(3)}</span>
         </div>
-      )
+      </div>
     )}
-        </div>
-      );
+  </div>
+);
     }
 
 export default React.memo(PhylipHeatmap);
