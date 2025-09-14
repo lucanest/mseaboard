@@ -8,7 +8,10 @@ export function TitleFlip({ text, colors}) {
       {text.split('').map((ch, i) => {
         const color = colors[ch] || 'bg-gray-200';
         return (
-          <div key={i} className="flip-card w-16 h-16">
+            <div key={i} className="flip-card w-16 h-16"
+                  style={{
+          marginLeft: i === 0 ? 0 : '-2px' // Overlap tiles by 2px except the first
+        }}>
             <div
               className="flip-inner h-full w-full animate-tileFlip"
               style={{
