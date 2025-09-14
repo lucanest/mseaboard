@@ -983,8 +983,9 @@ const throttledOnScroll = useCallback(
 
     // 1) Numeric site (1-based → 0-based)
     if (Number.isInteger(asInt) && String(asInt) === q) {
-      const col = Math.max(0, Math.min((msaData[0]?.sequence?.length || 1) - 1, asInt - 1));
-     scrollToColumn(col);
+    const col = asInt - 1;
+    if (col < 0 || col >= (msaData[0]?.sequence?.length || 0)) { alert('Index out of bounds'); return; }
+    else {scrollToColumn(col)
      const mask = new Set([col]);
      setSearchMask(mask);
      const ranges = [{ start: col, end: col + 1 }];
@@ -992,7 +993,7 @@ const throttledOnScroll = useCallback(
      setSearchActiveIdx(0);
      setPanelData(prev => ({ ...prev, [id]: { ...prev[id], searchHighlight: { row: null, start: col, end: col + 1 }}}));
       return;
-    }
+    }}
 
     // 2) Motif (search occurrence in any row, exact consecutive, case-insensitive)
     const motif = q.toUpperCase();
@@ -1187,8 +1188,21 @@ const Cell = useCallback(
     const persistentHighlights = data.highlightedSites || [];
     const isPersistentHighlight = persistentHighlights.includes(idx);
 
+    // Whole-column highlight: any column present in the mask is blue on all rows
+    
+    let isInSearchMask = false;
+    if (itemData?.searchHighlight && searchMask.size > 0) {
+      isInSearchMask = searchMask.has(columnIndex);
+    }
+    
     // Highlight all motif letters in each matching row
     let isSearchHighlight = false;
+    const q = searchQuery.trim();
+    const asInt = Number(q);
+    if (Number.isInteger(asInt) && String(asInt) === q && isInSearchMask && asInt > 0 && asInt - 1 === columnIndex) {
+      isSearchHighlight = true;
+    }
+    else {
     if (itemData?.searchHighlight && searchQuery) {
       const motif = searchQuery.toUpperCase();
       const seq = msaData[rowIndex].sequence.toUpperCase();
@@ -1199,9 +1213,10 @@ const Cell = useCallback(
             isSearchHighlight = true;
             break;
           }
+      
         }
       }
-    }
+    }}
 
     const isHoverHighlight = codonMode
       ? hoveredCol != null && hoveredCol === codonIndex
@@ -1263,6 +1278,7 @@ const Cell = useCallback(
     searchHighlight: data.searchHighlight,
     codonMode,
     hoveredCol,
+    searchQuery,
     highlightedSite,
     highlightOrigin,
     linkedTo,
