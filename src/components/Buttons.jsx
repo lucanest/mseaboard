@@ -298,7 +298,7 @@ function LogGlyph(props) {
 
 function TreeGlyph(props) {
   return (
-<svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" {...props}>
+<svg viewBox="0 0 24 24" width="56" height="56" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
   <g transform="translate(0,2)">
   <path d="M12 3V21
            M12 7 Q 9 7 5 2
