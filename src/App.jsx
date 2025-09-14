@@ -3744,16 +3744,18 @@ const canLink = (typeA, typeB) =>
           <div style={{ height: 77 }} /> {/* Spacer for fixed header */}
 <div className="flex items-center gap-2"  style={{ pointerEvents: 'auto' }}>
 <div className="p-1/2 flex justify-between items-center"></div>
-  <div className="flex items-center gap-2 mr-8">
-    
-<div className="relative group">
-  <DelayedTooltip
+  <div className="flex items-center gap-2 mt-2 mr-4 px-1 py-2 rounded-xl 
+    bg-white-100/100">
+{/*border border-gray-400 bg-gradient-to-r from-purple-400/20 via-orange-400/20 via-yellow-400/20 via-purple-400/20 via-blue-400/20 via-indigo-400/20 to-green-400/20 backdrop-blur-xl*/}
+      <div className="flex flex-wrap items-center gap-0">
+<div className="relative group mr-2 ml-2">
+  <DelayedTooltip  delay={135} top={57}
     trigger={
       <button
         onClick={handleSaveBoard}
-        className="w-12 h-12 bg-gray-200 text-gray-500 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center"
+        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center "
       >
-        <ArrowDownTrayIcon className="w-8 h-8 " />
+        <ArrowDownTrayIcon className="w-6 h-6 " />
       </button>
     }
   >
@@ -3762,14 +3764,14 @@ const canLink = (typeA, typeB) =>
     Save this board layout, data<br /> and links to a file
   </DelayedTooltip>
 </div>
-<div className="relative group">
-  <DelayedTooltip
+<div className="relative group mr-0">
+  <DelayedTooltip delay={135} top={57}
     trigger={
       <button
         onClick={() => fileInputRefBoard.current.click()}
-        className="w-12 h-12 bg-gray-200 text-gray-500 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center"
+        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center "
       >
-        <ArrowUpTrayIcon className="w-8 h-8" />
+        <ArrowUpTrayIcon className="w-6 h-6" />
       </button>
     }
   >
@@ -3779,7 +3781,7 @@ const canLink = (typeA, typeB) =>
   </DelayedTooltip>
 </div>
 </div>
-  <DelayedTooltip delay={150} top={74}
+  <DelayedTooltip delay={135} top={62}
   trigger={
     <button
       onClick={() => {
@@ -3789,9 +3791,9 @@ const canLink = (typeA, typeB) =>
           layoutHint: { w: 4, h: 10 }
         });
       }}
-      className="w-28 whitespace-normal break-words h-20 bg-yellow-100 text-black px-4 py-2 rounded-xl hover:bg-yellow-200 shadow-lg hover:shadow-xl leading-tight"
+      className="w-24 whitespace-normal break-words h-18 bg-yellow-100 text-black px-4 py-4 rounded-xl hover:bg-yellow-200 shadow-lg hover:shadow-xl leading-tight "
     >
-      New Notepad
+      Notepad
     </button>
   }
 >
@@ -3806,51 +3808,51 @@ const canLink = (typeA, typeB) =>
       onChange={handleLoadBoard}
       style={{ display: 'none' }}
     />        
-  <DelayedTooltip delay={150} top={74}
+  <DelayedTooltip delay={135} top={62}
     trigger={
-            <button onClick={() => triggerUpload('alignment')} className="w-28 whitespace-normal break-words h-20 bg-green-200 text-black px-4 py-2 rounded-xl hover:bg-green-300 shadow-lg hover:shadow-xl leading-tight">
-              Upload MSA
+            <button onClick={() => triggerUpload('alignment')} className="w-24 whitespace-normal break-words h-18 bg-green-200 text-black px-4 py-4 rounded-xl hover:bg-green-300 shadow-lg hover:shadow-xl leading-tight ">
+              MSA
               </button>}
   >
     <b>Upload MSA</b>
     <br />
-    Upload a multiple sequence alignment <br /> in FASTA format (.fasta/.fas)
+    Upload a sequence or multiple sequence <br /> alignment in FASTA format (.fasta/.fas)
   </DelayedTooltip>
-  <DelayedTooltip delay={150} top={74}
+  <DelayedTooltip delay={135} top={62}
     trigger={
-            <button onClick={() => triggerUpload('tree')} className="w-28 whitespace-normal break-words h-20 bg-blue-200 text-black px-4 py-2 rounded-xl hover:bg-blue-300 shadow-lg hover:shadow-xl leading-tight">
-              Upload Tree
+            <button onClick={() => triggerUpload('tree')} className="w-24 whitespace-normal break-words h-18 bg-blue-200 text-black px-4 py-4 rounded-xl hover:bg-blue-300 shadow-lg hover:shadow-xl leading-tight ">
+              Tree
             </button>}
   >
     <b>Upload Tree</b>
     <br />
     Upload a phylogenetic tree <br /> in Newick format (.nwk/.nhx)
   </DelayedTooltip>
-  <DelayedTooltip delay={150} top={74}
+  <DelayedTooltip delay={135} top={62}
     trigger={
-            <button onClick={() => triggerUpload('histogram')}  className="w-28 whitespace-normal break-words h-20 bg-orange-200 text-black px-4 py-2 rounded-xl hover:bg-orange-300 shadow-lg hover:shadow-xl leading-tight">
-              Upload Data
+            <button onClick={() => triggerUpload('histogram')}  className="w-24 whitespace-normal break-words h-18 bg-orange-200 text-black px-4 py-4 rounded-xl hover:bg-orange-300 shadow-lg hover:shadow-xl leading-tight ">
+              Data
             </button>}
   >
     <b>Upload Data</b>
     <br />
     Upload tabular data (.tsv/.csv) <br /> or a list of numbers (.txt)
   </DelayedTooltip>
-  <DelayedTooltip delay={150} top={74}
+  <DelayedTooltip delay={135} top={62}
     trigger={
   
-            <button onClick={() => triggerUpload('heatmap')}  className="w-28 whitespace-normal break-words h-20 bg-red-200 text-black px-4 py-2 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl leading-tight">
-              Upload Distance Matrix
+            <button onClick={() => triggerUpload('heatmap')}  className="w-24 whitespace-normal break-words h-18 bg-red-200 text-black px-4 py-2 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl leading-tight ">
+            Distance Matrix
             </button>}
   >
     <b>Upload Distance Matrix</b>
     <br />
     Upload a distance matrix <br /> in PHYLIP format (.phy/.phylip/.dist)
   </DelayedTooltip>
-  <DelayedTooltip delay={150} top={74}
+  <DelayedTooltip delay={135} top={62}
     trigger={
-            <button onClick={() => triggerUpload('structure')} className="w-28 whitespace-normal break-words h-20 bg-purple-200 text-black px-4 py-2 rounded-xl hover:bg-purple-300 shadow-lg hover:shadow-xl leading-tight">
-              Upload Structure
+            <button onClick={() => triggerUpload('structure')} className="w-24 whitespace-normal break-words h-18 bg-purple-200 text-black px-4 py-4 rounded-xl hover:bg-purple-300 shadow-lg hover:shadow-xl leading-tight ">
+              Structure
             </button>}
   >
     <b>Upload Structure</b>
@@ -3860,6 +3862,7 @@ const canLink = (typeA, typeB) =>
             <GitHubButton />
             <input ref={fileInputRef} type="file" accept=".fasta,.nwk,.nhx,.txt,.tsv,.csv,.fas,.phy,.phylip,.dist,.pdb" onChange={handleFileUpload} style={{ display: 'none' }} />
           </div>
+        </div>
         </div>
          {/* instructions and example */}
 {panels.length === 0 && (
@@ -3881,7 +3884,7 @@ const canLink = (typeA, typeB) =>
       <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors}/>
     </div><div
       style={{
-        height: 77,
+        height: 74,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'flex-start',
@@ -3926,10 +3929,10 @@ const canLink = (typeA, typeB) =>
         )}
 
               {panels.length > 0 && (
-        <div className="flex-grow overflow-auto pb-20 ">
+        <div className="flex-grow overflow-auto pb-20">
  <div
       style={{
-        height: 77,
+        height: 74,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'flex-start',
