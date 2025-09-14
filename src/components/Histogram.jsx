@@ -573,7 +573,7 @@ useEffect(() => {
             overflowY: 'hidden',
           }}
           onMouseMove={handleAreaMouseMove}                   // area-level hover
-          onMouseLeave={handleMouseLeaveChart}                // area-level mouse leave
+          onPointerLeave={handleMouseLeaveChart}              // area-level mouse leave
         >
         {/* Column overlay for local hover */}
         {isLocalTooltipActive && hoverIndex != null && (

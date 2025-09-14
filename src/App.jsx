@@ -70,6 +70,25 @@ function PanelHeader({
     };
   }, []);
 
+  useEffect(() => {
+  function handleGlobalMouseMove(e) {
+    // If the mouse is not over any button or tooltip, clear all tooltips
+    if (!e.target.closest('.panel-drag-handle') &&
+        !e.target.closest('.absolute.text-center')) {
+      clearAllTooltips();
+    }
+  }
+  document.addEventListener('mousemove', handleGlobalMouseMove);
+  return () => document.removeEventListener('mousemove', handleGlobalMouseMove);
+  }, [clearAllTooltips]);
+
+  useEffect(() => {
+  if (!hoveredBtn && !hoveredBadge && showTooltip) {
+    setShowTooltip(false);
+    setShowBadgeTooltip(false);
+  }
+  }, [hoveredBtn, hoveredBadge, showTooltip]);
+
 
   const handleEnter = useCallback((name, isBadge = false) => {
     clearTimeout(hideTimer.current); // Cancel any pending hide action
@@ -95,6 +114,7 @@ function PanelHeader({
   useEffect(() => {
     if (forceHideTooltip) {
       clearAllTooltips();
+      setForceHideTooltip(false); // reset after clearing
     }
   }, [forceHideTooltip, clearAllTooltips]);
 
@@ -109,7 +129,7 @@ function PanelHeader({
       <div
         className="w-7 h-7 flex items-center justify-center"
         onMouseEnter={() => handleEnter(name, false)}
-        onMouseLeave={handleLeave}
+        onPointerLeave={handleLeave}
         onFocus={() => handleEnter(name, false)}
         onBlur={handleLeave}
       >
@@ -127,7 +147,7 @@ function PanelHeader({
           ${active ? baseColor : 'bg-gray-300'} 
           ${!active ? `hover:bg-blue-300` : ''}`}
         onMouseEnter={() => handleEnter(partnerId, true)}
-        onMouseLeave={handleLeave}
+        onPointerLeave={handleLeave}
         onFocus={() => handleEnter(partnerId, true)}
         onBlur={handleLeave}
         onClick={(e) => {
@@ -141,7 +161,7 @@ function PanelHeader({
 
   return (
     <div
-      className="panel-drag-handle bg-gradient-to-b from-gray-100 to-white p-1 mb-2 cursor-move
+      className="upload-btn-trigger panel-drag-handle bg-gradient-to-b from-gray-100 to-white p-1 mb-2 cursor-move
              flex flex-wrap items-center justify-between gap-x-2 gap-y-1 font-bold"
       onBlur={handleLeave}
       tabIndex={-1}
@@ -159,7 +179,7 @@ function PanelHeader({
           rounded-xl bg-gray-200 text-black text-sm
           transition-opacity whitespace-nowrap opacity-100 border border-gray-400"
           onMouseEnter={() => clearTimeout(hideTimer.current)}
-          onMouseLeave={handleLeave}
+          onPointerLeave={handleLeave}
         >
           {linkBadges.find(b => b.partnerId === hoveredBadge)?.title || hoveredBadge}
         </div>
@@ -215,7 +235,7 @@ function PanelHeader({
                rounded-xl bg-gray-200 text-black text-sm
               transition-opacity whitespace-nowrap opacity-100 border border-gray-400"
           onMouseEnter={() => clearTimeout(hideTimer.current)} // <-- Keep tooltip open
-          onMouseLeave={handleLeave} // <-- Hide when mouse leaves tooltip
+          onPointerLeave={handleLeave} // <-- Hide when mouse leaves tooltip
         >
           {tooltipMap[hoveredBtn] ||
             (hoveredBtn.startsWith("extra") ? "Extra action" : "")}
@@ -354,7 +374,7 @@ className={`border rounded-2xl overflow-hidden h-full flex flex-col bg-white
       onClick={() => onSelect(id)}
       onFocus={() => onSelect(id)}
       onMouseEnter={() => setHoveredPanelId(id)}
-      onMouseLeave={() => {
+      onPointerLeave={() => {
         setHoveredPanelId(null);
         setForceHideTooltip(true);
       }}
@@ -408,7 +428,7 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
       const padding = containerWidth / 3;
 
       let targetScroll = null;
-      if (colLeft < currentScroll) targetScroll = colLeft - padding;
+      if (colLeft < currentScroll ) targetScroll = colLeft - padding;
       else if (colRight > currentScroll + containerWidth) targetScroll = colRight - containerWidth + padding;
 
       if (targetScroll != null) {
@@ -888,6 +908,20 @@ useEffect(() => {
   const [isSyncScrolling, setIsSyncScrolling] = useState(false);
   const isNuc = useMemo(() => isNucleotide(msaData), [msaData]);
 
+
+  useEffect(() => {
+  function handleGlobalMouseMove(e) {
+    // Check for the custom upload button class
+    if (e.target.closest('.upload-btn-trigger')) {
+      setHoveredCol(null);
+      setHoveredRow(null);
+      if (id === highlightOrigin) onHighlight(null, id);
+    }
+  }
+  document.addEventListener('mousemove', handleGlobalMouseMove);
+  return () => document.removeEventListener('mousemove', handleGlobalMouseMove);
+  }, [id, highlightOrigin, onHighlight]);
+
   const handleDownload = useCallback(() => {
     const msa = data?.data || [];
     const content = toFasta(msa);
@@ -1087,15 +1121,16 @@ useEffect(() => {
   const viewportWidth = dims.width - LABEL_WIDTH;
   const currentScrollLeft = outer.scrollLeft;
   const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
+  const MARGIN = 24;
   const colStart = externalScrollLeft;
   const colEnd = colStart + itemWidth;
   const padding = viewportWidth / 3;
   const maxScroll = outer.scrollWidth - viewportWidth + itemWidth + padding;
 
   let targetScroll = null;
-  if (colStart < currentScrollLeft) {
+  if (colStart < currentScrollLeft + MARGIN) {
     targetScroll = colStart - padding;
-  } else if (colEnd > currentScrollLeft + viewportWidth) {
+  } else if (colEnd > currentScrollLeft + viewportWidth - 2*MARGIN ) {
     targetScroll = colStart - viewportWidth + itemWidth + padding;
   }
 
@@ -1304,7 +1339,7 @@ const Cell = useCallback(
       <div
         ref={containerRef}
         className="relative flex flex-col h-full border rounded-xl bg-white overflow-hidden"
-        onMouseLeave={handleGridMouseLeave}
+        onPointerLeave={handleGridMouseLeave}
       >
         <PanelHeader
           id={id}
@@ -1483,7 +1518,7 @@ const Cell = useCallback(
           // event delegation lives on the same wrapper that contains the Grid
           onMouseMove={handleGridMouseMove}
           onClick={handleGridClick}
-          onMouseLeave={handleGridMouseLeave}
+          onPointerLeave={handleGridMouseLeave}
         >
           {/* Left labels */}
           <div
@@ -1523,7 +1558,7 @@ const Cell = useCallback(
                       if (linkedTo) setHighlightedSequenceId(seqId);
                       isNameHighlight || setHoveredRow(index);
                     }}
-                    onMouseLeave={() => {
+                    onPointerLeave={() => {
                       if (linkedTo) setHighlightedSequenceId(null);
                       isNameHighlight || setHoveredRow(null);
                     }}
@@ -1727,6 +1762,17 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
         data.data.headers.find(h => typeof data.data.rows[0][h] === 'number'))
       : null
   );
+
+    const handlePanelMouseLeave = useCallback(() => {
+    setPanelData(prev => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        highlightedSites: [],
+      }
+    }));
+  }, [id, setPanelData]);
+
   const handleDownload = useCallback(() => {
     const base = baseName(filename, 'data');
 
@@ -1809,6 +1855,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
       onUnlink={onUnlink}
       colorForLink={colorForLink}
       onRemove={onRemove}
+      onMouseEnter={handlePanelMouseLeave}
       extraButtons={[
       { element: <LogYButton onClick={() => {
           setPanelData(prev => ({
@@ -1822,7 +1869,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
        tooltip: "Download data" }
       ]}
       />
-    <div className="p-2">
+    <div className="p-2" >
       {isTabular && (
         <div className="flex items-center gap-4">
           <div>
@@ -1870,7 +1917,8 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
         </div>
       )}
     </div>
-    <div ref={chartContainerRef} className="flex flex-col h-full px-2 pb-2 overflow-hidden">
+    <div ref={chartContainerRef} className="flex flex-col h-full px-2 pb-2 overflow-hidden"
+    onPointerLeave={handlePanelMouseLeave}>
       <Histogram
         values={valuesToPlot}
         xValues={xValues}
@@ -3687,7 +3735,7 @@ function DelayedTooltip({ children, delay = 100,top=54, ...props }) {
   return (
     <span
       onMouseEnter={show}
-      onMouseLeave={hide}
+      onPointerLeave={hide}
       onFocus={show}
       onBlur={hide}
       style={{ position: 'relative', display: 'inline-block' }}
@@ -3749,7 +3797,7 @@ const canLink = (typeA, typeB) =>
 {/*border border-gray-400 bg-gradient-to-r from-purple-400/20 via-orange-400/20 via-yellow-400/20 via-purple-400/20 via-blue-400/20 via-indigo-400/20 to-green-400/20 backdrop-blur-xl*/}
       <div className="flex flex-wrap items-center gap-0">
 <div className="relative group mr-2 ml-2">
-  <DelayedTooltip  delay={135} top={57}
+  <DelayedTooltip  delay={135} top={54}
     trigger={
       <button
         onClick={handleSaveBoard}
@@ -3765,7 +3813,7 @@ const canLink = (typeA, typeB) =>
   </DelayedTooltip>
 </div>
 <div className="relative group mr-0">
-  <DelayedTooltip delay={135} top={57}
+  <DelayedTooltip delay={135} top={54}
     trigger={
       <button
         onClick={() => fileInputRefBoard.current.click()}
@@ -3781,7 +3829,7 @@ const canLink = (typeA, typeB) =>
   </DelayedTooltip>
 </div>
 </div>
-  <DelayedTooltip delay={135} top={62}
+  <DelayedTooltip delay={135} top={58}
   trigger={
     <button
       onClick={() => {
@@ -3791,7 +3839,7 @@ const canLink = (typeA, typeB) =>
           layoutHint: { w: 4, h: 10 }
         });
       }}
-      className="w-24 whitespace-normal break-words h-18 bg-yellow-100 text-black px-4 py-4 rounded-xl hover:bg-yellow-200 shadow-lg hover:shadow-xl leading-tight "
+      className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-yellow-100 text-black px-4 py-4 rounded-xl hover:bg-yellow-200 shadow-lg hover:shadow-xl leading-tight "
     >
       Notepad
     </button>
@@ -3808,9 +3856,9 @@ const canLink = (typeA, typeB) =>
       onChange={handleLoadBoard}
       style={{ display: 'none' }}
     />        
-  <DelayedTooltip delay={135} top={62}
+  <DelayedTooltip delay={135} top={58}
     trigger={
-            <button onClick={() => triggerUpload('alignment')} className="w-24 whitespace-normal break-words h-18 bg-green-200 text-black px-4 py-4 rounded-xl hover:bg-green-300 shadow-lg hover:shadow-xl leading-tight ">
+            <button onClick={() => triggerUpload('alignment')} className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-green-200 text-black px-4 py-4 rounded-xl hover:bg-green-300 shadow-lg hover:shadow-xl leading-tight ">
               MSA
               </button>}
   >
@@ -3818,9 +3866,9 @@ const canLink = (typeA, typeB) =>
     <br />
     Upload a sequence or multiple sequence <br /> alignment in FASTA format (.fasta/.fas)
   </DelayedTooltip>
-  <DelayedTooltip delay={135} top={62}
+  <DelayedTooltip delay={135} top={58}
     trigger={
-            <button onClick={() => triggerUpload('tree')} className="w-24 whitespace-normal break-words h-18 bg-blue-200 text-black px-4 py-4 rounded-xl hover:bg-blue-300 shadow-lg hover:shadow-xl leading-tight ">
+            <button onClick={() => triggerUpload('tree')} className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-blue-200 text-black px-4 py-4 rounded-xl hover:bg-blue-300 shadow-lg hover:shadow-xl leading-tight ">
               Tree
             </button>}
   >
@@ -3828,9 +3876,9 @@ const canLink = (typeA, typeB) =>
     <br />
     Upload a phylogenetic tree <br /> in Newick format (.nwk/.nhx)
   </DelayedTooltip>
-  <DelayedTooltip delay={135} top={62}
+  <DelayedTooltip delay={135} top={58}
     trigger={
-            <button onClick={() => triggerUpload('histogram')}  className="w-24 whitespace-normal break-words h-18 bg-orange-200 text-black px-4 py-4 rounded-xl hover:bg-orange-300 shadow-lg hover:shadow-xl leading-tight ">
+            <button onClick={() => triggerUpload('histogram')}  className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-orange-200 text-black px-4 py-4 rounded-xl hover:bg-orange-300 shadow-lg hover:shadow-xl leading-tight ">
               Data
             </button>}
   >
@@ -3838,10 +3886,10 @@ const canLink = (typeA, typeB) =>
     <br />
     Upload tabular data (.tsv/.csv) <br /> or a list of numbers (.txt)
   </DelayedTooltip>
-  <DelayedTooltip delay={135} top={62}
+  <DelayedTooltip delay={135} top={58}
     trigger={
   
-            <button onClick={() => triggerUpload('heatmap')}  className="w-24 whitespace-normal break-words h-18 bg-red-200 text-black px-4 py-2 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl leading-tight ">
+            <button onClick={() => triggerUpload('heatmap')}  className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-red-200 text-black px-4 py-2 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl leading-tight ">
             Distance Matrix
             </button>}
   >
@@ -3849,9 +3897,9 @@ const canLink = (typeA, typeB) =>
     <br />
     Upload a distance matrix <br /> in PHYLIP format (.phy/.phylip/.dist)
   </DelayedTooltip>
-  <DelayedTooltip delay={135} top={62}
+  <DelayedTooltip delay={135} top={58}
     trigger={
-            <button onClick={() => triggerUpload('structure')} className="w-24 whitespace-normal break-words h-18 bg-purple-200 text-black px-4 py-4 rounded-xl hover:bg-purple-300 shadow-lg hover:shadow-xl leading-tight ">
+            <button onClick={() => triggerUpload('structure')} className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-purple-200 text-black px-4 py-4 rounded-xl hover:bg-purple-300 shadow-lg hover:shadow-xl leading-tight ">
               Structure
             </button>}
   >

@@ -462,7 +462,7 @@ function PhylipHeatmap({
         {/* Heatmap grid - canvas */}
         <div
           onMouseMove={handleGridMouseMove}
-          onMouseLeave={handleGridMouseLeave}
+          onPointerLeave={handleGridMouseLeave}
           onClick={handleGridClick}
           style={{
             marginLeft: labelSpace,
