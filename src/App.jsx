@@ -3919,10 +3919,10 @@ const canLink = (typeA, typeB) =>
         </div>
          {/* instructions and example */}
 {panels.length === 0 && (
-  <div className="flex flex-col items-center justify-center px-2 w-full">
+  <div className="flex flex-col items-center justify-center px-3 w-full" style={{ marginTop: 5 }}>
     <div
       style={{
-        height: 77,
+        height: 74,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'flex-start',
@@ -3937,7 +3937,7 @@ const canLink = (typeA, typeB) =>
       <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors}/>
     </div><div
       style={{
-        height: 74,
+        height: 120,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'flex-start',
@@ -3997,7 +3997,7 @@ const canLink = (typeA, typeB) =>
         marginRight: 0,
       }}
     >
-      <div className="flex flex-col items-center justify-center px-2 w-full">
+      <div className="flex flex-col items-center justify-center px-3 w-full" style={{ marginTop: 10 }}>
       <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors}/>
       </div>
     </div>
