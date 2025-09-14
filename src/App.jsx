@@ -1960,11 +1960,11 @@ const mkDownload = (base, content, ext, mime = 'text/plain;charset=utf-8') =>
 
 /** Parse PDB once: returns chain -> { atomsCA: [{label,x,y,z,resSeq,iCode}], seq: "AA..."} */
 function parsePdbChains(pdb) {
-  const chains = new Map(); // chainId -> { atomsCA: [], seq: [] }
-  const seenCA = new Set(); // dedupe per (chain|resSeq|icode)
+  const chains = new Map();
+  const seenCA = new Set();
 
   const get = (cid) => {
-    if (!chains.has(cid)) chains.set(cid, { atomsCA: [], seq: [] });
+    if (!chains.has(cid)) chains.set(cid, { atomsCA: [], seq: [], minResi: null });
     return chains.get(cid);
   };
 
@@ -1974,7 +1974,7 @@ function parsePdbChains(pdb) {
     const atomName = line.slice(12, 16).trim();
     const resName  = line.slice(17, 20).trim().toUpperCase();
     const chainId  = (line[21] || 'A').trim() || 'A';
-    const resSeq   = line.slice(22, 26).trim();
+    const resSeq   = Number(line.slice(22, 26).trim());
     const iCode    = (line[26] || '').trim();
 
     if (atomName === 'CA') {
@@ -1987,26 +1987,30 @@ function parsePdbChains(pdb) {
       const z = Number(line.slice(46, 54));
       if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue;
 
-      const label = `${chainId}:${resSeq}${iCode || ''}`;
-      get(chainId).atomsCA.push({ label, x, y, z, resSeq, iCode });
-      // sequence added once per residue (on CA)
+      const chain = get(chainId);
+      if (chain.minResi == null || resSeq < chain.minResi) chain.minResi = resSeq;
+
+      chain.atomsCA.push({ chainId, resSeq, iCode, x, y, z, resName });
       const one = threeToOne[resName] || 'X';
-      get(chainId).seq.push(one);
+      chain.seq.push(one);
     }
   }
 
-  // finalize
-  const result = new Map();
-  for (const [cid, { atomsCA, seq }] of chains.entries()) {
-    result.set(cid, { atomsCA, seq: seq.join('') });
+  // finalize: add dispResi to each atom
+  for (const [cid, chain] of chains.entries()) {
+    for (const atom of chain.atomsCA) {
+      atom.dispResi = atom.resSeq - chain.minResi + 1;
+      atom.label = `${cid}:${atom.dispResi}${atom.iCode || ''}`;
+    }
+    chain.seq = chain.seq.join('');
   }
-  return result;
+  return chains;
 }
 
-/** Euclidean distance matrix from an ordered list of atoms with labels */
+/** Euclidean distance matrix from an ordered list of atoms with display labels */
 function distanceMatrixFromAtoms(atoms) {
   const N = atoms.length;
-  const labels = atoms.map(a => a.label);
+  const labels = atoms.map(a => a.label); // uses dispResi
   const matrix = Array.from({ length: N }, () => Array(N).fill(0));
   for (let i = 0; i < N; i++) {
     for (let j = i; j < N; j++) {
@@ -2019,6 +2023,7 @@ function distanceMatrixFromAtoms(atoms) {
   }
   return { labels, matrix };
 }
+
 
 /** Reorder an MSA array by Newick leaf order, appending non-matches at end */
 function reorderMsaByLeafOrder(msaSeqs, leafOrder) {
@@ -2727,7 +2732,7 @@ const handleStructureToDistance = useCallback((id, forcedChoice) => {
 
   if (atoms.length < 2) { alert('Not enough residues to build a distance map.'); return; }
 
-  const { labels, matrix } = distanceMatrixFromAtoms(atoms);
+  const { labels, matrix } = distanceMatrixFromAtoms(atoms); // labels now use dispResi
   const base  = (s.filename ? s.filename: 'structure');
   const suffix = choice === 'ALL' ? 'ALL' : choice;
 

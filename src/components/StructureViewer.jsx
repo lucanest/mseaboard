@@ -28,7 +28,7 @@ const getChainColor = (chain) => {
   return chainColors[idx];
 };
 
-function StructureViewer({ pdb, panelId, surface = true, data, setPanelData,linkedTo, highlightedSite, highlightOrigin, onHighlight,
+function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onHighlight,
   linkedPanelData }) {
   const viewerDiv = useRef(null);
   const viewerRef = useRef(null);
@@ -53,7 +53,7 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData,link
       }
       didInitOpacity.current = true;
     }
-    // Only run on mount or panelId change
+  // Only run on mount or panelId change
   }, [panelId, data?.opacity]);
 
   // StructureTooltip: use state for small structures, direct DOM updates in perf mode
@@ -70,7 +70,7 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData,link
   const modelRef = useRef(null);
   const hoverShapeRef = useRef(null);     // needed for the hover halo
   const linkedShapesRef = useRef([]);     // shapes for multi-highlights
-    const _clearLinkedShapes = () => {
+  const _clearLinkedShapes = () => {
     const v = viewerRef.current;
     if (!v) return;
     for (const sh of linkedShapesRef.current) {
@@ -93,106 +93,112 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData,link
   // throttle window in ms when perfMode = true
   const HOVER_THROTTLE_MS = 60; // tuned a bit higher for giant structures
 
-const chainInfoRef = useRef({
-  // byChain: { [chainId]: { caAtoms: Array<atom>, keyToIndex: Map, length: number } }
-  byChain: {}
-});
+  const chainInfoRef = useRef({
+    // byChain: { [chainId]: { caAtoms: Array<atom>, keyToIndex: Map, length: number } }
+    byChain: {}
+  });
 
-const linkedChainIdRef = useRef(data?.linkedChainId);
-useEffect(() => { linkedChainIdRef.current = data?.linkedChainId; }, [data?.linkedChainId]);
+  const linkedChainIdRef = useRef(data?.linkedChainId);
+  useEffect(() => { linkedChainIdRef.current = data?.linkedChainId; }, [data?.linkedChainId]);
 
-const onHighlightRef = useRef(onHighlight);
-useEffect(() => { onHighlightRef.current = onHighlight; }, [onHighlight]);
+  const onHighlightRef = useRef(onHighlight);
+  useEffect(() => { onHighlightRef.current = onHighlight; }, [onHighlight]);
 
-const panelIdRef = useRef(panelId);
-useEffect(() => { panelIdRef.current = panelId; }, [panelId]);
+  const panelIdRef = useRef(panelId);
+  useEffect(() => { panelIdRef.current = panelId; }, [panelId]);
 
-function buildChainInfo(model) {
-  const byChain = {};
-  const atoms = model.selectedAtoms({ atom: 'CA' }) || [];
-  for (const a of atoms) {
-    const chain = (a.chain || 'A').trim() || 'A';
-    const resi = a.resi; // integer
-       // normalize insertion code: treat blank/space the same
-   const icode = String(a.inscode ?? a.icode ?? '').trim();
-    const key = `${chain}|${resi}|${icode}`;
+  function buildChainInfo(model) {
+    const byChain = {};
+    const atoms = model.selectedAtoms({ atom: 'CA' }) || [];
+    for (const a of atoms) {
+      const chain = (a.chain || 'A').trim() || 'A';
+      const resi = a.resi;
+      const icode = String(a.inscode ?? a.icode ?? '').trim();
+      const key = `${chain}|${resi}|${icode}`;
 
-    if (!byChain[chain]) {
-      byChain[chain] = { caAtoms: [], keyToIndex: new Map(), length: 0 };
+      if (!byChain[chain]) {
+        byChain[chain] = { caAtoms: [], keyToIndex: new Map(), length: 0, minResi: resi };
+      }
+      const info = byChain[chain];
+      info.minResi = Math.min(info.minResi, resi);
+      const idx = info.caAtoms.length;
+      info.caAtoms.push(a);
+      info.keyToIndex.set(key, idx);
+      info.length++;
     }
-    const info = byChain[chain];
-    const idx = info.caAtoms.length;
-    info.caAtoms.push(a);
-    info.keyToIndex.set(key, idx);
-    info.length++;
+    chainInfoRef.current.byChain = byChain;
   }
-  chainInfoRef.current.byChain = byChain;
-}
 
-const showStructureTooltipText = (text) => {
-  if (perfModeRef.current && tooltipRef.current) {
-    tooltipRef.current.textContent = text;
-    tooltipRef.current.style.display = 'block';
-  } else {
-    setStructureTooltip(text);
-  }
-};
-const hideStructureTooltipText = () => {
-  if (perfModeRef.current && tooltipRef.current) {
-    tooltipRef.current.style.display = 'none';
-  } else {
-    setStructureTooltip(null);
-  }
-};
+  const showStructureTooltipText = (text) => {
+    if (perfModeRef.current && tooltipRef.current) {
+      tooltipRef.current.textContent = text;
+      tooltipRef.current.style.display = 'block';
+    } else {
+      setStructureTooltip(text);
+    }
+  };
+  const hideStructureTooltipText = () => {
+    if (perfModeRef.current && tooltipRef.current) {
+      tooltipRef.current.style.display = 'none';
+    } else {
+      setStructureTooltip(null);
+    }
+  };
 
-const setupHoverStructureTooltip = () => {
-  const v = viewerRef.current;
-  if (!v) return;
+  const setupHoverStructureTooltip = () => {
+    const v = viewerRef.current;
+    if (!v) return;
 
-  v.setHoverable(
-    { atom: 'CA' },
-    true,
-    function onHover(atom) {
-      if (!atom || atom.hetflag) return;
+    v.setHoverable(
+      { atom: 'CA' },
+      true,
+      function onHover(atom) {
+  if (!atom || atom.hetflag) return;
 
-      const resn = (atom.resn || '').trim().toUpperCase();
-      const one = threeToOne[resn] || '-';
-      const label = `chain ${atom.chain || ''}, ${atom.resi - 2 ?? ''}: ${one}`;
-      showStructureTooltipText(label);
-
-      // Share highlight back to MSA if linked
-      try {
+        const resn = (atom.resn || '').trim().toUpperCase();
+        const one = threeToOne[resn] || '-';
         const chain = (atom.chain || 'A').trim() || 'A';
-        const icode = String(atom.inscode ?? atom.icode ?? '').trim();
-        const key = `${chain}|${atom.resi}|${icode}`;
         const info = chainInfoRef.current.byChain[chain];
-        const idx = info ? info.keyToIndex.get(key) : null;
-        //console.log(chain,data?.linkedChainId)
+        const minResi = info ? info.minResi : 1;
+        const dispResi = atom.resi - minResi + 1;
+        const label = `chain ${chain}, ${dispResi}: ${one}`;
+        showStructureTooltipText(label);
 
-       if (typeof onHighlightRef.current === 'function' && idx != null) {
-         // gate by the current linkedChainId
-         const wantChain = linkedChainIdRef.current;
-         if (chain === wantChain && lastSentHighlightRef.current !== idx) {
-           lastSentHighlightRef.current = idx;
-           onHighlightRef.current(idx, panelIdRef.current);
-         }
-       }
-      } catch {}
+        //console.log('hover atom', atom);
 
-      scheduleHalo(atom);
-    },
-    function onUnhover() {
-      hideStructureTooltipText();
-      scheduleHalo(null);
- if (typeof onHighlightRef.current === 'function') {
-   if (lastSentHighlightRef.current !== null) {
-     lastSentHighlightRef.current = null;
-     onHighlightRef.current(null, panelIdRef.current);
-   }
- }
-    }
-  );
-};
+        // Share highlight back to MSA if linked
+        try {
+          const chain = (atom.chain || 'A').trim() || 'A';
+          const icode = String(atom.inscode ?? atom.icode ?? '').trim();
+          const key = `${chain}|${atom.resi}|${icode}`;
+          const info = chainInfoRef.current.byChain[chain];
+          const idx = info ? info.keyToIndex.get(key) : null;
+          //console.log(chain,data?.linkedChainId)
+
+        if (typeof onHighlightRef.current === 'function' && idx != null) {
+          // gate by the current linkedChainId
+          const wantChain = linkedChainIdRef.current;
+          if (chain === wantChain && lastSentHighlightRef.current !== idx) {
+            lastSentHighlightRef.current = idx;
+            onHighlightRef.current(idx, panelIdRef.current);
+          }
+        }
+        } catch {}
+
+        scheduleHalo(atom);
+      },
+      function onUnhover() {
+        hideStructureTooltipText();
+        scheduleHalo(null);
+          if (typeof onHighlightRef.current === 'function') {
+            if (lastSentHighlightRef.current !== null) {
+              lastSentHighlightRef.current = null;
+              onHighlightRef.current(null, panelIdRef.current);
+            }
+          }
+      }
+    );
+  };
 
 
 
@@ -215,22 +221,21 @@ const setupHoverStructureTooltip = () => {
     m.setColorByFunction({}, defaultColorFunc);
   };
 
- const _removeHoverShape = () => {
-    const v = viewerRef.current;
-    if (!v) return;
-    if (hoverShapeRef.current) {
-      v.removeShape(hoverShapeRef.current);
-      hoverShapeRef.current = null;
-    }
-  };
+  const _removeHoverShape = () => {
+      const v = viewerRef.current;
+      if (!v) return;
+      if (hoverShapeRef.current) {
+        v.removeShape(hoverShapeRef.current);
+        hoverShapeRef.current = null;
+      }
+    };
 
   const showHoverHalo = (atom) => {
     const v = viewerRef.current;
     if (!v) return;
 
+    _removeHoverShape(); 
     // Remove previous halo
-    _removeHoverShape();
-
     if (!atom) {
       v.render();
       return;
@@ -261,45 +266,50 @@ const setupHoverStructureTooltip = () => {
 
 
 
-useEffect(() => {
-  // If multi-linked residues are present, don't override them here.
-  if (Array.isArray(data?.linkedResiduesByKey) && data.linkedResiduesByKey.length > 0) {
-    return;
-  }
-
-  const v = viewerRef.current;
-  const byChain = chainInfoRef.current.byChain;
-  if (!v || !byChain) return;
-
-  const chainId = data?.linkedChainId;
-  //console.log('[Structure] chosen chain for single-link (data.linkedChainId):', chainId);
-  const residIdx = data?.linkedResidueIndex;
-
-  if (chainId && byChain[chainId] && Number.isInteger(residIdx)) {
-    const a = byChain[chainId].caAtoms[residIdx];
-    if (a) {
-      //console.log('[Structure] single-link highlight:', { chainId, residIdx, resi: a.resi, icode: a.inscode || a.icode || '' });
-      // Show halo
-      scheduleHalo(a);
-
-      // Build tooltip label same as hover
-      const resn = (a.resn || '').trim().toUpperCase();
-      const one = threeToOne[resn] || '-';
-      const label = `chain ${a.chain || ''}, ${a.resi - 2 ?? ''}: ${one}`;
-
-      // StructureTooltip (linked-driven)
-      showStructureTooltipText(label);
+  useEffect(() => {
+    // If multi-linked residues are present, don't override them here.
+    if (Array.isArray(data?.linkedResiduesByKey) && data.linkedResiduesByKey.length > 0) {
       return;
     }
-    //console.log('[Structure] single-link: atom not found for', { chainId, residIdx });
-  }
-  //console.log('[Structure] single-link: no valid chain/residIdx:', { chainId, residIdx, chains: Object.keys(byChain) });
 
-  // Clear if no valid linked highlight
-  hideStructureTooltipText();
-  scheduleHalo(null);
-}, [data?.linkedResidueIndex, data?.linkedChainId, linkedPanelData]);
-// Render multiple persistent highlights from heatmap links
+    const v = viewerRef.current;
+    const byChain = chainInfoRef.current.byChain;
+    if (!v || !byChain) return;
+
+    const chainId = data?.linkedChainId;
+    //console.log('[Structure] chosen chain for single-link (data.linkedChainId):', chainId);
+    const residIdx = data?.linkedResidueIndex;
+
+    if (chainId && byChain[chainId] && Number.isInteger(residIdx)) {
+      const a = byChain[chainId].caAtoms[residIdx];
+        if (a) {
+          //console.log('[Structure] single-link highlight:', { chainId, residIdx, resi: a.resi, icode: a.inscode || a.icode || '' });
+          // Show halo
+          scheduleHalo(a);
+
+          // Build tooltip label same as hover
+          const info = byChain[chainId];
+          const minResi = info ? info.minResi : 1;
+          const resn = (a.resn || '').trim().toUpperCase();
+          const one = threeToOne[resn] || '-';
+          const dispResi = a.resi - minResi + 1;
+          const label = `chain ${a.chain || ''}, ${dispResi}: ${one}`;
+
+          // StructureTooltip (linked-driven)
+          showStructureTooltipText(label);
+          return;
+    
+      }
+      //console.log('[Structure] single-link: atom not found for', { chainId, residIdx });
+    }
+    //console.log('[Structure] single-link: no valid chain/residIdx:', { chainId, residIdx, chains: Object.keys(byChain) });
+
+    // Clear if no valid linked highlight
+    hideStructureTooltipText();
+    scheduleHalo(null);
+  }, [data?.linkedResidueIndex, data?.linkedChainId, linkedPanelData]);
+
+  // Render multiple persistent highlights from heatmap links
   useEffect(() => {
     const v = viewerRef.current;
     const byChain = chainInfoRef.current.byChain;
@@ -307,19 +317,21 @@ useEffect(() => {
 
     const list = data?.linkedResiduesByKey;
     // If list is defined (even empty), it owns the persistent linked shapes
-    if (!Array.isArray(list)) return;
+    if (!Array.isArray(list) || list.length === 0) return;
     //console.log('[Structure] incoming linkedResiduesByKey:', list);
 
     // Clear previous linked shapes
     _clearLinkedShapes();
 
-     const fmt = (a) => {
-     const resn = (a.resn || '').trim().toUpperCase();
-     const one = threeToOne[resn] || '-';
-     const chain = (a.chain || '').trim();
-     const dispResi = (typeof a.resi === 'number') ? (a.resi - 2) : a.resi;
-     return `chain ${chain}, ${dispResi}:${one}`;
-   };
+    const fmt = (a) => {
+      const resn = (a.resn || '').trim().toUpperCase();
+      const one = threeToOne[resn] || '-';
+      const chain = (a.chain || '').trim();
+      const info = byChain[chain];
+      const minResi = info ? info.minResi : 1;
+      const dispResi = (typeof a.resi === 'number') ? (a.resi - minResi + 1) : a.resi;
+      return `chain ${chain}, ${dispResi}:${one}`;
+    };
 
     // Build and draw
     const atomsToShow = [];
@@ -327,19 +339,21 @@ useEffect(() => {
       if (!item) continue;
       const chain = (item.chainId || 'A').trim() || 'A';
       const resi = Number(item.resi);
+      const minResi = byChain[chain] ? byChain[chain].minResi : 1;
+      const dispResi = resi + minResi - 1;
       const icode = (item.icode || '').trim();
 
       const info = byChain[chain];
       if (!info){
-       console.log('[Structure] no such chain in structure:', chain, 'available:', Object.keys(byChain));
+        console.log('[Structure] no such chain in structure:', chain, 'available:', Object.keys(byChain));
         continue;
       }
-      const key = `${chain}|${resi}|${icode}`;
+      const key = `${chain}|${dispResi}|${icode}`;
       const idx = info.keyToIndex.get(key);
       if (idx == null) {
        // Try fallback without insertion code for visibility
        const idxNoIcode = info.keyToIndex.get(`${chain}|${resi}|`);
-       console.log('[Structure] key miss:', { wanted: key, fallbackIdxNoIcode: idxNoIcode });
+        console.log('[Structure] key miss:', { wanted: key, fallbackIdxNoIcode: idxNoIcode });
         continue;
       }
       const atom = info.caAtoms[idx];
@@ -407,26 +421,8 @@ useEffect(() => {
       modelRef.current = viewer.getModel(0);
       buildChainInfo(modelRef.current);
 
-      // DIAG: list chains and a few keys
-      /*
-     try {
-       const byChain = chainInfoRef.current.byChain || {};
-       const summary = Object.fromEntries(
-         Object.entries(byChain).map(([cid, info]) => [cid, { length: info.length }])
-       );
-       console.log('[Structure] chain summary:', summary);
-       // show the first few keys we can accept
-       const sample = {};
-       for (const [cid, info] of Object.entries(byChain)) {
-         sample[cid] = Array.from(info.keyToIndex.keys()).slice(0, 5);
-       }
-       console.log('[Structure] sample keys (use <Chain|Resi|ICode>):', sample);
-     } catch (e) {
-       console.log('[Structure] failed to print chain summary:', e);
-     }
-       */
 
-      // crude size check → enable perf mode for big structures
+      // size check → enable perf mode for big structures
       let isPerf = false;
       try {
         const atomCount = modelRef.current.selectedAtoms({}).length; // all atoms
