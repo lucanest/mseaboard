@@ -7,8 +7,8 @@ import GridLayout from 'react-grid-layout';
 import ReactDOM from 'react-dom';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SurfaceToggleButton, SiteStatsButton, LogYButton,
-SeqlogoButton, SequenceButton, DistanceMatrixButton, TreeButton,
- DownloadButton, GitHubButton, SearchButton,
+SeqlogoButton, SequenceButton, DistanceMatrixButton,
+ DownloadButton, GitHubButton, SearchButton, TreeButton,
  DiamondButton} from './components/Buttons.jsx';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, threeToOne,
@@ -23,6 +23,7 @@ import Histogram from './components/Histogram.jsx';
 import SequenceLogoCanvas from './components/Seqlogo.jsx';
 import StructureViewer from './components/StructureViewer.jsx';
 import useElementSize from './hooks/useElementSize.js'
+
 
 const LABEL_WIDTH = 66;
 const CELL_SIZE = 24;
@@ -844,7 +845,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   onRemove, onReupload, onDuplicate, onDuplicateTranslate, onCreateSeqLogo, onCreateSiteStatsHistogram, onGenerateDistance,
   onLinkClick, isLinkModeActive, isEligibleLinkTarget, linkedTo,
   highlightedSite, highlightOrigin, onHighlight, highlightOriginType,
-  onSyncScroll, externalScrollLeft,
+  onSyncScroll, externalScrollLeft, onFastME,
   highlightedSequenceId, setHighlightedSequenceId,
   hoveredPanelId, setHoveredPanelId, setPanelData, justLinkedPanels,
   linkBadges, onRestoreLink, colorForLink, onUnlink,
@@ -1297,6 +1298,13 @@ const Cell = useCallback(
           extraButtons={
             isNuc
               ? [ { element: <SearchButton onClick={() => setShowSearch(s => !s)} />, tooltip: "Search site or motif" },
+                  { element: <TreeButton onClick={() => onFastME(id)} />, tooltip: (
+                    <>
+                      Build phylogenetic tree <br />
+                      (FastME)
+                    </>
+                    )
+                  },
                   { element: <CodonToggleButton onClick={() => setCodonMode(m => !m)} isActive={codonMode} />, tooltip: "Toggle codon mode" },
                   { element: <TranslateButton onClick={() => onDuplicateTranslate(id)} />, tooltip: "Translate to amino acids" },
                   { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
@@ -1319,6 +1327,14 @@ const Cell = useCallback(
                   { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
                 ]
               : [ { element: <SearchButton onClick={() => setShowSearch(s => !s)} />, tooltip: "Search site or motif" },
+                  { element: <TreeButton onClick={() => onFastME(id)} />,
+                    tooltip: (
+                      <>
+                        Build phylogenetic tree <br />
+                        (FastME)
+                      </>
+                    )
+                  },
                   { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
                   { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, 
                    tooltip: (
@@ -2135,6 +2151,7 @@ const PanelWrapper = React.memo(({
   handleAlignmentToDistance,
   handleTreeToDistance,
   handleHeatmapToTree,
+  handleFastME,
   handleCreateSequenceFromStructure,
   handleStructureToDistance,
   setPanelData
@@ -2176,7 +2193,8 @@ const PanelWrapper = React.memo(({
       onDuplicateTranslate: handleDuplicateTranslate,
       onCreateSeqLogo: handleCreateSeqLogo,
       onCreateSiteStatsHistogram: handleCreateSiteStatsHistogram,
-      onGenerateDistance: handleAlignmentToDistance
+      onGenerateDistance: handleAlignmentToDistance,
+      onFastME: handleFastME
     }),
     ...(panel.type === 'tree' && {
       highlightedSequenceId,
@@ -2624,7 +2642,6 @@ const handleCreateSequenceFromStructure = useCallback((id) => {
   });
 }, [panelData, layout, setPanels, setLayout, setPanelData, upsertHistory, assignPairColor]);
 
-
 const handleStructureToDistance = useCallback((id, forcedChoice) => {
   const s = panelData[id];
   if (!s?.pdb) { alert('No PDB found in this panel.'); return; }
@@ -2659,6 +2676,153 @@ const handleStructureToDistance = useCallback((id, forcedChoice) => {
   });
 }, [panelData, addPanel]);
 
+// --- FastME handling ---
+let __fastmeModulePromise = null;
+async function loadFastMEWasm() {
+  if (__fastmeModulePromise) return __fastmeModulePromise;
+
+  const jsUrl = new URL('wasm/fastme.js', document.baseURI).toString();
+  const wasmBase = new URL('wasm/', document.baseURI).toString();
+
+  // Check if JS file is served correctly
+  const head = await fetch(jsUrl, { method: 'GET' });
+  const ct = head.headers.get('content-type') || '';
+  if (!ct.includes('javascript')) {
+    throw new Error(`fastme.js not served as JS: ${head.status} ${ct} at ${jsUrl}`);
+  }
+
+  // Dynamically add the script to the DOM
+  await new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = jsUrl;
+    script.async = true;
+    script.onload = resolve;
+    script.onerror = reject;
+    document.body.appendChild(script);
+  });
+
+  // Now window.FastME should be defined
+  const factory = window.FastME;
+  if (typeof factory !== 'function') {
+    throw new Error('FastME module is not a function. Check your build flags and static file serving.');
+  }
+
+  const fastme = await factory({
+    print: (s) => console.log('[fastme]', s),
+    printErr: (s) => console.warn('[fastme:err]', s),
+    locateFile: (path) => wasmBase + path,
+    noInitialRun: true, //  Prevent auto-run
+  });
+
+    __fastmeModulePromise = fastme;
+    return fastme;
+  }
+
+async function handleFastME(alignmentPanelId) {
+  try {
+
+    const aln = panelData[alignmentPanelId]?.data;
+    if (!Array.isArray(aln) || aln.length < 4) {
+      alert('Need at least 4 sequences to build a tree.');
+      return;
+    }
+
+    const fastme = await loadFastMEWasm();
+    if (!fastme || !fastme.FS || typeof fastme.FS.writeFile !== 'function') {
+      console.error('FastME WASM module did not export FS. Check your build flags and WASM glue.');
+      return;
+    }
+
+    console.log('Running FastME on', aln.length, 'sequences');
+
+    try { fastme.FS.unlink('in.phy'); } catch {}
+    try { fastme.FS.unlink('out.nwk'); } catch {}
+    try { fastme.FS.unlink('in.seq.phy'); } catch {}
+
+      const toPhylipSeq = (aln) => {
+      const n = aln.length;
+      const L = aln[0]?.sequence?.length || 0;
+      const safe = (s) => (s || '')
+        .replace(/\s+/g, '_')
+      let out = `${n} ${L}\n`;
+      for (const seq of aln) {
+        out += safe(seq.id)+'\t' + seq.sequence.toUpperCase().replace(/\*/g, 'X') + '\n';
+      }
+      return out;
+    };
+    const alnPhylip = toPhylipSeq(aln);
+    fastme.FS.writeFile('in.seq.phy', alnPhylip);
+    
+    try {
+      const test = fastme.FS.readFile('in.seq.phy', { encoding: 'utf8' });
+      console.log('PHYLIP alignment file written, length:', test.length);
+    } catch (e) {
+      console.error('Failed to write in.phy:', e);
+      alert('FastME input file was not written to WASM FS.');
+      return;
+    }
+
+    let evoModel = 'F84';
+    const isProtein = Array.isArray(aln) && !isNucleotide(aln);
+    if (isProtein) evoModel = 'LG';
+    let flag = isProtein? '-p' : '-d';
+
+    // 3) Run FastME
+    const argv = ['fastme', '-i', 'in.seq.phy', flag, evoModel ,'-n','-s', '-o', 'out.nwk'];
+    const rc = fastme.callMain(argv);
+    if (rc !== 0) {
+      console.warn('FastME exited with code', rc);
+    }
+
+    // 4) Fetch Newick and surface it as a new Tree panel
+    let newick = '';
+    try {
+      newick = fastme.FS.readFile('out.nwk', { encoding: 'utf8' });
+    } catch (e) {
+      alert('FastME did not produce a tree (out.nwk missing).');
+      return;
+    }
+    if (!newick?.trim()) {
+      alert('FastME did not produce a tree (out.nwk was empty).');
+      return;
+    }
+    try {
+      const statTxt = fastme.FS.readFile('in.seq.phy_fastme_stat.txt', { encoding: 'utf8' });
+      const trimmed = statTxt.split('\n').slice(14).join('\n').trim();
+      console.log('FastME statistics:\n', trimmed);
+    } catch (e) {
+      console.warn('FastME statistics file not found.');
+    }
+    // 5) Add a new tree panel
+    const srcName = panelData[alignmentPanelId]?.filename || 'alignment';
+    const base = srcName.replace(/\.[^.]+$/, '');
+    addPanel({
+      type: 'tree',
+      data: {
+        data: newick,
+        filename: `${base}_fastme.nwk`,
+        isNhx: false,
+        method: 'FastME',
+        sourceAlignment: alignmentPanelId,
+      },
+      basedOnId: alignmentPanelId,
+      layoutHint: { w: 4, h: 20 },
+      autoLinkTo: alignmentPanelId,
+    });
+
+    // 6) Clean up FS
+    try { fastme.FS.unlink('in.seq.phy'); } catch {}
+    try { fastme.FS.unlink('out.nwk'); } catch {}
+    try { fastme.FS.unlink('in.seq.phy_fastme_stat.txt'); } catch {}
+    // clear cached module to save memory
+    __fastmeModulePromise = null;
+    try { delete window.FastME; } catch {}
+
+  } catch (err) {
+    console.error('handleFastME failed:', err);
+    alert(`FastME failed: ${err?.message || err}`);
+  }
+}
 
 const handleTreeToDistance = useCallback((id) => {
   const treeData = panelData[id];
@@ -3826,6 +3990,7 @@ const canLink = (typeA, typeB) =>
         handleAlignmentToDistance={handleAlignmentToDistance}
         handleTreeToDistance={handleTreeToDistance}
         handleHeatmapToTree={handleHeatmapToTree}
+        handleFastME={handleFastME}
         handleCreateSequenceFromStructure={handleCreateSequenceFromStructure}
         handleStructureToDistance={handleStructureToDistance}
         setPanelData={setPanelData}
