@@ -109,9 +109,9 @@ export function SurfaceToggleButton({ onClick, isActive }) {
       //title="Show/hide surface"
     >
       <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg
-        ${isActive ? 'bg-blue-200' : 'bg-gray-100'}
+        ${isActive ? 'bg-orange-100' : 'bg-gray-100'}
         border border-gray-400 hover:bg-orange-300`}>
-        <span className="text-xs font-bold text-purple-800 leading-none">
+        <span className="text-xs font-bold text-orange-800 leading-none">
           <EyeIcon className="w-5 h-5 flex-shrink-0 -translate-y-[0px]" />
         </span>
       </span>
