@@ -93,7 +93,7 @@ export default React.memo(function SequenceLogoCanvas({
 
     // highlight column
     if (highlightedSite != null) {
-      ctx.fillStyle = "rgba(253, 230, 138, 0.5)"; // #fde68a @ 0.5
+      ctx.fillStyle = "#FEF9C3";
       ctx.fillRect(highlightedSite * colWidth, 0, colWidth, height);
     }
 
