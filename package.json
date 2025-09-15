@@ -1,6 +1,7 @@
 {
-  "name": "frontend",
+  "name": "MSEABOARD",
   "version": "1.0.0",
+  "license": "AGPL-3.0",
   "private": true,
   "scripts": {
     "start": "react-scripts start",
