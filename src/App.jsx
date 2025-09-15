@@ -2827,7 +2827,18 @@ const handleHeatmapToTree = useCallback((id) => {
 
 
 const handleLinkClick = useCallback((id) => {
-  
+
+  // If linkMode is set, check compatibility before linking
+  if (linkMode && linkMode !== id) {
+    const panelA = panels.find(p => p.i === linkMode);
+    const panelB = panels.find(p => p.i === id);
+    if (panelA && panelB && !canLink(panelA.type, panelB.type)) {
+      alert("Unsupported panel link (available linking partners are higlighted in blue).");
+      setLinkMode(null);
+      return;
+    }
+  }
+
   const reorderIfTreeLinked = (aId, bId) => {
     const panelA = panels.find(p => p.i === aId);
     const panelB = panels.find(p => p.i === bId);
