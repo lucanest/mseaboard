@@ -14,7 +14,7 @@ import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon } from '@heroicons
 import { translateNucToAmino, isNucleotide, threeToOne,
 parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick, newickToDistanceMatrix,
 downloadText, detectFileType, toFasta, toPhylip, computeSiteStats,buildTreeFromDistanceMatrix} from './components/Utils.jsx';
-import { residueColors, logoColors } from './constants/colors.js';
+import { residueColors, logoColors, linkpalette } from './constants/colors.js';
 import { TitleFlip, AnimatedList } from './components/Animations.jsx';
 import { FixedSizeGrid as Grid } from 'react-window';
 import PhyloTreeViewer from './components/PhyloTreeViewer.jsx';
@@ -2443,14 +2443,8 @@ const upsertHistory = useCallback((a, b) => {
   });
 }, []);
 
-// Pair-based colors for link badges
-  const palette = useMemo(() => [
-    'bg-blue-400','bg-green-400','bg-purple-400',
-    'bg-pink-400','bg-amber-400','bg-cyan-400',
-    'bg-rose-400','bg-indigo-400','bg-lime-400'
-  ], []);
-  const [linkColors, setLinkColors] = useState({}); // {"a|b": idx}
-  const pairKey = useCallback((a,b) => [String(a), String(b)].sort().join('|'), []);
+const [linkColors, setLinkColors] = useState({}); // {"a|b": idx}
+const pairKey = useCallback((a,b) => [String(a), String(b)].sort().join('|'), []);
 
 const assignPairColor = useCallback((a, b) => {
   const key = pairKey(a, b);
@@ -2460,10 +2454,10 @@ const assignPairColor = useCallback((a, b) => {
     const used = new Set(Object.values(prev));
     let idx = 0;
     // Pick the first unused color globally
-    while (idx < palette.length && used.has(idx)) idx++;
-    if (idx >= palette.length) {
+    while (idx < linkpalette.length && used.has(idx)) idx++;
+    if (idx >= linkpalette.length) {
       // If all are used, pick the least-used color
-      const counts = Array(palette.length).fill(0);
+      const counts = Array(linkpalette.length).fill(0);
       for (const v of Object.values(prev)) counts[v] = (counts[v] || 0) + 1;
       let best = 0, bestCnt = counts[0];
       for (let i = 1; i < counts.length; i++) {
@@ -2473,7 +2467,7 @@ const assignPairColor = useCallback((a, b) => {
     }
     return { ...prev, [key]: idx };
   });
-}, [palette, pairKey]);
+}, [linkpalette, pairKey]);
 
   
   // Resolve badge color (active=pair color, inactive=gray; falls back to hash if unseen)
@@ -2484,10 +2478,10 @@ const assignPairColor = useCallback((a, b) => {
     if (idx == null) {
       // stable fallback so history badges don't thrash before allocation
       let h = 0; for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-      idx = h % palette.length;
+      idx = h % linkpalette.length;
     }
-    return palette[idx];
-  }, [linkColors, pairKey, palette]);
+    return linkpalette[idx];
+  }, [linkColors, pairKey, linkpalette]);
 
 const addPanel = useCallback((config = {}) => {
   const { type, data, basedOnId, layoutHint = {}, autoLinkTo = null } = config;
