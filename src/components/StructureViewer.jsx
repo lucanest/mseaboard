@@ -1,3 +1,4 @@
+// StructureViewer.jsx
 import React, { useEffect, useRef, useState } from 'react';
 import { Stack, Slider } from '@mui/material';
 import { threeToOne } from './Utils.jsx';
