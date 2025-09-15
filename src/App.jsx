@@ -34,7 +34,7 @@ import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFast
 newickToDistanceMatrix, detectFileType, toFasta, toPhylip, computeSiteStats, buildTreeFromDistanceMatrix,
 computeNormalizedHammingMatrix, pickAlignedSeqForChain, chainIdFromSeqId, residueIndexToMsaCol,
 msaColToResidueIndex, reorderHeatmapByLeafOrder, reorderMsaByLeafOrder, distanceMatrixFromAtoms,
-parsePdbChains, mkDownload, baseName} from './components/Utils.jsx';
+parsePdbChains, mkDownload, baseName, msaToPhylip} from './components/Utils.jsx';
 import { residueColors, logoColors, linkpalette } from './constants/colors.js';
 import { TitleFlip, AnimatedList } from './components/Animations.jsx';
 import { FixedSizeGrid as Grid } from 'react-window';
@@ -2651,7 +2651,7 @@ const handleStructureToDistance = useCallback((id, forcedChoice) => {
 
   if (atoms.length < 2) { alert('Not enough residues to build a distance map.'); return; }
 
-  const { labels, matrix } = distanceMatrixFromAtoms(atoms); // labels now use dispResi
+  const { labels, matrix } = distanceMatrixFromAtoms(atoms);
   const base  = (s.filename ? s.filename: 'structure');
   const suffix = choice === 'ALL' ? 'ALL' : choice;
 
@@ -2699,7 +2699,7 @@ async function loadFastMEWasm() {
     print: (s) => console.log('[fastme]', s),
     printErr: (s) => console.warn('[fastme:err]', s),
     locateFile: (path) => wasmBase + path,
-    noInitialRun: true, //  Prevent auto-run
+    noInitialRun: true,
   });
 
     __fastmeModulePromise = fastme;
@@ -2727,18 +2727,7 @@ async function handleFastME(alignmentPanelId, evoModel) {
     try { fastme.FS.unlink('out.nwk'); } catch {}
     try { fastme.FS.unlink('in.seq.phy'); } catch {}
 
-      const toPhylipSeq = (aln) => {
-      const n = aln.length;
-      const L = aln[0]?.sequence?.length || 0;
-      const safe = (s) => (s || '')
-        .replace(/\s+/g, '_')
-      let out = `${n} ${L}\n`;
-      for (const seq of aln) {
-        out += safe(seq.id)+'\t' + seq.sequence.toUpperCase().replace(/\*/g, 'X') + '\n';
-      }
-      return out;
-    };
-    const alnPhylip = toPhylipSeq(aln);
+    const alnPhylip = msaToPhylip(aln);
     fastme.FS.writeFile('in.seq.phy', alnPhylip);
     
     try {
@@ -2904,7 +2893,6 @@ const handleHeatmapToTree = useCallback((id) => {
 }, [panels, assignPairColor]);
 
 
-
 const handleLinkClick = useCallback((id) => {
 
   // If linkMode is set, check compatibility before linking
@@ -2976,7 +2964,7 @@ const handleLinkClick = useCallback((id) => {
       // Reorder if tree linked
       reorderIfTreeLinked(a, b);
 
-      // ----- If we just linked an alignment with a structure, pick and persist chain once -----
+      // ----- If we just linked an alignment with a structure, pick and persist the chain -----
       try {
         const panelA = panels.find(p => p.i === a);
         const panelB = panels.find(p => p.i === b);
@@ -2995,9 +2983,9 @@ const handleLinkClick = useCallback((id) => {
             if (structData?.pdb && Array.isArray(alnData?.data) && alnData.data.length > 0) {
               // Build map of structure chain lengths
               const chains = parsePdbChains(structData.pdb);
-              const structureChainsLengths = {};
+              const chainLengths = {};
               for (const [cid, { seq }] of chains.entries()) {
-                structureChainsLengths[cid] = (seq || '').length;
+                chainLengths[cid] = (seq || '').length;
               }
 
               // Preferred chain from MSA IDs
@@ -3007,7 +2995,8 @@ const handleLinkClick = useCallback((id) => {
               const { chainId } = pickAlignedSeqForChain(
                 alnData,
                 preferredFromId,
-                structureChainsLengths
+                chainLengths,
+                chains,
               );
 
               if (chainId) {

@@ -292,6 +292,19 @@ export function toFasta(entries) {
     .join('\n');
 }
 
+/** MSA to PHYLIP format (sequential). */
+export function msaToPhylip(aln){
+      const n = aln.length;
+      const L = aln[0]?.sequence?.length || 0;
+      const safe = (s) => (s || '')
+        .replace(/\s+/g, '_')
+      let out = `${n} ${L}\n`;
+      for (const seq of aln) {
+        out += safe(seq.id)+'\t' + seq.sequence.toUpperCase().replace(/\*/g, 'X') + '\n';
+      }
+      return out;
+    };
+
 /** PHYLIP distance matrix writer. */
 export function toPhylip(labels, matrix) {
   const n = labels?.length || 0;
@@ -678,10 +691,49 @@ export function chainIdFromSeqId(id) {
   return null;
 }
 
-/* Given alignment data and an optional preferred chain id, pick best sequence */
-export function pickAlignedSeqForChain(alnData, preferredChainId, structureChainsLengths) {
+/* Given alignment data and an optional preferred chain id, pick best sequence by sequence match */
+export function pickAlignedSeqForChain(alnData, preferredChainId, chainLengths, chainSeqs) {
   if (!alnData || !Array.isArray(alnData.data)) return { seq: null, chainId: null };
 
+  // Helper: percent identity (gapless, equal length)
+  const seqIdentity = (a, b) => {
+    if (!a || !b || a.length !== b.length) return 0;
+    let m = 0;
+    for (let i = 0; i < a.length; ++i) if (a[i] === b[i]) m++;
+    return m / a.length;
+  };
+
+  // Remove gaps from alignment sequences
+  const alnSeqs = alnData.data.map(s => ({
+    ...s,
+    gapless: (s.sequence || '').replace(/-/g, '')
+  }));
+
+  // 1. If preferredChainId and chainSeqs, try to match by sequence
+  if (preferredChainId && chainSeqs && chainSeqs[preferredChainId]) {
+    const structSeq = chainSeqs[preferredChainId];
+    for (const s of alnSeqs) {
+      if (s.gapless.length === structSeq.length && seqIdentity(s.gapless, structSeq) >= 0.9) {
+        return { seq: s, chainId: preferredChainId };
+      }
+    }
+  }
+
+  // 2. Try all chains for best match by sequence
+  if (chainSeqs) {
+    let best = { seq: null, chainId: null, iden: 0 };
+    for (const [cid, structSeq] of Object.entries(chainSeqs)) {
+      for (const s of alnSeqs) {
+        if (s.gapless.length === structSeq.length) {
+          const iden = seqIdentity(s.gapless, structSeq);
+          if (iden > best.iden && iden >= 0.9) best = { seq: s, chainId: cid, iden };
+        }
+      }
+    }
+    if (best.seq) return { seq: best.seq, chainId: best.chainId };
+  }
+
+  // 3. Fallback: original heuristics
   if (preferredChainId) {
     const named = alnData.data.find(s => {
       const cid = chainIdFromSeqId(s.id);
@@ -690,10 +742,10 @@ export function pickAlignedSeqForChain(alnData, preferredChainId, structureChain
     if (named) return { seq: named, chainId: preferredChainId };
   }
 
-  if (structureChainsLengths) {
+  if (chainLengths) {
     for (const s of alnData.data) {
       const len = (s.sequence || '').replace(/-/g, '').length;
-      const match = Object.entries(structureChainsLengths).find(([, L]) => L === len);
+      const match = Object.entries(chainLengths).find(([, L]) => L === len);
       if (match) return { seq: s, chainId: match[0] };
     }
   }
