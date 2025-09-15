@@ -897,10 +897,12 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [gridContainerRef, dims] = useElementSize({ debounceMs: 90 });
   const gridRef = useRef(null);
   const outerRef = useRef(null); 
-    // Search UI state
+  // Search UI state
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef(null);
+  const [showModelPicker, setShowModelPicker] = React.useState(false);
+
 
 useEffect(() => {
   if (showSearch) {
@@ -929,6 +931,16 @@ useEffect(() => {
   const [isSyncScrolling, setIsSyncScrolling] = useState(false);
   const isNuc = useMemo(() => isNucleotide(msaData), [msaData]);
 
+  const pickerItems = React.useMemo(() => {
+    const items = [];
+    if (isNuc) {
+      items.push('p-distance', 'RY symmetric', 'RY', 'JC69', 'K2P', 'F81', 'F84', 'TN93', 'LogDet');
+    }
+    if (!isNuc) {
+      items.push('p-distance', 'F81', 'LG', 'WAG', 'JTT', 'Dayhoff', 'DCMut', 'CpRev', 'MtREV', 'RtREV', 'HIVb', 'HIVw', 'FLU');
+    }
+    return items;
+  }, [isNuc]);
 
   useEffect(() => {
   function handleGlobalMouseMove(e) {
@@ -942,6 +954,28 @@ useEffect(() => {
   document.addEventListener('mousemove', handleGlobalMouseMove);
   return () => document.removeEventListener('mousemove', handleGlobalMouseMove);
   }, [id, highlightOrigin, onHighlight]);
+
+  const handleTreeClick = React.useCallback(() => {
+    if (!msaData || msaData.length === 0) { alert('No sequences available.'); return; }
+    if (msaData.length > 120 ) {
+      if (!window.confirm(`This alignment has ${msaData.length} sequences. Reconstructing a tree may take a long time and could crash your browser. Proceed?`)) {
+        return;
+      }
+    }
+    setShowModelPicker(true);
+  }, [id, msaData, onFastME]);
+
+
+  const pickModel = React.useCallback((choice) => {
+      let evoModel = choice;
+      onFastME(id, evoModel);
+      setShowModelPicker(false);
+    }, [id, onFastME]);
+
+  const handleModelSelect = React.useCallback((item) => {
+      pickModel(item);
+  }, [pickModel]);
+
 
   const handleDownload = useCallback(() => {
     const msa = data?.data || [];
@@ -1370,7 +1404,7 @@ const Cell = useCallback(
           extraButtons={
             isNuc
               ? [ { element: <SearchButton onClick={() => setShowSearch(s => !s)} />, tooltip: "Search site or motif" },
-                  { element: <TreeButton onClick={() => onFastME(id)} />, tooltip: (
+                  { element: <TreeButton onClick={() => handleTreeClick(id)} />, tooltip: (
                     <>
                       Build phylogenetic tree <br />
                       (FastME)
@@ -1399,7 +1433,7 @@ const Cell = useCallback(
                   { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
                 ]
               : [ { element: <SearchButton onClick={() => setShowSearch(s => !s)} />, tooltip: "Search site or motif" },
-                  { element: <TreeButton onClick={() => onFastME(id)} />,
+                  { element: <TreeButton onClick={() => handleTreeClick(id)} />,
                     tooltip: (
                       <>
                         Build phylogenetic tree <br />
@@ -1436,7 +1470,32 @@ const Cell = useCallback(
           onUnlink={onUnlink}
           colorForLink={colorForLink}
           onRemove={onRemove}
-        />
+          />
+          {/* model picker overlay */}
+        {showModelPicker && (
+          <div
+            className="absolute inset-0 z-[1000] bg-black/40 flex items-center justify-center rounded-2xl"
+            onClick={() => setShowModelPicker(false)}
+          >
+            <div
+              className="py-12 max-w-lg w-[min(90vw,36rem)] h-full flex flex-col items-center justify-center"
+              onClick={(e) => e.stopPropagation()}
+                    style={{
+        overflowY: 'auto',
+      }}
+            >
+              <div className="text-3xl font-bold text-white mb-4 flex-shrink-0 text-center">Choose substitution model for tree reconstruction</div>
+              <div className="flex-1 flex items-center justify-center w-full max-w-xs">
+                <AnimatedList
+                  items={pickerItems}
+                  onItemSelect={handleModelSelect}
+                  itemClassName="text-center font-semibold !py-3"
+                  className="h-full"
+                />
+              </div>
+            </div>
+          </div>
+        )}
                 {showSearch && (
           <div className="absolute right-2 top-14 z-[1100] bg-white border rounded-xl shadow p-2 flex items-center gap-2"
           onMouseEnter={handleGridMouseLeave}
@@ -2647,7 +2706,7 @@ async function loadFastMEWasm() {
     return fastme;
   }
 
-async function handleFastME(alignmentPanelId) {
+async function handleFastME(alignmentPanelId, evoModel) {
   try {
 
     const aln = panelData[alignmentPanelId]?.data;
@@ -2691,13 +2750,14 @@ async function handleFastME(alignmentPanelId) {
       return;
     }
 
-    let evoModel = 'F84';
     const isProtein = Array.isArray(aln) && !isNucleotide(aln);
-    if (isProtein) evoModel = 'LG';
-    let flag = isProtein? '-p' : '-d';
+    let flag = isProtein? '--protein' : '--dna';
+    flag += `=${evoModel}`;
 
+    
     // 3) Run FastME
-    const argv = ['fastme', '-i', 'in.seq.phy', flag, evoModel ,'-n','-s', '-o', 'out.nwk'];
+    const argv = ['fastme', '-i', 'in.seq.phy',flag  ,'-n','-s', '-o', 'out.nwk'];
+    console.log('FastME argv:', argv.join(' '));
     const rc = fastme.callMain(argv);
     if (rc !== 0) {
       console.warn('FastME exited with code', rc);
