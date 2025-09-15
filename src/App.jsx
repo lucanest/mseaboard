@@ -11,9 +11,8 @@ SeqlogoButton, SequenceButton, DistanceMatrixButton,
  DownloadButton, GitHubButton, SearchButton, TreeButton,
  DiamondButton} from './components/Buttons.jsx';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
-import { translateNucToAmino, isNucleotide, threeToOne,
-parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick, newickToDistanceMatrix,
-downloadText, detectFileType, toFasta, toPhylip, computeSiteStats,buildTreeFromDistanceMatrix,
+import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick,
+newickToDistanceMatrix, detectFileType, toFasta, toPhylip, computeSiteStats, buildTreeFromDistanceMatrix,
 computeNormalizedHammingMatrix, pickAlignedSeqForChain, chainIdFromSeqId, residueIndexToMsaCol,
 msaColToResidueIndex, reorderHeatmapByLeafOrder, reorderMsaByLeafOrder, distanceMatrixFromAtoms,
 parsePdbChains, mkDownload, baseName} from './components/Utils.jsx';
