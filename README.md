@@ -1,5 +1,5 @@
 
-<img src=".public/animatedtitle.gif"/>
+<img src="public/animatedtitle.gif"/>
 
 **MSEABOARD** is an interactive web application for visualizing multiple sequence alignments (MSA), phylogenetic trees, distance matrices (or any data that can be visualized as a 2D heatmap), protein structures, and tabular or numeric datasets. It provides linked, customizable panels for in-depth sequence and evolutionary analysis.
 
