@@ -517,3 +517,42 @@ export function buildTreeFromDistanceMatrix(labels, matrix) {
     throw new Error(`Failed to build tree: ${error.message}`);
   }
 }
+
+export function computeNormalizedHammingMatrix(msaArray) {
+  const seqs = msaArray.map(s => ({
+    id: s.id,
+    seq: (s.sequence || '').toUpperCase()
+  }));
+  const labels = seqs.map(s => s.id);
+
+  const N = seqs.length;
+  const matrix = Array.from({ length: N }, () => Array(N).fill(0));
+
+  const isGap = (c) => c === '-' || c === '.';
+
+  for (let i = 0; i < N; i++) {
+    matrix[i][i] = 0;
+    for (let j = i + 1; j < N; j++) {
+      const A = seqs[i].seq;
+      const B = seqs[j].seq;
+      const L = Math.min(A.length, B.length);
+
+      let comparable = 0;
+      let mismatches = 0;
+
+      for (let k = 0; k < L; k++) {
+        const aChar = A[k];
+        const bChar = B[k];
+        if (isGap(aChar) || isGap(bChar)) continue;
+        comparable++;
+        if (aChar !== bChar) mismatches++;
+      }
+
+      const d = comparable > 0 ? (mismatches / comparable) : 0;
+      matrix[i][j] = d;
+      matrix[j][i] = d;
+    }
+  }
+
+  return { labels, matrix };
+}

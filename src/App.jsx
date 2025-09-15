@@ -13,7 +13,8 @@ SeqlogoButton, SequenceButton, DistanceMatrixButton,
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, threeToOne,
 parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick, newickToDistanceMatrix,
-downloadText, detectFileType, toFasta, toPhylip, computeSiteStats,buildTreeFromDistanceMatrix} from './components/Utils.jsx';
+downloadText, detectFileType, toFasta, toPhylip, computeSiteStats,buildTreeFromDistanceMatrix,
+computeNormalizedHammingMatrix} from './components/Utils.jsx';
 import { residueColors, logoColors, linkpalette } from './constants/colors.js';
 import { TitleFlip, AnimatedList } from './components/Animations.jsx';
 import { FixedSizeGrid as Grid } from 'react-window';
@@ -2914,44 +2915,7 @@ const handleAlignmentToDistance = useCallback((id) => {
     return;
   }
 
-  // Prepare labels and uppercase sequences
-  const seqs = a.data.map(s => ({
-    id: s.id,
-    seq: (s.sequence || '').toUpperCase()
-  }));
-  const labels = seqs.map(s => s.id);
-
-  const N = seqs.length;
-  const matrix = Array.from({ length: N }, () => Array(N).fill(0));
-
-  // Pairwise normalized Hamming distance with pairwise gap deletion
-  // - Count only positions where BOTH sequences are not gaps ('-' or '.')
-  // - distance = mismatches / comparable_positions  (0 if none)
-  const isGap = (c) => c === '-' || c === '.';
-
-  for (let i = 0; i < N; i++) {
-    matrix[i][i] = 0;
-    for (let j = i + 1; j < N; j++) {
-      const A = seqs[i].seq;
-      const B = seqs[j].seq;
-      const L = Math.min(A.length, B.length);
-
-      let comparable = 0;
-      let mismatches = 0;
-
-      for (let k = 0; k < L; k++) {
-        const aChar = A[k];
-        const bChar = B[k];
-        if (isGap(aChar) || isGap(bChar)) continue;
-        comparable++;
-        if (aChar !== bChar) mismatches++;
-      }
-
-      const d = comparable > 0 ? (mismatches / comparable) : 0;
-      matrix[i][j] = d;
-      matrix[j][i] = d;
-    }
-  }
+  const { labels, matrix } = computeNormalizedHammingMatrix(a.data);
 
   const base = (a.filename ? a.filename : 'alignment');
   addPanel({
@@ -3199,12 +3163,12 @@ const handleHighlight = useCallback((site, originId) => {
       if (!labels || !site?.row?.toString || !site?.col?.toString) return;
       const leaf1 = labels[site.row], leaf2 = labels[site.col];
        setPanelData(prev => {
-   const cur = prev[targetId] || {};
-   const next = [leaf1, leaf2];
-   const same = Array.isArray(cur.linkedHighlights)
-     && cur.linkedHighlights.length === 2
-     && cur.linkedHighlights[0] === next[0]
-     && cur.linkedHighlights[1] === next[1];
+        const cur = prev[targetId] || {};
+        const next = [leaf1, leaf2];
+        const same = Array.isArray(cur.linkedHighlights)
+          && cur.linkedHighlights.length === 2
+          && cur.linkedHighlights[0] === next[0]
+          && cur.linkedHighlights[1] === next[1];
    if (same) return prev;
    return { ...prev, [targetId]: { ...cur, linkedHighlights: next } };
  });
@@ -3216,37 +3180,37 @@ const handleHighlight = useCallback((site, originId) => {
       if (!labels || typeof site?.row !== 'number' || typeof site?.col !== 'number') return;
       const leaf1 = labels[site.row], leaf2 = labels[site.col];
       setPanelData(prev => {
-   const cur = prev[targetId] || {};
-   const next = [leaf1, leaf2];
-   const same = Array.isArray(cur.linkedHighlights)
-     && cur.linkedHighlights.length === 2
-     && cur.linkedHighlights[0] === next[0]
-     && cur.linkedHighlights[1] === next[1];
+      const cur = prev[targetId] || {};
+      const next = [leaf1, leaf2];
+      const same = Array.isArray(cur.linkedHighlights)
+        && cur.linkedHighlights.length === 2
+        && cur.linkedHighlights[0] === next[0]
+        && cur.linkedHighlights[1] === next[1];
    if (same) return prev;
    return { ...prev, [targetId]: { ...cur, linkedHighlights: next } };
- });
+    });
     },
-'heatmap->heatmap': () => {
-  const { labels } = panelData[originId] || {};
-  if (
-    !labels ||
-    typeof site?.row !== 'number' ||
-    typeof site?.col !== 'number'
-  )
-    return;
-  const rowLabel = labels[site.row];
-  const colLabel = labels[site.col];
-  setPanelData(prev => {
-    const cur = prev[targetId] || {};
-    const next = { row: rowLabel, col: colLabel };
-    const same =
-      cur.linkedHighlightCell &&
-      cur.linkedHighlightCell.row === next.row &&
-      cur.linkedHighlightCell.col === next.col;
-    if (same) return prev;
-    return { ...prev, [targetId]: { ...cur, linkedHighlightCell: next } };
-  });
-},
+    'heatmap->heatmap': () => {
+      const { labels } = panelData[originId] || {};
+      if (
+        !labels ||
+        typeof site?.row !== 'number' ||
+        typeof site?.col !== 'number'
+      )
+        return;
+      const rowLabel = labels[site.row];
+      const colLabel = labels[site.col];
+      setPanelData(prev => {
+        const cur = prev[targetId] || {};
+        const next = { row: rowLabel, col: colLabel };
+        const same =
+          cur.linkedHighlightCell &&
+          cur.linkedHighlightCell.row === next.row &&
+          cur.linkedHighlightCell.col === next.col;
+        if (same) return prev;
+        return { ...prev, [targetId]: { ...cur, linkedHighlightCell: next } };
+      });
+    },
     // Heatmap -> Structure (map labels like "A:123" to residues)
     'heatmap->structure': () => {
       const { labels } = panelData[originId] || {};
@@ -3478,8 +3442,8 @@ const handleHighlight = useCallback((site, originId) => {
       if (other) delete c[other];
       return c;
     });
-       // purge any pair colors that referenced this id
-   setLinkColors(prev => {
+    // purge any pair colors that referenced this id
+    setLinkColors(prev => {
      const next = {};
      for (const [k, v] of Object.entries(prev)) {
        const [x,y] = k.split('|');
