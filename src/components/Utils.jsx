@@ -556,3 +556,157 @@ export function computeNormalizedHammingMatrix(msaArray) {
 
   return { labels, matrix };
 }
+
+/** Parse PDB: returns chain -> { atomsCA: [{label,x,y,z,resSeq,iCode}], seq: "AA..."} */
+export function parsePdbChains(pdb) {
+  const chains = new Map();
+  const seenCA = new Set();
+
+  const get = (cid) => {
+    if (!chains.has(cid)) chains.set(cid, { atomsCA: [], seq: [], minResi: null });
+    return chains.get(cid);
+  };
+
+  for (const line of pdb.split(/\r?\n/)) {
+    if (!line.startsWith('ATOM')) continue;
+
+    const atomName = line.slice(12, 16).trim();
+    const resName  = line.slice(17, 20).trim().toUpperCase();
+    const chainId  = (line[21] || 'A').trim() || 'A';
+    const resSeq   = Number(line.slice(22, 26).trim());
+    const iCode    = (line[26] || '').trim();
+
+    if (atomName === 'CA') {
+      const key = `${chainId}|${resSeq}|${iCode}`;
+      if (seenCA.has(key)) continue;
+      seenCA.add(key);
+
+      const x = Number(line.slice(30, 38));
+      const y = Number(line.slice(38, 46));
+      const z = Number(line.slice(46, 54));
+      if (!Number.isFinite(x) || !Number.isFinite(y) || !Number.isFinite(z)) continue;
+
+      const chain = get(chainId);
+      if (chain.minResi == null || resSeq < chain.minResi) chain.minResi = resSeq;
+
+      chain.atomsCA.push({ chainId, resSeq, iCode, x, y, z, resName });
+      const one = threeToOne[resName] || 'X';
+      chain.seq.push(one);
+    }
+  }
+
+  // finalize: add dispResi to each atom
+  for (const [cid, chain] of chains.entries()) {
+    for (const atom of chain.atomsCA) {
+      atom.dispResi = atom.resSeq - chain.minResi + 1;
+      atom.label = `${cid}:${atom.dispResi}${atom.iCode || ''}`;
+    }
+    chain.seq = chain.seq.join('');
+  }
+  return chains;
+}
+
+/** Euclidean distance matrix from an ordered list of atoms with display labels */
+export function distanceMatrixFromAtoms(atoms) {
+  const N = atoms.length;
+  const labels = atoms.map(a => a.label); // uses dispResi
+  const matrix = Array.from({ length: N }, () => Array(N).fill(0));
+  for (let i = 0; i < N; i++) {
+    for (let j = i; j < N; j++) {
+      const dx = atoms[i].x - atoms[j].x;
+      const dy = atoms[i].y - atoms[j].y;
+      const dz = atoms[i].z - atoms[j].z;
+      const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
+      matrix[i][j] = d; matrix[j][i] = d;
+    }
+  }
+  return { labels, matrix };
+}
+
+
+/** Reorder an MSA array by Newick leaf order, appending non-matches at end */
+export function reorderMsaByLeafOrder(msaSeqs, leafOrder) {
+  const byId = Object.create(null);
+  msaSeqs.forEach(s => { byId[s.id] = s; });
+  const inTree = leafOrder.map(id => byId[id]).filter(Boolean);
+  const extras = msaSeqs.filter(s => !leafOrder.includes(s.id));
+  return [...inTree, ...extras];
+}
+
+/** Reorder a symmetric heatmap by Newick leaf order; append non-matches */
+export function reorderHeatmapByLeafOrder(labels, matrix, leafOrder) {
+  const idx = Object.create(null);
+  labels.forEach((l, i) => { idx[l] = i; });
+
+  const newOrder = leafOrder.map(l => idx[l]).filter(i => i !== undefined);
+  const extras   = labels.map((_, i) => i).filter(i => !newOrder.includes(i));
+  const order    = [...newOrder, ...extras];
+
+  const newLabels = order.map(i => labels[i]);
+  const newMatrix = order.map(i => order.map(j => matrix[i][j]));
+  return { labels: newLabels, matrix: newMatrix };
+}
+
+/** MSA column -> (gap-skipping) residue index for a single sequence string */
+export function msaColToResidueIndex(seq, col) {
+  let idx = -1;
+  for (let i = 0; i <= col && i < seq.length; i++) {
+    if (seq[i] !== '-') idx++;
+  }
+  return idx < 0 ? null : idx;
+}
+
+/** Residue index -> MSA column for a single sequence string */
+export function residueIndexToMsaCol(seq, residIdx) {
+  if (residIdx == null) return null;
+  let idx = -1;
+  for (let i = 0; i < seq.length; i++) {
+    if (seq[i] !== '-') {
+      idx++;
+      if (idx === residIdx) return i;
+    }
+  }
+  return null;
+}
+
+/* Try to infer chainId from a sequence id like "..._chain_A" or "A" */
+export function chainIdFromSeqId(id) {
+  if (!id) return null;
+  const m = id.match(/_chain_([A-Za-z0-9])\b/i);
+  if (m) return m[1];
+  if (/^[A-Za-z0-9]$/.test(id)) return id; // bare "A"
+  return null;
+}
+
+/* Given alignment data and an optional preferred chain id, pick best sequence */
+export function pickAlignedSeqForChain(alnData, preferredChainId, structureChainsLengths) {
+  if (!alnData || !Array.isArray(alnData.data)) return { seq: null, chainId: null };
+
+  if (preferredChainId) {
+    const named = alnData.data.find(s => {
+      const cid = chainIdFromSeqId(s.id);
+      return cid === preferredChainId || s.id === preferredChainId;
+    });
+    if (named) return { seq: named, chainId: preferredChainId };
+  }
+
+  if (structureChainsLengths) {
+    for (const s of alnData.data) {
+      const len = (s.sequence || '').replace(/-/g, '').length;
+      const match = Object.entries(structureChainsLengths).find(([, L]) => L === len);
+      if (match) return { seq: s, chainId: match[0] };
+    }
+  }
+
+  return { seq: alnData.data[0] || null, chainId: preferredChainId || null };
+}
+
+// --- download helpers -------------------------
+
+/** strip extension safely; fall back if empty */
+export const baseName = (fname, fallback) =>
+  (fname && fname.replace(/\.[^.]+$/, '')) || fallback;
+
+/** curry a click handler that downloads `content` as a text file */
+export const mkDownload = (base, content, ext, mime = 'text/plain;charset=utf-8') =>
+  () => downloadText(`${base}.${ext}`, content, mime);
