@@ -12,11 +12,7 @@ import { AxisLeft, AxisBottom } from '@visx/axis';
 import { GridRows } from '@visx/grid';
 import { Bar as VisxBar } from '@visx/shape';
 import { FixedSizeList as List } from 'react-window';
-
-const colorPalette = [
-  '#BFDBFE', '#99F6E4', '#FECACA', '#DCFCE7', '#D8B4FE',
-  '#BBF7D0', '#E5E7EB', '#f781bf', '#FEF08A', '#FBCFE8'
-];
+import { colorPalette } from '../constants/colors.js';
 
 const isDiscrete = (values) => values.every((v) => Number.isInteger(v));
 

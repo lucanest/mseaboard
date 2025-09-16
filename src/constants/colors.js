@@ -47,3 +47,8 @@ export const linkpalette = [
     'bg-pink-400','bg-amber-400','bg-cyan-400',
     'bg-rose-400','bg-indigo-400','bg-lime-400'
 ];
+
+export const colorPalette = [
+  '#BFDBFE', '#99F6E4', '#FECACA', '#DCFCE7', '#D8B4FE',
+  '#BBF7D0', '#E5E7EB', '#f781bf', '#FEF08A', '#FBCFE8'
+];
