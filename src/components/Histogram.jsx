@@ -36,8 +36,9 @@ function Histogram({
   linkedTo,
   height,
   setPanelData,
+  persistentHighlights,
   highlightedSites,
-  yLogActive = false,   
+  yLogActive = false,
 }) {
   const data = useMemo(() => {
     const n = values.length;
@@ -83,8 +84,8 @@ function Histogram({
   }, [discrete, unique]);
 
   const highlightedSet = useMemo(
-    () => new Set(highlightedSites || []),
-    [highlightedSites]
+    () => new Set(persistentHighlights || []),
+    [persistentHighlights]
   );
 
   const getColor = useCallback(
@@ -205,7 +206,7 @@ if (isIndexVisible(index)) {
   useLayoutEffect(() => {
     const isLinkedTarget =
       highlightedSite != null &&
-      linkedTo === highlightOrigin &&
+      Array.isArray(linkedTo) && linkedTo.includes(highlightOrigin) &&
       panelId !== highlightOrigin &&
       needScroll;
 
@@ -220,7 +221,7 @@ if (isIndexVisible(index)) {
   const handleBarClick = useCallback((index) => {
     setPanelData((prev) => {
       const current = prev[panelId] || {};
-      const currentHighlighted = current.highlightedSites || [];
+      const currentHighlighted = current.persistentHighlights || [];
       const isAlready = currentHighlighted.includes(index);
       const newHighlighted = isAlready
         ? currentHighlighted.filter((i) => i !== index)
@@ -229,7 +230,7 @@ if (isIndexVisible(index)) {
         ...prev,
         [panelId]: {
           ...current,
-          highlightedSites: newHighlighted,
+          persistentHighlights: newHighlighted,
         },
       };
     });
@@ -242,7 +243,7 @@ if (isIndexVisible(index)) {
       const matchValue = isLocalTooltipActive ? (xValues && xValues[i] === i + 1 ? i : (xValues ? xValues[i]:i)) : i;
       const isCurrentLinkedHighlight =
         highlightedSite === matchValue &&
-        (linkedTo === highlightOrigin || panelId === highlightOrigin);
+        (Array.isArray(linkedTo) && linkedTo.includes(highlightOrigin) || panelId === highlightOrigin);
 
       const isPersistentHighlight = highlightedSet.has(i);
       
@@ -310,7 +311,7 @@ const formatTooltip = useCallback((v) => {
 
   const shouldMirror =
     highlightedSite !== null &&
-    linkedTo === highlightOrigin &&
+    Array.isArray(linkedTo) && linkedTo.includes(highlightOrigin) &&
     panelId !== highlightOrigin &&
     !isLocalTooltipActive;
 
