@@ -68,7 +68,12 @@ function PhylipHeatmap({
   const canvasRef = useRef();
   const rafIdRef = useRef(null);
   const lastHoverRef = useRef({ row: null, col: null });
-  
+  const [colorbarTooltip, setColorbarTooltip] = useState({
+  visible: false,
+  x: 0,
+  y: 0,
+  value: null,
+  });
 
   const [dims, setDims] = useState({ width: 500, height: 500 });
   const [hoverCell, setHoverCell] = useState(null);
@@ -228,6 +233,40 @@ function PhylipHeatmap({
       linkedHighlightCellIdx = { row: rowIdx, col: colIdx };
     }
   }
+
+
+const handleColorbarMouseMove = (e) => {
+  const bar = e.currentTarget;
+  const rect = bar.getBoundingClientRect();
+  let value, x, y;
+
+  if (diamondView) {
+    // Vertical colorbar (right side)
+    const relY = e.clientY - rect.top;
+    value = min + ((relY / rect.height) * (max - min));
+    value = Math.max(min, Math.min(max, value));
+    x = rect.left + rect.width + 4 - containerRef.current.getBoundingClientRect().left;
+    y = relY + rect.top - containerRef.current.getBoundingClientRect().top;
+  } else {
+    // Horizontal colorbar (bottom)
+    const relX = e.clientX - rect.left;
+    value = min + ((relX / rect.width) * (max - min));
+    value = Math.max(min, Math.min(max, value));
+    x = relX + rect.left - containerRef.current.getBoundingClientRect().left - 18;
+    y = rect.bottom - containerRef.current.getBoundingClientRect().top + 16; // show above the bar
+  }
+
+  setColorbarTooltip({
+    visible: true,
+    x,
+    y,
+    value,
+  });
+};
+
+  const handleColorbarMouseLeave = () => {
+    setColorbarTooltip({ visible: false, x: 0, y: 0, value: null });
+  };
 
   /* ----- canvas drawing ----- */
   useEffect(() => {
@@ -553,31 +592,35 @@ function PhylipHeatmap({
       {showLegend && diamondView && (
         <div
           style={{
-            marginLeft: 20,            // distance from grid block
+            marginLeft: 0,            // distance from grid block
             marginTop: labelSpace,     // align top with the grid area
             height: gridHeight,
             width: 46,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
-            pointerEvents: "none",
+            pointerEvents: "auto",
             userSelect: "none",
             position: "relative",
           }}
         >
           <div
             style={{
-              width: 12,
-              height: gridHeight,
-              background: `linear-gradient(to top, ${Array.from(
-                { length: 20 },
-                (_, i) => valueToColor(min + ((max - min) * i) / 19, min, max)
-              )
-                .reverse()
-                .join(",")})`,
-              borderRadius: 4,
-              border: "1px solid #ccc",
-            }}
+    width: 12,
+    height: gridHeight,
+    background: `linear-gradient(to top, ${Array.from(
+      { length: 20 },
+      (_, i) => valueToColor(min + ((max - min) * i) / 19, min, max)
+    )
+      .reverse()
+      .join(",")})`,
+    borderRadius: 4,
+    border: "1px solid #ccc",
+    position: "relative",
+    cursor: "pointer",
+  }}
+  onMouseMove={handleColorbarMouseMove}
+  onMouseLeave={handleColorbarMouseLeave}
           />
           {/* Tick labels to the right of the bar */}
           <div
@@ -635,19 +678,20 @@ function PhylipHeatmap({
     {/* Tooltip for linked highlight cell */}
     {linkedTooltip}
 
+
     {/* Bottom color legend for square view */}
     {showlegend && !diamondView && (
       <div
         style={{
           width: gridWidth,
           marginLeft: labelSpace,
-          marginTop: 20,
+          marginTop: 4,
           alignSelf: "center",
           height: 36,
           display: "flex",
           flexDirection: "column",
           alignItems: "stretch",
-          pointerEvents: "none",
+          pointerEvents: "auto",
           userSelect: "none",
         }}
       >
@@ -661,7 +705,10 @@ function PhylipHeatmap({
             ).join(",")})`,
             borderRadius: 4,
             border: "1px solid #ccc",
+            pointerEvents: "auto",
           }}
+        onMouseMove={handleColorbarMouseMove}
+        onMouseLeave={handleColorbarMouseLeave}
         />
         <div
           style={{
@@ -680,6 +727,22 @@ function PhylipHeatmap({
         </div>
       </div>
     )}
+
+    {/* Tooltip for colorbar */}
+
+    {colorbarTooltip.visible && (
+  <div
+    className="absolute pointer-events-none z-50 bg-white text-black text-xs px-2 py-1 rounded shadow"
+    style={{
+      left: colorbarTooltip.x,
+      top: colorbarTooltip.y,
+      transform: "translateY(-50%)",
+      whiteSpace: "nowrap",
+    }}
+  >
+    {colorbarTooltip.value.toFixed(4)}
+  </div>
+)}
   </div>
 );
     }
