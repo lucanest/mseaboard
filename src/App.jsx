@@ -182,7 +182,7 @@ function PanelHeader({
 
   return (
     <div
-      className="upload-btn-trigger panel-drag-handle bg-gradient-to-b from-gray-100 to-white p-1 mb-2 cursor-move
+      className="upload-btn-trigger panel-drag-handle bg-gradient-to-b from-gray-100 to-white pt-1 px-1 mb-2 cursor-move
              flex flex-wrap items-center justify-between gap-x-2 gap-y-1 font-bold"
       onBlur={handleLeave}
       tabIndex={-1}
@@ -644,7 +644,7 @@ return (
           ]}
     />
     {/* Add padding container around the heatmap */}
-    <div ref={containerRef} className="flex-1 p-2 pb-4 pr-4 overflow-hidden">
+    <div ref={containerRef} className="flex-1 p-0 pb-4 pr-1 overflow-hidden">
       {labels && matrix ? (
         <PhylipHeatmap
         id={id}
