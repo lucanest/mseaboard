@@ -112,7 +112,6 @@ html, body {
 }
 
 .scroll-list {
-  max-height: 400px;
   overflow-y: auto;
   padding: 16px;
 }

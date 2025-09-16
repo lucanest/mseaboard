@@ -767,11 +767,13 @@ const pickChain = React.useCallback((choice) => {
           onClick={() => setShowChainPicker(false)}
         >
           <div
-            className="max-w-lg w-[min(90vw,36rem)] h-full flex flex-col items-center justify-center"
+            className="py-12 max-w-lg w-[min(90vw,36rem)] h-full flex flex-col items-center justify-center"
             onClick={(e) => e.stopPropagation()}
-            style={{ height: 'min(120vh, 28rem)' }}
+            style={{
+        overflowY: 'auto',
+      }}
           >
-            <div className="text-3xl font-bold text-white mb-4 flex-shrink-0 text-center">Choose chain for distance map</div>
+            <div className="text-3xl font-bold text-white mb-4 flex-shrink-0 text-center">Choose primary structure chain for distance map</div>
             <div className="flex-1 flex items-center justify-center w-full max-w-xs">
               <AnimatedList
                 items={pickerItems}
@@ -1491,6 +1493,7 @@ const Cell = useCallback(
                   onItemSelect={handleModelSelect}
                   itemClassName="text-center font-semibold !py-3"
                   className="h-full"
+                  maxHeight={dims.height - 150}
                 />
               </div>
             </div>

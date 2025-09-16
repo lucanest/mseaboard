@@ -52,11 +52,7 @@ export const AnimatedItem = ({ children, delay = 0, index, onMouseEnter, onClick
 };
 
 export const AnimatedList = ({
-  items = [
-    'Item 1', 'Item 2', 'Item 3', 'Item 4', 'Item 5',
-    'Item 6', 'Item 7', 'Item 8', 'Item 9', 'Item 10',
-    'Item 11', 'Item 12', 'Item 13', 'Item 14', 'Item 15'
-  ],
+  items = [],
   onItemSelect,
   showGradients = false,
   enableArrowNavigation = true,
@@ -64,6 +60,7 @@ export const AnimatedList = ({
   itemClassName = '',
   displayScrollbar = false,
   initialSelectedIndex = -1,
+  maxHeight = '400px',
 }) => {
   const listRef = useRef(null);
   const [selectedIndex, setSelectedIndex] = useState(initialSelectedIndex);
@@ -133,6 +130,7 @@ export const AnimatedList = ({
         ref={listRef}
         className={`scroll-list ${!displayScrollbar ? 'no-scrollbar' : ''}`}
         onScroll={handleScroll}
+        style={maxHeight ? { maxHeight, overflowY: 'auto', padding: 16 } : undefined}
       >
         {items.map((item, index) => {
           // Get color class from residueColorHex, fallback to a default if not found
