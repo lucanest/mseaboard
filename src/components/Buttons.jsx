@@ -8,8 +8,8 @@ export function DuplicateButton({ onClick }) {
       className="p-0.5"
       //title="Duplicate panel"
     >
-      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 border border-gray-400 hover:bg-blue-300">
-        <DocumentDuplicateIcon className="w-5 h-5 text-blue-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-blue-300">
+        <DocumentDuplicateIcon className="w-4 h-4 text-blue-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
@@ -22,9 +22,9 @@ export function RemoveButton({ onClick }) {
       className="p-0.5"
       //title="Remove panel"
     >
-      <span className="inline-flex items-center justify-center w-7 h-7
+      <span className="inline-flex items-center justify-center w-6 h-6
        rounded-lg bg-gray-100 border border-gray-400 hover:bg-red-300">
-       <XMarkIcon className="w-5 h-5 text-red-700 flex-shrink-0 -translate-y-[0px]" />
+       <XMarkIcon className="w-4 h-4 text-red-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
@@ -37,11 +37,11 @@ export function LinkButton({ onClick, isLinkModeActive, isEligibleLinkTarget }) 
         className="p-0.5"
         //title={'Link panel'}
     >
-      <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg hover:bg-yellow-300
+      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg hover:bg-yellow-300
 ${isLinkModeActive ? 'bg-blue-200' :'bg-gray-100'}
 ${isEligibleLinkTarget ? 'border-2 border-blue-400' : 'border border-gray-400'}`}>
           <LinkIcon
-          className={`w-5 h-5 flex-shrink-0 -translate-y-[0px]
+          className={`w-4 h-4 flex-shrink-0 -translate-y-[0px]
             ${isLinkModeActive ? 'text-blue-700' : 'text-yellow-700'}`
             }
           />
@@ -57,11 +57,11 @@ export function RadialToggleButton({ onClick, isActive }) {
       className="p-0.5"
       //title="Switch tree view"
     >
-      <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg
+      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
         ${isActive ? 'bg-gray-100' : 'bg-gray-100'}
         border border-gray-400 hover:bg-orange-200`}>
         <span className="text-xs font-bold text-orange-800 leading-none">
-          <EyeIcon className="w-5 h-5 flex-shrink-0 -translate-y-[0px]" />
+          <EyeIcon className="w-4 h-4 flex-shrink-0 -translate-y-[0px]" />
         </span>
       </span>
     </button>
@@ -75,11 +75,11 @@ export function CodonToggleButton({ onClick, isActive }) {
       className="p-0.5"
       //title="Toggle codon view"
     >
-      <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg
+      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
         ${isActive ? 'bg-purple-200' : 'bg-gray-100'}
         border border-gray-400 hover:bg-purple-300`}>
         <span className="text-xs font-bold text-orange-800 leading-none">
-          <Bars3Icon className="w-5 h-5 flex-shrink-0 -translate-y-[0px] rotate-90" />
+          <Bars3Icon className="w-4 h-4 flex-shrink-0 -translate-y-[0px] rotate-90" />
         </span>
       </span>
     </button>
@@ -93,9 +93,9 @@ export function SiteStatsButton({ onClick }) {
       className="p-0.5"
       //title="Compute per-site conservation and gap fraction"
     >
-      <span className="inline-flex items-center justify-center w-7 h-7
+      <span className="inline-flex items-center justify-center w-6 h-6
        rounded-lg bg-gray-100 border border-gray-400 hover:bg-orange-300">
-       <ChartBarIcon className="w-5 h-5 text-orange-700 flex-shrink-0 -translate-y-[0px]" />
+       <ChartBarIcon className="w-4 h-4 text-orange-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
@@ -111,8 +111,8 @@ export function TranslateButton({ onClick }) {
       onClick={onClick}
       //title="Duplicate and translate to protein"
     >
-      <span className="inline-flex items-center text-orange-700 justify-center w-7 h-7 rounded-lg bg-gray-100 border border-gray-400 hover:bg-orange-300">
-          <LanguageIcon className="w-5 h-5 flex-shrink-0 -translate-y-[0px]" />
+      <span className="inline-flex items-center text-orange-700 justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-orange-300">
+          <LanguageIcon className="w-4 h-4 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
@@ -137,8 +137,8 @@ export function SeqlogoButton({ onClick }){
       onClick={onClick}
       //title="Generate sequence logo"
     >
-      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 border border-gray-400 hover:bg-pink-200">
-        <SeqLogoGlyph className="w-5 h-5 text-gray-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-pink-200">
+        <SeqLogoGlyph className="w-4 h-4 text-gray-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
@@ -152,8 +152,8 @@ export function SequenceButton({ onClick }) {
       onClick={onClick}
       //title="Extract sequences from structure"
     >
-      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 border border-gray-400 hover:bg-yellow-200">
-        <CodeBracketIcon className="w-5 h-5 text-yellow-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-yellow-200">
+        <CodeBracketIcon className="w-4 h-4 text-yellow-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
@@ -167,8 +167,8 @@ export function DistanceMatrixButton({ onClick, title = "Build distance matrix f
       onClick={onClick}
       //title={title}
     >
-      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 border border-gray-400 hover:bg-purple-300">
-        <Squares2X2Icon className="w-5 h-5 text-purple-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-purple-300">
+        <Squares2X2Icon className="w-4 h-4 text-purple-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
@@ -181,8 +181,8 @@ export function DiamondButton({ onClick }) {
       className="p-0.5"
       onClick={onClick}
     >
-      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 border border-gray-400 hover:bg-purple-300">
-        <DiamondGlyph className="w-5 h-5 text-gray-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-purple-300">
+        <DiamondGlyph className="w-4 h-4 text-gray-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
@@ -196,8 +196,8 @@ export function DownloadButton({ onClick, title = "Download" }) {
       className='p-0.5'
       //title={title}
     >
-      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 border border-gray-400 hover:bg-cyan-200">
-        <ArrowDownTrayIcon className="w-5 h-5 text-cyan-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-cyan-200">
+        <ArrowDownTrayIcon className="w-4 h-4 text-cyan-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
@@ -210,8 +210,8 @@ export function SearchButton({ onClick }) {
       onClick={onClick}
       className='p-0.5'
     >
-      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg bg-gray-100 border border-gray-400 hover:bg-cyan-200">
-        <MagnifyingGlassIcon className="w-5 h-5 text-cyan-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-cyan-200">
+        <MagnifyingGlassIcon className="w-4 h-4 text-cyan-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
@@ -313,10 +313,10 @@ export function LogYButton({ onClick, isActive,  title = "Toggle log scale on Y"
       className='p-0.5'
       //title={title}
     >
-      <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg
+      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
        ${isActive ? 'bg-orange-100' : 'bg-gray-100'}
         border border-gray-400 hover:bg-orange-200`}>
-        <LogGlyph className="w-5 h-5 text-gray-700 flex-shrink-0 -translate-y-[0px]" />
+        <LogGlyph className="w-4 h-4 text-gray-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
@@ -328,12 +328,11 @@ export function TreeButton({ onClick, tooltip = null }){
   return (
     <button
       type="button"
-      className="w-7 h-7"
       onClick={onClick}
     >
-      <span className="inline-flex items-center justify-center w-7 h-7 rounded-lg
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg
         bg-gray-100 hover:bg-green-200 border border-gray-400">
-        <TreeGlyph className="w-5 h-5 text-green-700 flex-shrink-0 -translate-y-[0px]" />
+        <TreeGlyph className="w-4 h-4 text-green-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
@@ -343,13 +342,12 @@ export function SurfaceToggleButton({ onClick, isActive }) {
   return (
 <button
       type="button"
-      className="w-7 h-7"
       onClick={onClick}
     >
-      <span className={`inline-flex items-center justify-center w-7 h-7 rounded-lg
+      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
        ${isActive ? 'bg-orange-100' : 'bg-gray-100'}
         border border-gray-400 hover:bg-orange-200`}>
-        <SurfaceGlyph className="w-5 h-5 text-orange-700 flex-shrink-0 -translate-y-[0px]" />
+        <SurfaceGlyph className="w-4 h-4 text-orange-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
