@@ -245,7 +245,7 @@ const handleColorbarMouseMove = (e) => {
     const relY = e.clientY - rect.top;
     value = min + ((relY / rect.height) * (max - min));
     value = Math.max(min, Math.min(max, value));
-    x = rect.left + rect.width + 4 - containerRef.current.getBoundingClientRect().left;
+    x = rect.left + rect.width + 0 - containerRef.current.getBoundingClientRect().left;
     y = relY + rect.top - containerRef.current.getBoundingClientRect().top;
   } else {
     // Horizontal colorbar (bottom)
@@ -253,7 +253,7 @@ const handleColorbarMouseMove = (e) => {
     value = min + ((relX / rect.width) * (max - min));
     value = Math.max(min, Math.min(max, value));
     x = relX + rect.left - containerRef.current.getBoundingClientRect().left - 18;
-    y = rect.bottom - containerRef.current.getBoundingClientRect().top + 16; // show above the bar
+    y = rect.bottom - containerRef.current.getBoundingClientRect().top + 11; // show below the bar
   }
 
   setColorbarTooltip({
@@ -505,7 +505,7 @@ const handleColorbarMouseMove = (e) => {
           onClick={handleGridClick}
           style={{
             marginLeft: labelSpace,
-            marginTop: labelSpace,
+            marginTop: hideLabels? 0 : labelSpace,
             width: gridWidth,
             height: gridHeight,
             cursor: "crosshair",
@@ -593,7 +593,7 @@ const handleColorbarMouseMove = (e) => {
         <div
           style={{
             marginLeft: 0,            // distance from grid block
-            marginTop: labelSpace,     // align top with the grid area
+            marginTop: 5,
             height: gridHeight,
             width: 46,
             display: "flex",
@@ -634,17 +634,17 @@ const handleColorbarMouseMove = (e) => {
               color: "#333",
             }}
           >
-            <span style={{ position: "absolute", top: -10 }}>{min.toFixed(3)}</span>
+            <span style={{ position: "absolute", top: -3 }}>{min.toFixed(3)}</span>
             <span style={{ position: "absolute", top: gridHeight * 0.25 - 13 }}>
-              {((min + max) / 4).toFixed(3)}
+              {(min+(max-min) / 4).toFixed(3)}
             </span>
             <span style={{ position: "absolute", top: gridHeight * 0.5 - 13 }}>
-              {((min + max) / 2).toFixed(3)}
+              {(min+(max-min) / 2).toFixed(3)}
             </span>
             <span style={{ position: "absolute", top: gridHeight * 0.75 - 13 }}>
-              {(((min + max) / 4) * 3).toFixed(3)}
+              {(min+(max-min)*3/4).toFixed(3)}
             </span>
-            <span style={{ position: "absolute", top: gridHeight - 12 }}>
+            <span style={{ position: "absolute", top: gridHeight - 14 }}>
               {max.toFixed(3)}
             </span>
           </div>
@@ -720,9 +720,9 @@ const handleColorbarMouseMove = (e) => {
           }}
         >
           <span>{min.toFixed(3)}</span>
-          <span>{((min + max) / 4).toFixed(3)}</span>
-          <span>{((min + max) / 2).toFixed(3)}</span>
-          <span>{(3 * (min + max) / 4).toFixed(3)}</span>
+          <span>{(min+(max-min) / 4).toFixed(3)}</span>
+          <span>{(min+(max-min) / 2).toFixed(3)}</span>
+          <span>{(min+(max-min)* 3 / 4).toFixed(3)}</span>
           <span>{max.toFixed(3)}</span>
         </div>
       </div>
@@ -732,7 +732,7 @@ const handleColorbarMouseMove = (e) => {
 
     {colorbarTooltip.visible && (
   <div
-    className="absolute pointer-events-none z-50 bg-white text-black text-xs px-2 py-1 rounded shadow"
+    className="absolute pointer-events-none z-50 bg-white text-black text-xs px-2 py-1 rounded"
     style={{
       left: colorbarTooltip.x,
       top: colorbarTooltip.y,
