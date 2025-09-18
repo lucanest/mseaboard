@@ -24,7 +24,7 @@
   "layout": [
     {
       "w": 12,
-      "h": 5,
+      "h": 6,
       "x": 0,
       "y": 25,
       "i": "histogram-1758211720492",
@@ -70,7 +70,7 @@
       "w": 12,
       "h": 2,
       "x": 0,
-      "y": 30,
+      "y": 31,
       "i": "__footer",
       "moved": false,
       "static": true
@@ -2003,10 +2003,9 @@
         ]
       },
       "filename": "ENSG00000105261_OVOL3_NT_modelB.csv",
-      "highlightedSites": [
-        18
-      ],
-      "selectedCol": "aagtr_pval"
+      "highlightedSites": [],
+      "selectedCol": "aagtr_pval",
+      "yLog": true
     },
     "histogram-1758211720494": {
       "data": {
@@ -2974,9 +2973,7 @@
         ]
       },
       "filename": "ENSG00000105261_OVOL3_NT_modelA.csv",
-      "highlightedSites": [
-        18
-      ],
+      "highlightedSites": [],
       "selectedCol": "output"
     },
     "tree-1758211720534": {
