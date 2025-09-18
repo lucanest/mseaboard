@@ -88,6 +88,22 @@ function Histogram({
     [persistentHighlights]
   );
 
+  const mappedHighlightedIndex = useMemo(() => {
+    if (highlightedSite == null) return null;
+    if (Array.isArray(xValues)) {
+      for (let i = 0; i < xValues.length; i++) {
+        // tolerant equality for number/string mismatches
+        if (String(xValues[i]) === String(highlightedSite)) return i;
+        if (!Number.isNaN(Number(xValues[i])) && !Number.isNaN(Number(highlightedSite)) &&
+            Number(xValues[i]) === Number(highlightedSite)) return i;
+      }
+      // fallback: maybe highlightedSite was already an index
+      //if (Number.isInteger(highlightedSite) && highlightedSite >= 0 && highlightedSite < values.length) return highlightedSite;
+      return null;
+    }
+    return highlightedSite;
+  }, [highlightedSite, xValues, values.length]);
+
   const getColor = useCallback(
     (v) => {
       if (discrete) return cmap[v];
@@ -205,7 +221,7 @@ if (isIndexVisible(index)) {
 
   useLayoutEffect(() => {
     const isLinkedTarget =
-      highlightedSite != null &&
+      mappedHighlightedIndex != null &&
       Array.isArray(linkedTo) && linkedTo.includes(highlightOrigin) &&
       panelId !== highlightOrigin &&
       needScroll;
@@ -213,10 +229,10 @@ if (isIndexVisible(index)) {
     if (!isLinkedTarget) return;
 
     const id = requestAnimationFrame(() => {
-      if (highlightedSite != null) scrollBarIntoView(highlightedSite);
+      if (mappedHighlightedIndex != null) scrollBarIntoView(mappedHighlightedIndex);
     });
     return () => cancelAnimationFrame(id);
-  }, [highlightedSite, highlightOrigin, linkedTo, panelId, needScroll, scrollBarIntoView]);
+  }, [mappedHighlightedIndex, highlightOrigin, linkedTo, panelId, needScroll, scrollBarIntoView]);
 
   const handleBarClick = useCallback((index) => {
     setPanelData((prev) => {
@@ -240,9 +256,9 @@ if (isIndexVisible(index)) {
     const n = data.length;
     const out = new Array(n);
     for (let i = 0; i < n; i++) {
-      const matchValue = isLocalTooltipActive ? (xValues && xValues[i] === i + 1 ? i : (xValues ? xValues[i]:i)) : i;
+      // Use mappedHighlightedIndex (bar index that corresponds to incoming highlight)
       const isCurrentLinkedHighlight =
-        highlightedSite === matchValue &&
+        mappedHighlightedIndex === i &&
         (Array.isArray(linkedTo) && linkedTo.includes(highlightOrigin) || panelId === highlightOrigin);
 
       const isPersistentHighlight = highlightedSet.has(i);
@@ -262,7 +278,7 @@ if (isIndexVisible(index)) {
   }, [
     data,
     getColor,
-    highlightedSite,
+    mappedHighlightedIndex,
     linkedTo,
     highlightOrigin,
     panelId,
@@ -578,8 +594,8 @@ useEffect(() => {
         )}
 
         {/* Column overlay for linked highlight */}
-        {shouldMirror && highlightedSite != null && scrollingToIndex === null && (
-          <div style={getColumnStyle(highlightedSite)} />
+        {shouldMirror && mappedHighlightedIndex != null && scrollingToIndex === null && (
+          <div style={getColumnStyle(mappedHighlightedIndex)} />
         )}
           {needScroll ? (
             <List
@@ -620,8 +636,8 @@ useEffect(() => {
 )}
 
         {/* Mirrored tooltip */}
-        {shouldMirror && scrollingToIndex === null && highlightedSite !== null && (() => {
-  const mirroredTooltipPos = getTooltipPos(highlightedSite);
+        {shouldMirror && scrollingToIndex === null && mappedHighlightedIndex !== null && (() => {
+  const mirroredTooltipPos = getTooltipPos(mappedHighlightedIndex);
   if (!mirroredTooltipPos) return null;
   return (
     <div
@@ -635,9 +651,9 @@ useEffect(() => {
       }}
       className="bg-white p-2 border border-gray-300 rounded-xl shadow-md text-sm"
     >
-      <p className="font-medium">{`${getXLabel(highlightedSite)}`}</p>
+      <p className="font-medium">{`${getXLabel(mappedHighlightedIndex)}`}</p>
       <p className="text-blue-600">
-        {`Value${yLogActive ? ' (log)' : ''}: ${formatTooltip(data[highlightedSite].value)}`}
+        {`Value${yLogActive ? ' (log)' : ''}: ${formatTooltip(data[mappedHighlightedIndex].value)}`}
       </p>
     </div>
   );
