@@ -37,7 +37,6 @@ function Histogram({
   height,
   setPanelData,
   persistentHighlights,
-  highlightedSites,
   yLogActive = false,
 }) {
   const data = useMemo(() => {
@@ -97,8 +96,6 @@ function Histogram({
         if (!Number.isNaN(Number(xValues[i])) && !Number.isNaN(Number(highlightedSite)) &&
             Number(xValues[i]) === Number(highlightedSite)) return i;
       }
-      // fallback: maybe highlightedSite was already an index
-      //if (Number.isInteger(highlightedSite) && highlightedSite >= 0 && highlightedSite < values.length) return highlightedSite;
       return null;
     }
     return highlightedSite;
@@ -169,7 +166,7 @@ function Histogram({
   const barWidth = Math.max(1, itemSize - GAP_PX);
 
 
-    // Visible window info (updates on scroll/resize)
+  // Visible window info (updates on scroll/resize)
   const visibleWindow = useMemo(() => {
   const listWidth = innerWidth;
   const start = Math.max(0, Math.floor(scrollLeft / itemSize));
@@ -195,7 +192,7 @@ function Histogram({
   if (!needScroll || index == null || !listRef.current) return;
 
   // 1) If already visible, do nothing
-if (isIndexVisible(index)) {
+  if (isIndexVisible(index)) {
     setScrollingToIndex(null);
     return;
   }
@@ -217,7 +214,7 @@ if (isIndexVisible(index)) {
     setScrollingToIndex(index);
     listRef.current.scrollTo(nextScroll);
   }
-}, [needScroll, isIndexVisible, innerWidth, values.length, itemSize]);
+  }, [needScroll, isIndexVisible, innerWidth, values.length, itemSize]);
 
   useLayoutEffect(() => {
     const isLinkedTarget =
@@ -391,9 +388,9 @@ const getColumnStyle = useCallback((index) => {
     top: TOP_MARGIN,
     width: itemSize,
     height: chartInnerHeight,
-    background: 'rgba(0,0,0,0.1)',   // light gray veil
+    background: 'rgba(0,0,0,0.1)',    // light gray veil
     pointerEvents: 'none',              // don't block mouse
-    zIndex: 10,                         // below tooltips (which are much higher)
+    zIndex: 10,                         // below tooltips
   };
 }, [needScroll, itemSize, scrollLeft, chartInnerHeight, values.length]);
 
