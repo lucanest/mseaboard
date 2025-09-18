@@ -182,7 +182,7 @@ function PanelHeader({
 
   return (
     <div
-      className="upload-btn-trigger panel-drag-handle bg-gradient-to-b from-gray-100 to-white pt-1 px-1 mb-2 cursor-move
+      className="upload-btn-trigger panel-drag-handle bg-gradient-to-b from-gray-100 to-white pt-1 px-1 mb-1 cursor-move
              flex flex-wrap items-center justify-between gap-x-2 gap-y-1 font-bold"
       onBlur={handleLeave}
       tabIndex={-1}
@@ -220,7 +220,7 @@ function PanelHeader({
         onBlur={handleLeave}
         tabIndex={-1}
       >
-        <div className="flex flex-wrap items-center gap-1">
+        <div className="flex flex-wrap items-center gap-0">
           {extraButtons.map((btn, i) => {
             const name = `extra${i}`;
             const tooltipText = btn.tooltip || tooltipMap[name] || "Extra action";
@@ -290,7 +290,7 @@ function EditableFilename({ id, filename, setPanelData, prefix = '', className =
       className={`inline ${className}`}
     >
       <input
-        className="border rounded w-32 text-sm mt-2"
+        className="border rounded w-32 text-sm mt-1 mb-1"
         value={filenameInput}
         onChange={e => setFilenameInput(e.target.value)}
         autoFocus
@@ -309,8 +309,8 @@ function EditableFilename({ id, filename, setPanelData, prefix = '', className =
         onClick={() => setEditing(true)}
         title="Edit filename"
       >
-        <span className="inline-flex items-center justify-center w-6 h-7">
-          <PencilSquareIcon className="w-5 h-5 text-gray-700"/>
+        <span className="inline-flex items-center justify-center w-6 h-5">
+          <PencilSquareIcon className="w-4 h-4 text-gray-700"/>
         </span>
       </button>
     </div>
@@ -2648,7 +2648,7 @@ const handleCreateSequenceFromStructure = useCallback((id) => {
     if (!seq) return;
     const newId = `alignment-from-pdb-${chainId}-${Date.now()}-${idx}`;
     newPanels.push({ i: newId, type: 'alignment' });
-    newLayouts.push({ i: newId, x: 0, y: baseY + idx * 3, h: 3, w: 12, minH: 3, minW: 3 });
+    newLayouts.push({ i: newId, x: 0, y: baseY + idx * 3, h: 3, w: 12, minH: 2, minW: 3 });
     newPanelDataEntries[newId] = {
       data: [{ id: `${baseName}_chain_${chainId}`, sequence: seq }],
       filename: `${baseName}_chain_${chainId}.fasta`,
@@ -4059,8 +4059,8 @@ const canLink = (typeA, typeB) => {
             autoSize={false}
             isResizable
             isDraggable
-            margin={[10, 10]}
-            containerPadding={[10, 10]}
+            margin={[8,8]}
+            containerPadding={[8,8]}
             draggableHandle=".panel-drag-handle"
             draggableCancel="select, option, input, textarea, button"
             onLayoutChange={(newLayout) => {
