@@ -834,14 +834,7 @@ const MSACell = React.memo(function MSACell({
   columnIndex
 }) {
   // Precompute styles to avoid object creation on every render
-  const cellStyle = React.useMemo(() => ({
-    ...style,
-    height: style.height ? style.height + 1 : undefined,
-    width: style.width ? style.width + 1 : undefined,
-    marginBottom: -1,
-    marginRight: -1,
-    boxSizing: 'border-box',
-  }), [style]);
+  const cellStyle = style;
 
   // Precompute class names
   const className = React.useMemo(() => {
@@ -1296,12 +1289,10 @@ const Cell = useCallback(
     const isPersistentHighlight = persistentHighlights.includes(idx);
 
     // Whole-column highlight: any column present in the mask is blue on all rows
-    
-    let isInSearchMask = false;
-    if (itemData?.searchHighlight && searchMask.size > 0) {
-      isInSearchMask = searchMask.has(columnIndex);
-    }
-    
+    const isInSearchMask = itemData?.searchHighlight && searchMask.size > 0
+      ? searchMask.has(columnIndex)
+      : false;
+
     // Highlight all motif letters in each matching row
     let isSearchHighlight = false;
     const q = searchQuery.trim();
@@ -1338,7 +1329,6 @@ const Cell = useCallback(
 
     return (
       <MemoizedMSACell
-        key={`${rowIndex}-${columnIndex}`}
         columnIndex={columnIndex}
         rowIndex={rowIndex}
         style={style}
@@ -1381,7 +1371,7 @@ const Cell = useCallback(
 
   const gridItemData = useMemo(() => ({
     msaData,
-    searchMask: Array.from(searchMask),
+    searchMask,
     searchHighlight: data.searchHighlight,
     codonMode,
     hoveredCol,
@@ -1681,7 +1671,7 @@ const Cell = useCallback(
             width={Math.max(dims.width - LABEL_WIDTH, 0)}
             onScroll={throttledOnScroll}
             overscanRowCount={2}
-            overscanColumnCount={2}
+            overscanColumnCount={8}
             itemData={gridItemData}
           >
             {Cell}
