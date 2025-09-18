@@ -2394,12 +2394,15 @@ const pairKey = useCallback((a,b) => [String(a), String(b)].sort().join('|'), []
 const assignPairColor = useCallback((a, b) => {
   const key = pairKey(a, b);
   setLinkColors(prev => {
-    if (prev[key] != null) return prev;
+    if (prev[key] != null) return prev; // Color already assigned, don't change
+    
     // Find all colors currently in use
     const used = new Set(Object.values(prev));
     let idx = 0;
+    
     // Pick the first unused color globally
     while (idx < linkpalette.length && used.has(idx)) idx++;
+    
     if (idx >= linkpalette.length) {
       // If all are used, pick the least-used color
       const counts = Array(linkpalette.length).fill(0);
@@ -2410,23 +2413,31 @@ const assignPairColor = useCallback((a, b) => {
       }
       idx = best;
     }
+    
     return { ...prev, [key]: idx };
   });
 }, [linkpalette, pairKey]);
 
   
   // Resolve badge color (active=pair color, inactive=gray; falls back to hash if unseen)
-  const colorForLink = useCallback((selfId, partnerId, active) => {
-    if (!active) return 'bg-gray-300';
-    const key = pairKey(selfId, partnerId);
-    let idx = linkColors[key];
-    if (idx == null) {
-      // stable fallback so history badges don't thrash before allocation
-      let h = 0; for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
-      idx = h % linkpalette.length;
-    }
-    return linkpalette[idx];
-  }, [linkColors, pairKey, linkpalette]);
+const colorForLink = useCallback((selfId, partnerId, active) => {
+  if (!active) return 'bg-gray-300';
+  
+  const key = pairKey(selfId, partnerId);
+  let idx = linkColors[key];
+  
+  if (idx == null) {
+    // stable fallback so history badges don't thrash before allocation
+    let h = 0; 
+    for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
+    idx = h % linkpalette.length;
+    
+    // Assign this color permanently for this pair
+    setLinkColors(prev => ({ ...prev, [key]: idx }));
+  }
+  
+  return linkpalette[idx];
+}, [linkColors, pairKey, linkpalette]);
 
 const addPanel = useCallback((config = {}) => {
   const { type, data, basedOnId, layoutHint = {}, autoLinkTo = null } = config;
@@ -2918,25 +2929,26 @@ const handleHeatmapToTree = useCallback((id) => {
 }, [panelData, addPanel]);
 
 const handleRestoreLink = useCallback((selfId, partnerId) => {
-    const selfExists = panels.some(p => p.i === selfId);
-    const partnerExists = panels.some(p => p.i === partnerId);
-    if (!selfExists || !partnerExists) return;
+  const selfExists = panels.some(p => p.i === selfId);
+  const partnerExists = panels.some(p => p.i === partnerId);
+  if (!selfExists || !partnerExists) return;
 
-    setPanelLinks(pl => {
-  const copy = { ...pl };
-  // Add back the specific link
-  copy[selfId] = Array.isArray(copy[selfId]) ? copy[selfId] : (copy[selfId] ? [copy[selfId]] : []);
-  if (!copy[selfId].includes(partnerId)) copy[selfId].push(partnerId);
+  setPanelLinks(pl => {
+    const copy = { ...pl };
+    // Add back the specific link
+    copy[selfId] = Array.isArray(copy[selfId]) ? copy[selfId] : (copy[selfId] ? [copy[selfId]] : []);
+    if (!copy[selfId].includes(partnerId)) copy[selfId].push(partnerId);
 
-  copy[partnerId] = Array.isArray(copy[partnerId]) ? copy[partnerId] : (copy[partnerId] ? [copy[partnerId]] : []);
-  if (!copy[partnerId].includes(selfId)) copy[partnerId].push(selfId);
+    copy[partnerId] = Array.isArray(copy[partnerId]) ? copy[partnerId] : (copy[partnerId] ? [copy[partnerId]] : []);
+    if (!copy[partnerId].includes(selfId)) copy[partnerId].push(selfId);
 
-  return copy;
-});
-    assignPairColor(selfId, partnerId);
-    setJustLinkedPanels([selfId, partnerId]);
-    setTimeout(() => setJustLinkedPanels([]), 1000);
-  }, [panels, assignPairColor]);
+    return copy;
+  });
+  
+  assignPairColor(selfId, partnerId); // Ensure color is assigned
+  setJustLinkedPanels([selfId, partnerId]);
+  setTimeout(() => setJustLinkedPanels([]), 1000);
+}, [panels, assignPairColor]);
 
 
 const handleLinkClick = useCallback((id) => {
