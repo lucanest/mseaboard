@@ -122,9 +122,9 @@ export function TranslateButton({ onClick }) {
 function SeqLogoGlyph(props) {
   return (
     <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
-      <text x="1"  y="20" fill="#be185d" fontSize="20" fontWeight="500">A</text>
-      <text x="14" y="13" fill="#be185d" fontSize="14" fontWeight="500">C</text>
-      <text x="16" y="22" fill="#be185d" fontSize="4" fontWeight="500">G</text>
+      <text x="1"  y="20" fill="#be185d" fontSize="22" fontWeight="500">A</text>
+      <text x="14" y="10" fill="#be185d" fontSize="12" fontWeight="500">C</text>
+      <text x="16" y="20" fill="#be185d" fontSize="10" fontWeight="500">T</text>
     </svg>
   );
 }
