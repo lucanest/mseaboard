@@ -3,16 +3,21 @@ import { useRef, useState, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { residueColorHex } from '../constants/colors';
 
-export function TitleFlip({ text, colors}) {
+export function TitleFlip({ text, colors, tileSize = 50 }) {
   return (
     <div className="flex items-center justify-start w-full gap-0">
       {text.split('').map((ch, i) => {
         const color = colors[ch] || 'bg-gray-200';
         return (
-            <div key={i} className="flip-card w-16 h-16"
-                  style={{
-          marginLeft: i === 0 ? 0 : '-2px' // Overlap tiles by 2px except the first
-        }}>
+          <div
+            key={i}
+            className="flip-card"
+            style={{
+              width: tileSize,
+              height: tileSize,
+              marginLeft: i === 0 ? 0 : -2, 
+            }}
+          >
             <div
               className="flip-inner h-full w-full animate-tileFlip"
               style={{
@@ -21,7 +26,10 @@ export function TitleFlip({ text, colors}) {
               }}
             >
               <span className={`flip-face flip-front ${color} block w-full h-full rounded-none`} />
-              <span className={`flip-face flip-back ${color} block w-full h-full flex items-center justify-center text-5xl font-bold leading-none`}>
+              <span
+                className={`flip-face flip-back ${color} block w-full h-full flex items-center justify-center font-bold leading-none`}
+                style={{ fontSize: tileSize * 0.6 }}
+              >
                 {ch}
               </span>
             </div>
