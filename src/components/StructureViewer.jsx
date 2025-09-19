@@ -30,7 +30,7 @@ const getChainColor = (chain) => {
 };
 
 function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onHighlight,
-  linkedPanelData }) {
+  linkedPanelData, highlightOrigin }) {
   const viewerDiv = useRef(null);
   const viewerRef = useRef(null);
   const surfaceHandleRef = useRef(null);
@@ -38,6 +38,7 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
   const lastSentHighlightRef = useRef(undefined);
   const [opacity, setOpacity] = useState(0.8);
   const [sliderTooltip, setSliderTooltip] = useState(false);
+  const [isHovering, setIsHovering] = useState(false);
   const didInitOpacity = useRef(false);
 
   // restore opacity from data
@@ -154,6 +155,7 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
       { atom: 'CA' },
       true,
       function onHover(atom) {
+        setIsHovering(true);
   if (!atom || atom.hetflag) return;
 
         const resn = (atom.resn || '').trim().toUpperCase();
@@ -176,19 +178,24 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
           const idx = info ? info.keyToIndex.get(key) : null;
           //console.log(chain,data?.linkedChainId)
 
-        if (typeof onHighlightRef.current === 'function' && idx != null) {
-          // gate by the current linkedChainId
-          const wantChain = linkedChainIdRef.current;
-          if (chain === wantChain && lastSentHighlightRef.current !== idx) {
-            lastSentHighlightRef.current = idx;
-            onHighlightRef.current(idx, panelIdRef.current);
-          }
-        }
+if (typeof onHighlightRef.current === 'function' && idx != null) {
+  const wantChain = linkedChainIdRef.current;
+  // Only emit if this panel is the highlight origin or if highlightOrigin is not set
+  if (
+    chain === wantChain &&
+    lastSentHighlightRef.current !== idx &&
+    (!highlightOrigin || highlightOrigin === panelIdRef.current)
+  ) {
+    lastSentHighlightRef.current = idx;
+    onHighlightRef.current(idx, panelIdRef.current);
+  }
+}
         } catch {}
 
         scheduleHalo(atom);
       },
       function onUnhover() {
+        setIsHovering(false);
         hideStructureTooltipText();
         scheduleHalo(null);
           if (typeof onHighlightRef.current === 'function') {
@@ -268,6 +275,7 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
 
 
   useEffect(() => {
+    if (isHovering) return; // Don't override tooltip/halo if user is hovering
     // If multi-linked residues are present, don't override them here.
     if (Array.isArray(data?.linkedResiduesByKey) && data.linkedResiduesByKey.length > 0) {
       return;
