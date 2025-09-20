@@ -154,9 +154,9 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
     v.setHoverable(
       { atom: 'CA' },
       true,
-      function onHover(atom) {
+            function onHover(atom) {
         setIsHovering(true);
-  if (!atom || atom.hetflag) return;
+        if (!atom || atom.hetflag) return;
 
         const resn = (atom.resn || '').trim().toUpperCase();
         const one = threeToOne[resn] || '-';
@@ -167,29 +167,24 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
         const label = `chain ${chain}, ${dispResi}: ${one}`;
         showStructureTooltipText(label);
 
-        //console.log('hover atom', atom);
-
-        // Share highlight back to MSA if linked
         try {
-          const chain = (atom.chain || 'A').trim() || 'A';
           const icode = String(atom.inscode ?? atom.icode ?? '').trim();
           const key = `${chain}|${atom.resi}|${icode}`;
           const info = chainInfoRef.current.byChain[chain];
           const idx = info ? info.keyToIndex.get(key) : null;
-          //console.log(chain,data?.linkedChainId)
 
-if (typeof onHighlightRef.current === 'function' && idx != null) {
-  const wantChain = linkedChainIdRef.current;
-  // Only emit if this panel is the highlight origin or if highlightOrigin is not set
-  if (
-    chain === wantChain &&
-    lastSentHighlightRef.current !== idx &&
-    (!highlightOrigin || highlightOrigin === panelIdRef.current)
-  ) {
-    lastSentHighlightRef.current = idx;
-    onHighlightRef.current(idx, panelIdRef.current);
-  }
-}
+          if (typeof onHighlightRef.current === 'function' && idx != null) {
+            const payload = { residueIndex: idx, chainId: chain };
+            const last = lastSentHighlightRef.current;
+            const isSame = last && last.residueIndex === payload.residueIndex && last.chainId === payload.chainId;
+            
+            // Always emit the highlight with detailed chain info.
+            // App.jsx will handle routing to the correct linked panel.
+            if (!isSame) {
+              lastSentHighlightRef.current = payload;
+              onHighlightRef.current(payload, panelIdRef.current);
+            }
+          }
         } catch {}
 
         scheduleHalo(atom);

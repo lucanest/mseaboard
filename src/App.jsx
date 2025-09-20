@@ -1019,21 +1019,29 @@ useEffect(() => {
     gridRef.current.scrollTo({ scrollLeft: targetPx });
   }, [codonMode]);
 
-useEffect(() => {
-  if (
-    Array.isArray(linkedTo) && linkedTo.length > 0 &&
-    highlightedSite != null &&
-    id !== highlightOrigin && !isSyncScrolling
-  ) {
-    const outer = outerRef.current;
-    if (!outer) return;
-    const rect = outer.getBoundingClientRect();
-    const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
-    const x = rect.left + (highlightedSite * itemWidth) - outer.scrollLeft + (itemWidth / 2);
-    const y = rect.top + (rect.height / 2);
-    setTooltipPos({ x, y });
-  }
-}, [linkedTo, highlightedSite, id, highlightOrigin, codonMode, dims.height, isSyncScrolling]);
+  const linkedSiteFromData = data.linkedSiteHighlight;
+  // The global highlight is used for other link types
+  const globalHighlightedSite = (
+      Array.isArray(linkedTo) && 
+      linkedTo.includes(highlightOrigin) && 
+      id !== highlightOrigin
+  ) ? highlightedSite : null;
+
+  // Use the panel-specific highlight if available, otherwise fall back to the global one
+  const finalHighlightedSite = linkedSiteFromData ?? globalHighlightedSite;
+
+  // useEffect that correctly positions the tooltip for both highlight types
+  useEffect(() => {
+    if (finalHighlightedSite != null && !isSyncScrolling) {
+      const outer = outerRef.current;
+      if (!outer) return;
+      const rect = outer.getBoundingClientRect();
+      const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
+      const x = rect.left + (finalHighlightedSite * itemWidth) - outer.scrollLeft + (itemWidth / 2);
+      const y = rect.top + (rect.height / 2);
+      setTooltipPos({ x, y });
+    }
+  }, [finalHighlightedSite, id, highlightOrigin, codonMode, dims.height, isSyncScrolling, scrollTop]);
 
   // throttle highlight to once every 90ms
 const throttledHighlight = useMemo(
@@ -1320,12 +1328,20 @@ const Cell = useCallback(
       ? hoveredCol != null && hoveredCol === codonIndex
       : hoveredCol === columnIndex;
 
-    const isLinkedHighlight =
+    const linkedSiteHighlight = itemData.linkedSiteHighlight;
+
+    const isLinkedHighlightByGlobal =
           Array.isArray(linkedTo) &&
           highlightedSite != null &&
           hoveredPanelId !== id &&
           (linkedTo.includes(highlightOrigin) || id === highlightOrigin) &&
           (codonMode ? codonIndex === highlightedSite : columnIndex === highlightedSite);
+    
+    const isLinkedHighlightByData =
+          linkedSiteHighlight != null &&
+          (codonMode ? codonIndex === linkedSiteHighlight : columnIndex === linkedSiteHighlight);
+
+    const isLinkedHighlight = isLinkedHighlightByGlobal || isLinkedHighlightByData;
 
     return (
       <MemoizedMSACell
@@ -1381,10 +1397,11 @@ const Cell = useCallback(
     linkedTo,
     hoveredPanelId,
     id,
+    linkedSiteHighlight: data.linkedSiteHighlight,
     highlightedSites: data.highlightedSites || []
   }), [
     msaData, searchMask, data.searchHighlight, codonMode, hoveredCol,
-    highlightedSite, highlightOrigin, linkedTo, hoveredPanelId, id, data.highlightedSites
+    highlightedSite, highlightOrigin, linkedTo, hoveredPanelId, id, data.highlightedSites,data.linkedSiteHighlight,
   ]);
 
 
@@ -1587,19 +1604,18 @@ const Cell = useCallback(
           </MSATooltip>
         )}
 
- {highlightedSite != null &&
-   Array.isArray(linkedTo) && linkedTo.includes(highlightOrigin) &&
-   id !== highlightOrigin &&
-   highlightOriginType !== 'heatmap' && (
-            <MSATooltip x={tooltipPos.x} y={tooltipPos.y}>
-       <span>
-         {codonMode ? 'Codon ' : 'Site '}
-         <span className="font-bold">
-           {typeof highlightedSite === 'number' ? highlightedSite + 1 : ''}
-         </span>
-       </span>
-            </MSATooltip>
-          )}
+       {finalHighlightedSite != null && finalHighlightedSite >= 0 &&
+       id !== highlightOrigin &&
+       highlightOriginType !== 'heatmap' && (
+          <MSATooltip x={tooltipPos.x} y={tooltipPos.y}>
+            <span>
+              {codonMode ? 'Codon ' : 'Site '}
+              <span className="font-bold">
+                {typeof finalHighlightedSite === 'number' ? finalHighlightedSite + 1 : ''}
+              </span>
+            </span>
+          </MSATooltip>
+      )}
 
         <div
           ref={gridContainerRef}
@@ -2637,7 +2653,7 @@ const handleCreateSequenceFromStructure = useCallback((id) => {
   const chains = parsePdbChains(data.pdb);
   if (chains.size === 0) { alert("Could not extract sequences (no CA atoms found)."); return; }
 
-  const baseName = (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'structure');
+  const baseNameStr = (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'structure');
   const originalLayout = layout.find(l => l.i === id);
   const baseY = originalLayout ? (originalLayout.y + originalLayout.h) : 0;
 
@@ -2651,8 +2667,8 @@ const handleCreateSequenceFromStructure = useCallback((id) => {
     newPanels.push({ i: newId, type: 'alignment' });
     newLayouts.push({ i: newId, x: 0, y: baseY + idx * 3, h: 3, w: 12, minH: 2, minW: 3 });
     newPanelDataEntries[newId] = {
-      data: [{ id: `${baseName}_chain_${chainId}`, sequence: seq }],
-      filename: `${baseName}_chain_${chainId}.fasta`,
+      data: [{ id: `${baseNameStr}_chain_${chainId}`, sequence: seq }],
+      filename: `${baseNameStr}_chain_${chainId}.fasta`,
       codonMode: false
     };
   });
@@ -2672,20 +2688,39 @@ const handleCreateSequenceFromStructure = useCallback((id) => {
   });
 
   setPanelData(prev => ({ ...prev, ...newPanelDataEntries }));
-  // Auto-link each new alignment panel to the structure panel
-  newPanels.forEach(p => {
-    setPanelLinks(pl => {
-      const copy = { ...pl };
+
+  // --- batch auto-link logic ---
+  setPanelLinks(prevLinks => {
+    const newLinks = { ...prevLinks };
+
+    // Ensure the structure panel's link entry is an array.
+    if (!Array.isArray(newLinks[id])) {
+      newLinks[id] = newLinks[id] ? [newLinks[id]] : [];
+    }
+    
+    newPanels.forEach(p => {
       const newId = p.i;
-      copy[newId] = id;
-      copy[id] = newId;
-      return copy;
+      
+      // Link from the new alignment panel to the structure
+      newLinks[newId] = [id];
+
+      // Link from the structure to the new alignment panel
+      if (!newLinks[id].includes(newId)) {
+        newLinks[id].push(newId);
+      }
+
+      // Also update history and colors inside the same loop
+      upsertHistory(newId, id);
+      assignPairColor(newId, id);
     });
-    upsertHistory(p.i, id);
-    assignPairColor(p.i, id);
-    setJustLinkedPanels([p.i, id]);
-    setTimeout(() => setJustLinkedPanels([]), 1000);
+
+    return newLinks;
   });
+
+  const allNewPanelIds = newPanels.map(p => p.i);
+  setJustLinkedPanels([...allNewPanelIds, id]);
+  setTimeout(() => setJustLinkedPanels([]), 1000);
+
 }, [panelData, layout, setPanels, setLayout, setPanelData, upsertHistory, assignPairColor]);
 
 const handleStructureToDistance = useCallback((id, forcedChoice) => {
@@ -3136,6 +3171,13 @@ const handleHighlight = useCallback((site, originId) => {
       return { ...prev, [targetId]: { ...cur, highlightedSites: [] } };
     });
   }
+  if (sourcePanel.type === 'structure' && targetPanel.type === 'alignment') {
+        setPanelData(prev => {
+            const cur = prev[targetId] || {};
+            if (cur.linkedSiteHighlight == null) return prev;
+            return { ...prev, [targetId]: { ...cur, linkedSiteHighlight: undefined } };
+        });
+    }
   
   if (sourcePanel.type === 'histogram' && targetPanel.type === 'alignment') {
     setScrollPositions(prev => {
@@ -3405,31 +3447,44 @@ targetIds.forEach(targetId => {
     },
 
     // Structure -> Alignment (map residue index to MSA col)
-    'structure->alignment': () => {
-      const structData = panelData[originId];
-      const alnData    = panelData[targetId];
+'structure->alignment': () => {
+      // Ensure the highlight payload from the structure is valid
+      if (typeof site !== 'object' || site === null || site.residueIndex == null || !site.chainId) {
+        return;
+      }
+      
+      const alnData = panelData[targetId];
       if (!alnData?.data) return;
 
-      const structureChainId = structData?.linkedChainId
-        || chainIdFromSeqId(alnData.data[0]?.id)
-        || null;
+      // Check if this specific alignment panel corresponds to the hovered chain
+      const { seq, chainId: matchedChainId } = pickAlignedSeqForChain(alnData, site.chainId, null);
 
-      const { seq } = pickAlignedSeqForChain(alnData, structureChainId, null);
-      if (!seq) return;
+      // If this alignment isn't for the hovered chain, do nothing
+      if (!seq || matchedChainId !== site.chainId) {
+        return;
+      }
 
-      const col = residueIndexToMsaCol(seq.sequence, site);
+      // Convert the structure's residue index to an MSA column index
+      const col = residueIndexToMsaCol(seq.sequence, site.residueIndex);
       if (col == null) return;
 
+      // Update the alignment panel's scroll position
       const isCodon = !!panelData[targetId]?.codonMode;
-            setScrollPositions(prev => {
-     const v = col * (isCodon ? 3 : 1) * CELL_SIZE;
-     if (prev[targetId] === v) return prev;
-     return { ...prev, [targetId]: v };
-   });
- if (!(highlightSite === col && highlightOrigin === originId)) {
-   setHighlightSite(col);
-   setHighlightOrigin(originId);
- }
+      setScrollPositions(prev => {
+        const v = col * (isCodon ? 3 : 1) * CELL_SIZE;
+        if (prev[targetId] === v) return prev;
+        return { ...prev, [targetId]: v };
+      });
+
+      // Set a panel-specific highlight, avoiding the global state
+      setPanelData(prev => {
+        const current = prev[targetId] || {};
+        if (current.linkedSiteHighlight === col) return prev;
+        return {
+          ...prev,
+          [targetId]: { ...current, linkedSiteHighlight: col }
+        };
+      });
     },
   };
 
