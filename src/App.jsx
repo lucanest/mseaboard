@@ -370,7 +370,7 @@ function PanelContainer({
   hoveredPanelId,
   setHoveredPanelId,
   children,
-  onDoubleClick,
+  //onDoubleClick,
   isSelected = false,
   onSelect = () => {},
   isEligibleLinkTarget = false, 
@@ -407,7 +407,7 @@ className={`border rounded-2xl overflow-hidden h-full flex flex-col bg-white
         setHoveredPanelId(null);
         setForceHideTooltip(true);
       }}
-      onDoubleClick={onDoubleClick}
+      //onDoubleClick={onDoubleClick}
     >
       {children}
     </div>
@@ -600,7 +600,7 @@ return (
     id={id}
     hoveredPanelId={hoveredPanelId}
     setHoveredPanelId={setHoveredPanelId}
-    onDoubleClick={() => onReupload(id)}
+    //onDoubleClick={() => onReupload(id)}
     isEligibleLinkTarget={isEligibleLinkTarget}
     justLinkedPanels={justLinkedPanels}
   >
@@ -740,7 +740,7 @@ const pickChain = React.useCallback((choice) => {
       id={id}
       hoveredPanelId={hoveredPanelId}
       setHoveredPanelId={setHoveredPanelId}
-      onDoubleClick={() => onReupload(id)}
+      // onDoubleClick={() => onReupload(id)}
       isEligibleLinkTarget={isEligibleLinkTarget}
       justLinkedPanels={justLinkedPanels}
       panelLinks={panelLinks} 
@@ -1730,7 +1730,7 @@ const TreePanel = React.memo(function TreePanel({
     linkedTo={linkedTo}
     hoveredPanelId={hoveredPanelId}
     setHoveredPanelId={setHoveredPanelId}
-    onDoubleClick={() => onReupload(id)}
+    //onDoubleClick={() => onReupload(id)}
     panelLinks={panelLinks} 
     isEligibleLinkTarget={isEligibleLinkTarget}
     justLinkedPanels={justLinkedPanels}
@@ -1945,7 +1945,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
     linkedTo={linkedTo}
     hoveredPanelId={hoveredPanelId}
     setHoveredPanelId={setHoveredPanelId}
-    onDoubleClick={() => onReupload(id)}
+    //onDoubleClick={() => onReupload(id)}
     panelLinks={panelLinks} 
     isEligibleLinkTarget={isEligibleLinkTarget}
     justLinkedPanels={justLinkedPanels}
