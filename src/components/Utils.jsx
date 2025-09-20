@@ -693,7 +693,9 @@ export function chainIdFromSeqId(id) {
 
 /* Given alignment data and an optional preferred chain id, pick best sequence by sequence match */
 export function pickAlignedSeqForChain(alnData, preferredChainId, chainLengths, chainSeqs) {
-  if (!alnData || !Array.isArray(alnData.data)) return { seq: null, chainId: null };
+  if (!alnData || !Array.isArray(alnData.data) || alnData.data.length === 0) {
+    return { seq: null, chainId: null };
+  }
 
   // Helper: percent identity (gapless, equal length)
   const seqIdentity = (a, b) => {
@@ -703,54 +705,69 @@ export function pickAlignedSeqForChain(alnData, preferredChainId, chainLengths, 
     return m / a.length;
   };
 
-  // Remove gaps from alignment sequences
   const alnSeqs = alnData.data.map(s => ({
     ...s,
     gapless: (s.sequence || '').replace(/-/g, '')
   }));
 
-  // 1. If preferredChainId and chainSeqs, try to match by sequence
-  if (preferredChainId && chainSeqs && chainSeqs[preferredChainId]) {
-    const structSeq = chainSeqs[preferredChainId];
-    for (const s of alnSeqs) {
-      if (s.gapless.length === structSeq.length && seqIdentity(s.gapless, structSeq) >= 0.9) {
-        return { seq: s, chainId: preferredChainId };
-      }
-    }
-  }
-
-  // 2. Try all chains for best match by sequence
-  if (chainSeqs) {
-    let best = { seq: null, chainId: null, iden: 0 };
-    for (const [cid, structSeq] of Object.entries(chainSeqs)) {
+  // --- SCENARIO 1: We are looking for a SPECIFIC chain ---
+  // This is used during hover events (structure -> alignment).
+  if (preferredChainId) {
+    // Strategy 1.1: Match by sequence identity (most reliable)
+    if (chainSeqs && chainSeqs[preferredChainId]) {
+      const structSeq = chainSeqs[preferredChainId];
       for (const s of alnSeqs) {
-        if (s.gapless.length === structSeq.length) {
-          const iden = seqIdentity(s.gapless, structSeq);
-          if (iden > best.iden && iden >= 0.9) best = { seq: s, chainId: cid, iden };
+        if (s.gapless.length === structSeq.length && seqIdentity(s.gapless, structSeq) >= 0.9) {
+          // Found a high-confidence match for the requested chain.
+          return { seq: s, chainId: preferredChainId };
         }
       }
     }
-    if (best.seq) return { seq: best.seq, chainId: best.chainId };
-  }
 
-  // 3. Fallback: original heuristics
-  if (preferredChainId) {
+    // Strategy 1.2: Match by sequence ID string (fallback)
     const named = alnData.data.find(s => {
       const cid = chainIdFromSeqId(s.id);
       return cid === preferredChainId || s.id === preferredChainId;
     });
-    if (named) return { seq: named, chainId: preferredChainId };
-  }
-
-  if (chainLengths) {
-    for (const s of alnData.data) {
-      const len = (s.sequence || '').replace(/-/g, '').length;
-      const match = Object.entries(chainLengths).find(([, L]) => L === len);
-      if (match) return { seq: s, chainId: match[0] };
+    if (named) {
+      return { seq: named, chainId: preferredChainId };
     }
+
+    // IMPORTANT: If a specific chain was requested but not found, fail fast.
+    return { seq: null, chainId: null };
   }
 
-  return { seq: alnData.data[0] || null, chainId: preferredChainId || null };
+  // --- SCENARIO 2: We are looking for the BEST POSSIBLE match ---
+  // This is used during the initial panel linking.
+  else {
+    // Strategy 2.1: Find best match by sequence identity across all chains
+    if (chainSeqs) {
+      let best = { seq: null, chainId: null, iden: 0 };
+      for (const [cid, structSeq] of Object.entries(chainSeqs)) {
+        for (const s of alnSeqs) {
+          if (s.gapless.length === structSeq.length) {
+            const iden = seqIdentity(s.gapless, structSeq);
+            if (iden > best.iden && iden >= 0.9) {
+              best = { seq: s, chainId: cid, iden };
+            }
+          }
+        }
+      }
+      if (best.seq) return { seq: best.seq, chainId: best.chainId };
+    }
+
+    // Strategy 2.2: Match by length
+    if (chainLengths) {
+      for (const s of alnData.data) {
+        const len = (s.sequence || '').replace(/-/g, '').length;
+        const match = Object.entries(chainLengths).find(([, L]) => L === len);
+        if (match) return { seq: s, chainId: match[0] };
+      }
+    }
+
+    // Final fallback: return the first sequence in the alignment.
+    return { seq: alnData.data[0] || null, chainId: null };
+  }
 }
 
 // --- download helpers -------------------------
