@@ -396,7 +396,7 @@ className={`border rounded-2xl overflow-hidden h-full flex flex-col bg-white
         ${
           isJustLinked
             ? 'shadow-green-400/80'
-            : isLinkedToHovered || isHoveredLinkedToThis
+            : isLinkedToHovered || isHoveredLinkedToThis || hoveredPanelId === id
             ? 'shadow-blue-400/50'
             : ''
         }
