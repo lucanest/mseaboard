@@ -91,17 +91,20 @@ function PanelHeader({
     };
   }, []);
 
-  useEffect(() => {
+useEffect(() => {
   function handleGlobalMouseMove(e) {
     // If the mouse is not over any button or tooltip, clear all tooltips
-    if (!e.target.closest('.panel-drag-handle') &&
-        !e.target.closest('.absolute.text-center')) {
+    if (
+      !(e.target instanceof Element) ||
+      (!e.target.closest('.panel-drag-handle') &&
+       !e.target.closest('.absolute.text-center'))
+    ) {
       clearAllTooltips();
     }
   }
   document.addEventListener('mousemove', handleGlobalMouseMove);
   return () => document.removeEventListener('mousemove', handleGlobalMouseMove);
-  }, [clearAllTooltips]);
+}, [clearAllTooltips]);
 
   useEffect(() => {
   if (!hoveredBtn && !hoveredBadge && showTooltip) {
@@ -954,7 +957,7 @@ useEffect(() => {
   useEffect(() => {
   function handleGlobalMouseMove(e) {
     // Check for the custom upload button class
-    if (e.target.closest('.upload-btn-trigger')) {
+    if (e.target instanceof Element && e.target.closest('.upload-btn-trigger')) {
       setHoveredCol(null);
       setHoveredRow(null);
       if (id === highlightOrigin) onHighlight(null, id);
