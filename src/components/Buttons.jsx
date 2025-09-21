@@ -388,8 +388,8 @@ export function BranchLengthsButton({ onClick, isActive }) {
     >
       <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
       bg-gray-100
-        border border-gray-400 hover:bg-blue-200`}>
-        <RulerGlyph className="w-4 h-4 text-blue-700 flex-shrink-0 -translate-y-[0px]" />
+        border border-gray-400 hover:bg-green-200`}>
+        <RulerGlyph className="w-4 h-4 text-green-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
