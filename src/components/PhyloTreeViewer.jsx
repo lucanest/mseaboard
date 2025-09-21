@@ -12,6 +12,7 @@ const PhyloTreeViewer = ({
   newick: newickStr, isNhx = false, onHoverTip,
   linkedTo, highlightOrigin, radial= false, setPanelData,
   highlightedNodes = [], linkedHighlights = [],
+  useBranchLengths = false,
 }) => {
   const containerRef = useRef();
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -20,12 +21,12 @@ const PhyloTreeViewer = ({
   const [highlightedLink, setHighlightedLink] = useState(null);
 
 
-  const minFontSize = 6;
+  const minFontSize = 8;
   const maxFontSize = 24;
-  const minNodeRadius = 3;
-  const maxNodeRadius = 10;
+  const minNodeRadius = 1;
+  const maxNodeRadius = 3;
 
-  const scaleFactor = Math.max(0.7, Math.min(1.5, Math.sqrt(size.width * size.height) / 600));
+  const scaleFactor = radial ? Math.max(0.7, Math.min(1.5, Math.sqrt(size.width * size.height) / 600)) : Math.max(0.7, Math.min(1.5, Math.sqrt(size.height) / 600));
 
   const parseNewick = (newickString) => {
     let pos = 0;
@@ -92,7 +93,7 @@ if (pos < newickString.length && newickString[pos] === ':') {
   };
 
 
-  
+
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -171,6 +172,7 @@ const maxMargin = radial ? 140 : 50;
 const margin = Math.max(minMargin, Math.min(maxMargin, maxLabelLength * approxCharWidth));
 const radius = Math.min(size.width, size.height) / 2 - margin;
 const diameter = radius * 2;
+const maxRadius = radius - 50;
 const tooltip = d3.select(container).select(".tooltip").empty()
   ? d3.select(container)
       .append("div")
@@ -220,7 +222,7 @@ const svg = d3.select(container)
   .attr('height', '100%')
   .attr('viewBox', radial
     ? [0, 0, diameter + margin * 2, diameter + margin * 2]
-    : [0, 0, size.width, size.height+20])
+    : [0, 0, size.width, size.height])
   .style('font', '10px sans-serif');
 
 // Legend in upper left
@@ -231,29 +233,82 @@ const legend = svg.append('g')
 const g = svg.append('g')
   .attr('transform', radial
     ? `translate(${radius + margin},${radius + margin})`
-    : `translate(${margin},10)`);
+    : `translate(20, 20)`); // Adjust margin for rectangular
 
 
-  if (radial) {
-  d3.cluster().size([2 * Math.PI, radius - 50])(root);
-} else {
-  d3.cluster().size([size.height, size.width - margin * 5])(root);
-}
+if (radial) {
+    // D3 layout for Radial mode (y = radius, x = angle)
+    d3.tree().size([2 * Math.PI, maxRadius])(root);
 
-// Equally space leaves 
- if (radial) {
+    // Override y based on branch length option
+    if (useBranchLengths) {
+        root.each(d => {
+            d.y = (d.parent ? d.parent.y : 0) + (d.data.length || 0);
+        });
+        const maxLen = d3.max(root.descendants(), d => d.y);
+        if (maxLen > 0) {
+            const radiusScale = maxRadius / maxLen;
+            root.each(d => { d.y *= radiusScale; });
+        }
+    } else {
+        root.eachAfter(d => {
+            d.height_from_leaf = d.children ? 1 + d3.max(d.children, c => c.height_from_leaf) : 0;
+        });
+        const maxHeight = root.height_from_leaf;
+        if (maxHeight > 0) {
+            root.each(d => {
+                d.y = (maxHeight - d.height_from_leaf) * (maxRadius / maxHeight);
+            });
+        }
+    }
+
+    // Equally space leaves in radial mode
     const leaves = root.leaves();
     const angleStep = (2 * Math.PI) / leaves.length;
-    leaves.forEach((leaf, i) => {
-      leaf.x = i * angleStep;
+    leaves.forEach((leaf, i) => { leaf.x = i * angleStep; });
+    root.eachAfter(node => {
+        if (node.children) {
+            node.x = d3.mean(node.children, d => d.x);
+        }
     });
-  } else {
+
+} else {
+    // D3 layout for Rectangular mode (x = vertical, y = horizontal)
+    const drawWidth = size.width - margin*5 -15; // Space for labels + padding
+    const drawHeight = size.height - 25;
+    d3.tree().size([drawHeight, drawWidth])(root);
+    // Override y based on branch length option
+    if (useBranchLengths) {
+        root.each(d => {
+            d.y = (d.parent ? d.parent.y : 0) + (d.data.length || 0);
+        });
+        const maxLen = d3.max(root.descendants(), d => d.y);
+        if (maxLen > 0) {
+            const scaleY = drawWidth / maxLen;
+            root.each(d => { d.y *= scaleY; });
+        }
+    } else {
+        root.eachAfter(d => {
+            d.height_from_leaf = d.children ? 1 + d3.max(d.children, c => c.height_from_leaf) : 0;
+        });
+        const maxHeight = root.height_from_leaf;
+        if (maxHeight > 0) {
+             root.each(d => {
+                d.y = (maxHeight - d.height_from_leaf) * (drawWidth / maxHeight);
+            });
+        }
+
+    }
+    // Equally space leaves in rectangular mode
     const leaves = root.leaves();
-    const yStep = size.height / (leaves.length + 1);
-    leaves.forEach((leaf, i) => {
-      leaf.x = (i + 1) * yStep;
+    leaves.forEach((leaf, i) => { leaf.x = (i + 1) * (drawHeight / (leaves.length + 1)); });
+    root.eachAfter(node => {
+        if (node.children) {
+            node.x = d3.mean(node.children, d => d.x);
+        }
     });
-  }
+}
+
 
     const colorMap = {};
     let colorIndex = 0;
@@ -268,12 +323,33 @@ const g = svg.append('g')
 
 const links = root.links();  // Each is { source, target }
 
-// Path generator based on layout mode
-const linkPathGen = radial
-  ? d3.linkRadial().angle(d => d.x).radius(d => d.y)
-  : d3.linkHorizontal().x(d => d.y).y(d => d.x);
 
-// Visible branches (no pointer events)
+const classicRadialLinkGenerator = (link) => {
+    const sa = link.source.x - Math.PI / 2;
+    const ta = link.target.x - Math.PI / 2;
+    const sr = link.source.y;
+    const tr = link.target.y;
+
+    const sx = sr * Math.cos(sa);
+    const sy = sr * Math.sin(sa);
+    const ix = sr * Math.cos(ta);
+    const iy = sr * Math.sin(ta);
+    const tx = tr * Math.cos(ta);
+    const ty = tr * Math.sin(ta);
+
+    const sweepFlag = link.target.x > link.source.x ? 1 : 0;
+
+    return `M ${sx},${sy} A ${sr},${sr} 0 0 ${sweepFlag} ${ix},${iy} L ${tx},${ty}`;
+};
+
+// Correct link generator for rectangular "elbow" paths
+const classicRectangularLinkGenerator = d3.linkHorizontal()
+    .x(d => d.y)
+    .y(d => d.x);
+
+const linkPathGen = radial ? classicRadialLinkGenerator : classicRectangularLinkGenerator;
+
+// Visible branches
 const branchPaths = g.append('g')
   .selectAll('path.branch')
   .data(links)
@@ -290,13 +366,12 @@ g.append('g')
   .selectAll('path.invisible-hover')
   .data(links)
   .join('path')
-  .attr('class', 'invisible-hover')       
+  .attr('class', 'invisible-hover')
   .attr('fill', 'none')
   .attr('stroke', 'transparent')
   .attr('stroke-width', 13)
   .attr('d', linkPathGen)
   .on('mouseenter', function (event, d) {
-    // highlight the matching visible path without triggering React state
     const idx = links.indexOf(event);
     if (idx > -1) d3.select(branchPaths.nodes()[idx]).attr('stroke', MAGENTA_COLOR);
 
@@ -311,7 +386,37 @@ g.append('g')
     tooltip.html('').style("display", "none");
   });
 
-// Invisible hover arcs for radial mode
+// Add dotted lines for label alignment (if using branch lengths)
+if (useBranchLengths) {
+    const leaves = root.leaves();
+    const maxDimension = radial ? maxRadius : size.width - 4*margin - 30;
+
+    g.append('g')
+        .selectAll('path.dotted-line')
+        .data(leaves)
+        .join('path')
+        .attr('class', 'dotted-line')
+        .attr('stroke', LIGHT_GRAY_COLOR)
+        .attr('stroke-width', 1)
+        .attr('stroke-dasharray', '2,2')
+        .style('pointer-events', 'none')
+        .attr('d', d => {
+            if (radial) {
+                if (d.y >= maxDimension) return null; // Don't draw if already at the edge
+                const angle = d.x - Math.PI / 2;
+                const sx = d.y * Math.cos(angle);
+                const sy = d.y * Math.sin(angle);
+                const ex = maxDimension * Math.cos(angle);
+                const ey = maxDimension * Math.sin(angle);
+                return `M ${sx},${sy} L ${ex},${ey}`;
+            } else {
+                if (d.y >= maxDimension) return null;
+                return `M ${d.y},${d.x} L ${maxDimension},${d.x}`;
+            }
+        });
+}
+
+
 if (radial) {
   const leaves = root.leaves();
   const angleStep = (2 * Math.PI) / leaves.length;
@@ -351,17 +456,11 @@ g.append('g')
   .selectAll('circle')
   .data(root.descendants())
   .join('circle')
-.attr('transform', d => radial
-  ? `rotate(${(d.x * 180 / Math.PI - 90)}) translate(${d.y},0)`
-  : null)
-.attr('cx', d => radial ? null : d.y)
-.attr('cy', d => radial ? null : d.x)
-  .attr('r', d => {
-    // Scale node radius
-    //return 4
-    return Math.max(minNodeRadius, Math.min(maxNodeRadius, 3 * scaleFactor));
-  })
-.attr('fill', d => {  
+.attr('transform', d => radial ? `rotate(${(d.x * 180 / Math.PI - 90)}) translate(${d.y},0)` : null)
+.attr('cx', d => radial ? null : d.y) //  y is horizontal
+.attr('cy', d => radial ? null : d.x) //  x is vertical
+  .attr('r', d => Math.max(minNodeRadius, Math.min(maxNodeRadius, 3 * scaleFactor)))
+.attr('fill', d => {
 const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
     return val ? colorMap[val] : DARK_GRAY_COLOR;
   })
@@ -382,12 +481,9 @@ const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
     .map(([key, val]) => `<div><strong>${key}</strong>: ${val}</div>`)
     .join('') || '<div>No NHX data</div>';
 
-  d3.select(this)
-    .attr('fill', MAGENTA_COLOR);
+  d3.select(this).attr('fill', MAGENTA_COLOR);
 
-  tooltip
-    .style("display", "block")
-    .html(`${nhxString}`);
+  tooltip.style("display", "block").html(`${nhxString}`);
 
   if (isLeaf) {
     onHoverTip?.(nodeName || '', id);
@@ -397,10 +493,9 @@ const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
     setHighlightedNode(null);
   }
 })
-
 .on('mouseleave', function () {
   d3.select(this)
-    .attr('fill', d => {  
+    .attr('fill', d => {
       const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
       return val ? colorMap[val] : DARK_GRAY_COLOR;
     });
@@ -421,13 +516,7 @@ const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
     const updated = already
       ? prevHighlights.filter(n => n !== name)
       : [...prevHighlights, name];
-    return {
-      ...prev,
-      [id]: {
-        ...current,
-        highlightedNodes: updated
-      }
-    };
+    return { ...prev, [id]: { ...current, highlightedNodes: updated }};
   });
 })
 
@@ -435,17 +524,24 @@ g.append('g')
   .selectAll('text')
 .data(root.descendants().filter(d => !d.children && d.data && typeof d.data.name !== 'undefined'))
   .join('text')
-.attr('transform', d => radial
-  ? `rotate(${(d.x * 180 / Math.PI - 90)}) translate(${d.y},0) rotate(${d.x >= Math.PI ? 180 : 0})`
-  : null)
-.attr('x', d => radial ? (d.x < Math.PI ? 6 : -6) : d.y + 6)
-.attr('y', d => radial ? null : d.x)
+.attr('transform', d => {
+    if (!radial) return null;
+    const labelRadius = (useBranchLengths && d.y < maxRadius) ? maxRadius : d.y;
+    return `rotate(${(d.x * 180 / Math.PI - 90)}) translate(${labelRadius},0) rotate(${d.x >= Math.PI ? 180 : 0})`;
+})
+.attr('x', d => {
+    if (radial) return d.x < Math.PI ? 6 : -6;
+    const drawWidth = size.width - 4*margin - 30;
+    const labelPos = useBranchLengths ? drawWidth : d.y;
+    return labelPos + 6;
+})
+.attr('y', d => radial ? null : d.x) // y is vertical
 .attr('text-anchor', d => radial ? (d.x < Math.PI ? 'start' : 'end') : 'start')
-.attr('dy', radial ? '0.35em' : '0.35em')
+.attr('dy', radial ? '0.35em' : null)
+.attr('dominant-baseline', radial ? 'auto' : 'middle')
 .text(d => (d.data && typeof d.data.name !== 'undefined') ? d.data.name : '')
   .style('font-size', d => {
     const { isHighlight, isPersistentHighlight } = getHighlightState(d);
-    // Scale font size
     const baseSize = Math.max(minFontSize, Math.min(maxFontSize, 12 * fontScale));
     return isHighlight || isPersistentHighlight ? `${baseSize * 1.6}px` : `${baseSize}px`;
   })
@@ -480,19 +576,11 @@ g.append('g')
     const updated = already
       ? prevHighlights.filter(n => n !== name)
       : [...prevHighlights, name];
-    return {
-      ...prev,
-      [id]: {
-        ...current,
-        highlightedNodes: updated
-      }
-    };
+    return { ...prev, [id]: { ...current, highlightedNodes: updated } };
   });
 })
 
     if (Object.keys(colorMap).length > 0) {
-
-
       const items = Object.entries(colorMap);
 
       legend.selectAll('rect')
@@ -515,21 +603,20 @@ g.append('g')
     }
 
     setDebugInfo(`Tree rendered successfully. Found ${Object.keys(colorMap).length} different ${colorField} values.`);
-  }, [newickStr, isNhx, size, linkedTo, highlightOrigin, onHoverTip,highlightedNodes,linkedHighlights]);
+  }, [newickStr, isNhx, size, linkedTo, highlightOrigin, onHoverTip,highlightedNodes,linkedHighlights, radial, useBranchLengths]);
 
   useEffect(() => {
     function handleDocumentMouseMove(e) {
       if (!containerRef.current) return;
       const rect = containerRef.current.getBoundingClientRect();
-      // If mouse is outside the panel, clear tooltip
       if (
         e.clientX < rect.left ||
         e.clientX > rect.right ||
         e.clientY < rect.top ||
         e.clientY > rect.bottom
       ) {
-        setHighlightedNode(null); // clear highlighted node
-        setHighlightedLink(null); // clear highlighted link
+        setHighlightedNode(null);
+        setHighlightedLink(null);
       }
     }
     document.addEventListener('mousemove', handleDocumentMouseMove);

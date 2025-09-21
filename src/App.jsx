@@ -28,7 +28,7 @@ import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SurfaceToggleButton, SiteStatsButton, LogYButton,
 SeqlogoButton, SequenceButton, DistanceMatrixButton,
  DownloadButton, GitHubButton, SearchButton, TreeButton,
- DiamondButton} from './components/Buttons.jsx';
+ DiamondButton, BranchLengthsButton} from './components/Buttons.jsx';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick,
 newickToDistanceMatrix, detectFileType, toFasta, toPhylip, computeSiteStats, buildTreeFromDistanceMatrix,
@@ -1709,7 +1709,7 @@ const TreePanel = React.memo(function TreePanel({
   setHoveredPanelId, setPanelData,justLinkedPanels,
   linkBadges, onRestoreLink, colorForLink, onUnlink,
 }) {
-  const { data: newick, filename, isNhx, RadialMode= true } = data || {};
+  const { data: newick, filename, isNhx, RadialMode= true, drawBranchLengths=false } = data || {};
 
   const handleRadialToggle = useCallback(() => {
     setPanelData(pd => ({
@@ -1720,6 +1720,17 @@ const TreePanel = React.memo(function TreePanel({
       }
     }));
   }, [id, setPanelData, RadialMode]);
+
+  const handleBranchLengthsToggle = useCallback(() => {
+    setPanelData(pd => ({
+      ...pd,
+      [id]: {
+        ...pd[id],
+        drawBranchLengths: !drawBranchLengths
+      }
+    }));
+  }, [id, setPanelData, drawBranchLengths]);
+
   const handleDownload = useCallback(() => {
     const text = data?.data || '';
     const base = baseName(data?.filename, 'tree');
@@ -1748,8 +1759,9 @@ const TreePanel = React.memo(function TreePanel({
       isEligibleLinkTarget={isEligibleLinkTarget}
       isLinkModeActive={isLinkModeActive}
       extraButtons={[
+      { element: <BranchLengthsButton onClick={handleBranchLengthsToggle} isActive={drawBranchLengths} />, tooltip: !drawBranchLengths ? "Draw using branch lengths" : "Draw ignoring branch lengths" },
       { element: <RadialToggleButton onClick={handleRadialToggle} isActive={RadialMode}  />,
-       tooltip: "Switch tree view" },
+       tooltip: RadialMode ? "Switch to rectangular view" : "Switch to radial view" },
       { element: <DistanceMatrixButton   onClick={() => onGenerateDistance(id)}  />,
        tooltip: "Build distance matrix from tree" },
       { element: <DownloadButton onClick={handleDownload} />,
@@ -1769,6 +1781,7 @@ const TreePanel = React.memo(function TreePanel({
             linkedTo={linkedTo}
             highlightOrigin={highlightOrigin}
             radial={RadialMode}
+            useBranchLengths={drawBranchLengths}
             id={id}
           setPanelData={setPanelData}
           highlightedNodes={

@@ -304,6 +304,30 @@ function TreeGlyph(props) {
   );
 }
 
+function RulerGlyph(props) {
+  return (
+<svg 
+  xmlns="http://www.w3.org/2000/svg"
+  width="16"
+  height="16"
+  viewBox="0 0 24 24"
+  fill="none"
+  stroke="currentColor"
+  stroke-width="1.5"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  {...props}
+> <g transform="translate(0,-1)">
+  <path d="M16 2l6 6L8 22l-6-6L16 2" />
+  <path d="M7.5 10.5l2 2" />
+  <path d="M10.5 7.5l2 2" />
+  <path d="M13.5 4.5l2 2" />
+  <path d="M4.5 13.5l2 2" />
+  </g>
+</svg>
+  );
+}
+
 export function LogYButton({ onClick, isActive,  title = "Toggle log scale on Y" 
 }) {
   return (
@@ -321,6 +345,8 @@ export function LogYButton({ onClick, isActive,  title = "Toggle log scale on Y"
     </button>
   );
 }
+
+
 
 
 
@@ -352,6 +378,23 @@ export function SurfaceToggleButton({ onClick, isActive }) {
     </button>
   );
 }
+
+export function BranchLengthsButton({ onClick, isActive }) {
+  return (
+<button
+      type="button"
+      onClick={onClick}
+      className='p-0.5  '
+    >
+      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
+      bg-gray-100
+        border border-gray-400 hover:bg-blue-200`}>
+        <RulerGlyph className="w-4 h-4 text-blue-700 flex-shrink-0 -translate-y-[0px]" />
+      </span>
+    </button>
+  );
+}
+
 
 export function GitHubButton() {
   return (
