@@ -770,6 +770,170 @@ export function pickAlignedSeqForChain(alnData, preferredChainId, chainLengths, 
   }
 }
 
+
+
+// Backward-compatible Newick parser:
+// - Preserves the original behavior of appending [&&NHX:...] blocks to node.name
+// - Adds support for internal node labels right after ')':
+//     * numeric -> node.support (number)
+//     * non-numeric -> node.name (string)
+// - Still returns { name, length, children } so the coloring logic works
+export function parseNewick(newickString) {
+  let pos = 0;
+
+  const peek = () => newickString[pos];
+  const next = () => newickString[pos++];
+  const eof = () => pos >= newickString.length;
+
+  const skipWS = () => {
+    while (!eof() && /\s/.test(peek())) pos++;
+  };
+
+  const readQuotedLabel = () => {
+    // Single-quoted labels, '' inside becomes a literal '
+    let label = "";
+    next(); // consume opening '
+    while (!eof()) {
+      const ch = next();
+      if (ch === "'") {
+        if (!eof() && peek() === "'") { label += "'"; next(); }
+        else break;
+      } else {
+        label += ch;
+      }
+    }
+    return label;
+  };
+
+  // Reads a NHX/comment block starting at '[' and returns the raw "[...]" text.
+  // We only append NHX blocks ([&&NHX...]) into node.name
+  const readBracketBlock = () => {
+    let start = pos;
+    let depth = 0;
+    if (peek() === "[") { depth++; next(); }
+    while (!eof() && depth > 0) {
+      const ch = next();
+      if (ch === "[") depth++;
+      else if (ch === "]") depth--;
+    }
+    return newickString.slice(start, pos); // includes closing ']'
+  };
+
+  // Read a label (unquoted). While reading, if we see an NHX block, we append it to label.
+  const readLabelWithInlineNHX = () => {
+    skipWS();
+    let label = "";
+    while (!eof()) {
+      const ch = peek();
+      if (ch === "'") {
+        // quoted chunk inside label (rare, but keep it)
+        label += readQuotedLabel();
+        continue;
+      }
+      if (ch === "[") {
+        // Attach only NHX blocks to the label (preserve old behavior)
+        const look = newickString.slice(pos, pos + 6);
+        if (look.startsWith("[&&NHX")) {
+          label += readBracketBlock();
+          continue;
+        } else {
+          // Non-NHX comments: stop label here
+          break;
+        }
+      }
+      if (ch === ":" || ch === "," || ch === ")" || ch === ";" || /\s/.test(ch)) break;
+      label += ch;
+      next();
+    }
+    return label.trim();
+  };
+
+  const readLength = () => {
+    skipWS();
+    if (peek() !== ":") return 0;
+    next(); // consume :
+    let s = "";
+    while (!eof() && /[0-9.eE+\-]/.test(peek())) s += next();
+    const v = parseFloat(s);
+    return Number.isFinite(v) ? v : 0;
+  };
+
+  // After name/length, collect any trailing NHX blocks and append to node.name (old behavior)
+  const appendTrailingNHXToName = (node) => {
+    skipWS();
+    while (!eof() && peek() === "[") {
+      const look = newickString.slice(pos, pos + 6);
+      if (look.startsWith("[&&NHX")) {
+        node.name += readBracketBlock();
+        skipWS();
+      } else {
+        // consume non-NHX comments but do NOT append to name (matches original intent)
+        readBracketBlock();
+        skipWS();
+      }
+    }
+  };
+
+  const parseNode = () => {
+    skipWS();
+    const node = { name: "", length: 0, children: [] };
+
+    if (!eof() && peek() === "(") {
+      // Internal node with children
+      next(); // '('
+      skipWS();
+      while (!eof() && peek() !== ")") {
+        node.children.push(parseNode());
+        skipWS();
+        if (!eof() && peek() === ",") { next(); skipWS(); }
+      }
+      if (!eof() && peek() === ")") next(); // ')'
+
+
+      // Optional internal node label right after ')'
+      skipWS();
+      let internalLabel = "";
+      if (!eof()) {
+        if (peek() === "'") internalLabel = readQuotedLabel();
+        else internalLabel = readLabelWithInlineNHX(); // also keeps inline NHX in name, if any
+      }
+      if (internalLabel) {
+        const num = Number(internalLabel);
+        if (Number.isFinite(num) && internalLabel.trim() !== "") {
+          // Treat pure numeric as support; do NOT pollute name
+          node.support = num;
+        } else {
+          node.name = internalLabel; // non-numeric internal label (keep in name)
+        }
+      }
+
+      // Optional branch length
+      node.length = readLength();
+
+      // Optional trailing NHX blocks after length -> append to name (to keep coloring behavior)
+      appendTrailingNHXToName(node);
+      return node;
+    }
+
+    // Leaf node
+    if (!eof() && peek() === "'") node.name = readQuotedLabel();
+    else node.name = readLabelWithInlineNHX();
+
+    node.length = readLength();
+
+    // Trailing NHX blocks after length on leaves -> append to name (old behavior)
+    appendTrailingNHXToName(node);
+
+    return node;
+  };
+
+  const root = parseNode();
+  skipWS();
+  if (!eof() && peek() === ";") next(); // consume trailing ';'
+  return root;
+}
+
+
 // --- download helpers -------------------------
 
 /** strip extension safely; fall back if empty */

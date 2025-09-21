@@ -1,5 +1,6 @@
 // PhyloTreeViewer.jsx
 import  React, { useEffect, useRef, useState } from 'react';
+import { parseNewick } from './Utils';  
 import * as d3 from 'd3';
 
 const BLACK_COLOR = "#fff";
@@ -27,72 +28,6 @@ const PhyloTreeViewer = ({
   const maxNodeRadius = 3;
 
   const scaleFactor = radial ? Math.max(0.7, Math.min(1.5, Math.sqrt(size.width * size.height) / 600)) : Math.max(0.7, Math.min(1.5, Math.sqrt(size.height) / 600));
-
-  const parseNewick = (newickString) => {
-    let pos = 0;
-    const parseNode = () => {
-      const node = { name: '', length: 0, children: [] };
-      while (pos < newickString.length && /\s/.test(newickString[pos])) pos++;
-      if (pos >= newickString.length) return node;
-
-      if (newickString[pos] === '(') {
-        pos++;
-        do {
-          while (pos < newickString.length && /\s/.test(newickString[pos])) pos++;
-          if (newickString[pos] === ')') break;
-          node.children.push(parseNode());
-          while (pos < newickString.length && /\s/.test(newickString[pos])) pos++;
-          if (newickString[pos] === ',') pos++;
-        } while (pos < newickString.length && newickString[pos] !== ')');
-        if (newickString[pos] === ')') pos++;
-      }
-
-      let name = '';
-      while (pos < newickString.length) {
-        const char = newickString[pos];
-        if (char === ':' || char === ',' || char === ')' || char === ';') break;
-        if (char === '[' && newickString.substr(pos, 6) === '[&&NHX') {
-          let nhxEnd = pos;
-          while (nhxEnd < newickString.length && newickString[nhxEnd] !== ']') nhxEnd++;
-          if (nhxEnd < newickString.length) nhxEnd++;
-          name += newickString.substring(pos, nhxEnd);
-          pos = nhxEnd;
-        } else {
-          name += char;
-          pos++;
-        }
-      }
-      node.name = name.trim();
-
-if (pos < newickString.length && newickString[pos] === ':') {
-  pos++;
-  let lengthStr = '';
-  while (pos < newickString.length && /[\d.eE+-]/.test(newickString[pos])) {
-    lengthStr += newickString[pos++];
-  }
-  const length = parseFloat(lengthStr) || 0;
-  node.length = length;
-
-        while (
-          pos < newickString.length &&
-          newickString[pos] === '[' &&
-          newickString.substr(pos, 6) === '[&&NHX'
-        ) {
-          let annStart = pos;
-          let annEnd = annStart;
-          while (annEnd < newickString.length && newickString[annEnd] !== ']') annEnd++;
-          if (annEnd < newickString.length) annEnd++;
-          node.name += newickString.substring(annStart, annEnd);
-          pos = annEnd;
-        }
-      }
-
-      return node;
-    };
-    return parseNode();
-  };
-
-
 
   useEffect(() => {
     const container = containerRef.current;
