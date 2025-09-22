@@ -56,9 +56,9 @@ Can be linked to: MSA panels, Tree panels, Heatmap panels, Data panels, Sequence
 ### **Tree panels**:
 Visualise phylogenetic trees (supported data format: Newick or NHX with node annotations), click on a leaf node to set a persistent highlight on it, click again to remove it. Hover over branches to see their lengths, hover over nodes to see their annotations (even beyond those used for coloring the nodes).
 
--- By clicking on the **branch lengths button** the user can switch between two different views, choosing whether to draw the branches with their actual lengths or not.
--- By clicking on the **tree view button** the user can again switch between two different views, choosing whether to represent the tree with a circular or a rectangular view.
--- Clicking on the **distance matrix button** a distance matrix is built from the tree (using patristic distances, the sum of the branch lengths along the path connecting one leaf to the other) and opened in a new heatmap panel (linked to the original tree one).
+- By clicking on the **branch lengths button** the user can switch between two different views, choosing whether to draw the branches with their actual lengths or not.
+- By clicking on the **tree view button** the user can again switch between two different views, choosing whether to represent the tree with a circular or a rectangular view.
+- Clicking on the **distance matrix button** a distance matrix is built from the tree (using patristic distances, the sum of the branch lengths along the path connecting one leaf to the other) and opened in a new heatmap panel (linked to the original tree one).
 
 
 Can be linked to: MSA panels, Tree panels, Heatmap panels.
@@ -68,8 +68,8 @@ Visualise distance matrices (supported data format: phylip-formatted distance ma
 Provided the input data is properly formatted this panel allows a great deal of flexibility, beyond phylogenetic distance matrices the panel can be used to visualize protein residue distance matrices, HB plots, coevolution and correlation matrices, attention/saliency maps of a neural network, and in general any kind of data that can benefit from being visualized as 2D heatmap.
 The colorbar is a legend but also a threshold selector, clicking on it all cells containing values below the treshold will be colored with one color, those with values above it with the other (this can for instance turn a residue distance matrix into a protein contact map), click on the colorbar again to restore the original view.
 
--- By clicking on the **tree button** the user can reconstruct a tree (via the Neighbor Joining algorithm) from the matrix, this will be opened in another panel, linked to the original one.
--- By clicking on the **view button** the user can switch between two different views, choosing whether to represent the data as a square matrix or a diamond (as typically done for LD plots).
+- By clicking on the **tree button** the user can reconstruct a tree (via the Neighbor Joining algorithm) from the matrix, this will be opened in another panel, linked to the original one.
+- By clicking on the **view button** the user can switch between two different views, choosing whether to represent the data as a square matrix or a diamond (as typically done for LD plots).
 
 
 Can be linked to: MSA panels, Tree panels, Heatmap panels, protein structures.
