@@ -5,7 +5,7 @@
 - An MSA can be linked to  a corresponding phylogenetic tree, then when hovering over a sequence in the MSA panel the corresponding leaf in the tree will be highlighted and vice-versa. 
 - A distance matrix can be linked to an MSA, a tree or a protein structure, hovering over a cell in the matrix will then highlight the two corresponding sequences/tree nodes/residues in the 3D structure.
 
-The full set of features and linking functionalities is described below (note, this README is currently being updated (🚧)).
+The full set of features and linking functionalities is described below (note, this README is currently being updated (🚧) and may be incomplete).
 
  **No installation required**
 - Available online at [https://mseaboard.com](https://mseaboard.com)
