@@ -28,7 +28,8 @@ import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SurfaceToggleButton, SiteStatsButton, LogYButton,
 SeqlogoButton, SequenceButton, DistanceMatrixButton,
  DownloadButton, GitHubButton, SearchButton, TreeButton,
- DiamondButton, BranchLengthsButton} from './components/Buttons.jsx';
+ DiamondButton, BranchLengthsButton,
+ TableChartButton} from './components/Buttons.jsx';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick,
 newickToDistanceMatrix, detectFileType, toFasta, toPhylip, computeSiteStats, buildTreeFromDistanceMatrix,
@@ -41,6 +42,7 @@ import { FixedSizeGrid as Grid } from 'react-window';
 import PhyloTreeViewer from './components/PhyloTreeViewer.jsx';
 import PhylipHeatmap from "./components/Heatmap";
 import Histogram from './components/Histogram.jsx';
+import TableViewer from './components/TableViewer.jsx';
 import SequenceLogoCanvas from './components/Seqlogo.jsx';
 import StructureViewer from './components/StructureViewer.jsx';
 import useElementSize from './hooks/useElementSize.js'
@@ -141,6 +143,14 @@ useEffect(() => {
       setForceHideTooltip(false); // reset after clearing
     }
   }, [forceHideTooltip, clearAllTooltips]);
+
+  useEffect(() => {
+  // When extraButtons change, clear tooltip state to avoid stale tooltips
+  setHoveredBtn(null);
+  setShowTooltip(false);
+  setHoveredBadge(null);
+  setShowBadgeTooltip(false);
+}, [extraButtons]);
 
   const tooltipMap = {
     duplicate: "Duplicate panel",
@@ -1861,6 +1871,7 @@ const NotepadPanel = React.memo(function NotepadPanel({
   );
 });
 
+// Update the HistogramPanel component in App.jsx
 const HistogramPanel = React.memo(function HistogramPanel({ 
   id, data, onRemove, onReupload, onDuplicate,
   onLinkClick, isLinkModeActive, isEligibleLinkTarget, linkedTo, panelLinks,
@@ -1878,10 +1889,12 @@ const HistogramPanel = React.memo(function HistogramPanel({
       : null
   );
   const [yLog, setYLog] = useState(Boolean(data?.yLog));
+  const [tableViewMode, setTableViewMode] = useState(Boolean(data?.tableViewMode));
   
   useEffect(() => {
     setYLog(Boolean(data?.yLog));
-  }, [data?.yLog]);
+    setTableViewMode(Boolean(data?.tableViewMode));
+  }, [data?.yLog, data?.tableViewMode]);
 
   const [selectedXCol, setSelectedXCol] = useState(
     isTabular
@@ -1918,6 +1931,17 @@ const HistogramPanel = React.memo(function HistogramPanel({
       mkDownload(base, txt, 'txt')();
     }
   }, [data, filename]);
+
+  // Toggle between chart and table view
+  const handleTableViewToggle = useCallback(() => {
+    setPanelData(prev => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        tableViewMode: !tableViewMode
+      }
+    }));
+  }, [id, setPanelData, tableViewMode]);
 
   // Handle correlation matrix generation
   const handleCorrelationMatrix = useCallback(() => {
@@ -1973,7 +1997,7 @@ const HistogramPanel = React.memo(function HistogramPanel({
     return data.xValues || data.data.map((_, i) => i + 1);
   }, [isTabular, selectedXCol, data]);
   
-  const [chartContainerRef, { height }] = useElementSize({ debounceMs: 90 });
+  const [chartContainerRef, { height: containerHeight }] = useElementSize({ debounceMs: 90 });
 
   return (
     <PanelContainer
@@ -2001,16 +2025,22 @@ const HistogramPanel = React.memo(function HistogramPanel({
         onRemove={onRemove}
         onMouseEnter={handlePanelMouseLeave}
         extraButtons={[
-          
-          { 
-            element: <LogYButton onClick={() => {
-              setPanelData(prev => ({
-                ...prev,
-                [id]: { ...prev[id], yLog: !yLog }
-              }));
-              setYLog(v => !v);
-            }} isActive={yLog} />,
-            tooltip: "Toggle log scale on the y axis"
+...(!tableViewMode ? [{
+    element: <LogYButton onClick={() => {
+      setPanelData(prev => ({
+        ...prev,
+        [id]: { ...prev[id], yLog: !yLog }
+      }));
+      setYLog(v => !v);
+    }} isActive={yLog} />,
+    tooltip: "Toggle log scale on the y axis"
+  }] : []),
+  {
+            element: <TableChartButton 
+              onClick={handleTableViewToggle} 
+              isActive={tableViewMode}
+            />,
+            tooltip: tableViewMode ? "Switch to barchart view" : "Switch to table view"
           },
           ...(isTabular && numericCols.length >= 2 ? [{
             element: <DistanceMatrixButton onClick={handleCorrelationMatrix} />,
@@ -2027,70 +2057,88 @@ const HistogramPanel = React.memo(function HistogramPanel({
           }
         ]}
       />
-      <div className="p-2" >
-        {isTabular && (
-          <div className="flex items-center gap-4">
-            <div>
-              <label className="mr-2">X:</label>
-              <select
-                value={selectedXCol ?? ''}
-                onChange={e => {
-                  setSelectedXCol(e.target.value);
-                  setPanelData(prev => ({
-                    ...prev,
-                    [id]: {
-                      ...prev[id],
-                      selectedXCol: e.target.value
-                    }
-                  }));
-                }}
-                className="border rounded-xl p-1"
-              >
-                {numericCols.map(col => (
-                  <option key={col} value={col}>{col}</option>
-                ))}
-              </select>
+      
+      {!tableViewMode && (
+        <div className="p-2" >
+          {isTabular && (
+            <div className="flex items-center gap-4">
+              <div>
+                <label className="mr-2">X:</label>
+                <select
+                  value={selectedXCol ?? ''}
+                  onChange={e => {
+                    setSelectedXCol(e.target.value);
+                    setPanelData(prev => ({
+                      ...prev,
+                      [id]: {
+                        ...prev[id],
+                        selectedXCol: e.target.value
+                      }
+                    }));
+                  }}
+                  className="border rounded-xl p-1"
+                >
+                  {numericCols.map(col => (
+                    <option key={col} value={col}>{col}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="mr-2">Y:</label>
+                <select
+                  value={selectedCol ?? ''}
+                  onChange={e => {
+                    setSelectedCol(e.target.value);
+                    setPanelData(prev => ({
+                      ...prev,
+                      [id]: {
+                        ...prev[id],
+                        selectedCol: e.target.value
+                      }
+                    }));
+                  }}
+                  className="border rounded-xl p-1"
+                >
+                  {numericCols.map(col => (
+                    <option key={col} value={col}>{col}</option>
+                  ))}
+                </select>
+              </div>
             </div>
-            <div>
-              <label className="mr-2">Y:</label>
-              <select
-                value={selectedCol ?? ''}
-                onChange={e => {
-                  setSelectedCol(e.target.value);
-                  setPanelData(prev => ({
-                    ...prev,
-                    [id]: {
-                      ...prev[id],
-                      selectedCol: e.target.value
-                    }
-                  }));
-                }}
-                className="border rounded-xl p-1"
-              >
-                {numericCols.map(col => (
-                  <option key={col} value={col}>{col}</option>
-                ))}
-              </select>
-            </div>
-          </div>
+          )}
+        </div>
+      )}
+      
+      <div 
+        ref={chartContainerRef} 
+        className={`flex flex-col h-full px-2 pb-2 overflow-hidden ${
+          tableViewMode ? 'pt-2' : ''
+        }`}
+        onPointerLeave={handlePanelMouseLeave}
+      >
+        {tableViewMode ? (
+          <TableViewer
+            data={data.data}
+            selectedXCol={selectedXCol}
+            selectedCol={selectedCol}
+            height={containerHeight}
+          />
+        ) : (
+          <Histogram
+            values={valuesToPlot}
+            xValues={xValues}
+            panelId={id}
+            onHighlight={onHighlight}
+            highlightedSite={highlightedSite}
+            highlightOrigin={highlightOrigin}
+            setPanelData={setPanelData}
+            highlightedSites={data?.highlightedSites || []}
+            persistentHighlights={data?.persistentHighlights || []}
+            linkedTo={linkedTo}
+            height={containerHeight}
+            yLogActive={yLog}
+          />
         )}
-      </div>
-      <div ref={chartContainerRef} className="flex flex-col h-full px-2 pb-2 overflow-hidden"
-        onPointerLeave={handlePanelMouseLeave}>
-        <Histogram
-          values={valuesToPlot}
-          xValues={xValues}
-          panelId={id}
-          onHighlight={onHighlight}
-          highlightedSite={highlightedSite}
-          highlightOrigin={highlightOrigin}
-          setPanelData={setPanelData}
-          highlightedSites={data?.highlightedSites || []}
-          persistentHighlights={data?.persistentHighlights || []}
-          linkedTo={linkedTo}
-          height={height}
-          yLogActive={yLog}
-        />
       </div>
     </PanelContainer>
   );

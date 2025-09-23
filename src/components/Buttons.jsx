@@ -86,6 +86,26 @@ export function CodonToggleButton({ onClick, isActive }) {
   );
 }
 
+export function TableChartButton({ onClick, isActive }) {
+  return (
+    <button
+      onClick={onClick}
+      className="p-0.5"
+    >
+      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100
+        border border-gray-400 hover:bg-green-300`}>
+                <span className="text-xs font-bold text-green-800 leading-none">
+          {!isActive ? (
+            <Bars3Icon className="w-4 h-4 flex-shrink-0 -translate-y-[0px] rotate-0" />
+          ) : (
+            <ChartBarIcon className="w-4 h-4 flex-shrink-0 -translate-y-[0px]" />
+          )}
+        </span>
+      </span>
+    </button>
+  );
+}
+
 export function SiteStatsButton({ onClick }) {
   return (
     <button
