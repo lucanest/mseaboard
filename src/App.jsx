@@ -34,7 +34,7 @@ import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFast
 newickToDistanceMatrix, detectFileType, toFasta, toPhylip, computeSiteStats, buildTreeFromDistanceMatrix,
 computeNormalizedHammingMatrix, pickAlignedSeqForChain, chainIdFromSeqId, residueIndexToMsaCol,
 msaColToResidueIndex, reorderHeatmapByLeafOrder, reorderMsaByLeafOrder, distanceMatrixFromAtoms,
-parsePdbChains, mkDownload, baseName, msaToPhylip} from './components/Utils.jsx';
+parsePdbChains, mkDownload, baseName, msaToPhylip, computeCorrelationMatrix} from './components/Utils.jsx';
 import { residueColors, logoColors, linkpalette } from './constants/colors.js';
 import { TitleFlip, AnimatedList } from './components/Animations.jsx';
 import { FixedSizeGrid as Grid } from 'react-window';
@@ -1861,11 +1861,13 @@ const NotepadPanel = React.memo(function NotepadPanel({
   );
 });
 
-const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, onReupload, onDuplicate,
+const HistogramPanel = React.memo(function HistogramPanel({ 
+  id, data, onRemove, onReupload, onDuplicate,
   onLinkClick, isLinkModeActive, isEligibleLinkTarget, linkedTo, panelLinks,
   highlightedSite, highlightOrigin, onHighlight, hoveredPanelId, justLinkedPanels,
   setHoveredPanelId, setPanelData,
   linkBadges, onRestoreLink, colorForLink, onUnlink,
+  onGenerateCorrelationMatrix
 }) {
   const { filename } = data;
   const isTabular = !Array.isArray(data.data);
@@ -1876,9 +1878,11 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
       : null
   );
   const [yLog, setYLog] = useState(Boolean(data?.yLog));
+  
   useEffect(() => {
-  setYLog(Boolean(data?.yLog));
-}, [data?.yLog]);
+    setYLog(Boolean(data?.yLog));
+  }, [data?.yLog]);
+
   const [selectedXCol, setSelectedXCol] = useState(
     isTabular
       ? (data.selectedXCol ||
@@ -1886,7 +1890,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
       : null
   );
 
-    const handlePanelMouseLeave = useCallback(() => {
+  const handlePanelMouseLeave = useCallback(() => {
     setPanelData(prev => ({
       ...prev,
       [id]: {
@@ -1915,7 +1919,20 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
     }
   }, [data, filename]);
 
-  
+  // Handle correlation matrix generation
+  const handleCorrelationMatrix = useCallback(() => {
+    if (!isTabular) {
+      alert('Correlation matrix can only be computed for tabular data with multiple numeric columns');
+      return;
+    }
+    
+    try {
+      onGenerateCorrelationMatrix(id);
+    } catch (error) {
+      alert(`Failed to compute correlation matrix: ${error.message}`);
+    }
+  }, [id, isTabular, onGenerateCorrelationMatrix]);
+
   useEffect(() => {
     if (isTabular) {
       setSelectedCol(
@@ -1945,6 +1962,7 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
     }
     return [];
   }, [isTabular, selectedCol, data]);
+  
   const xValues = useMemo(() => {
     if (isTabular && selectedXCol) {
       return data.data.rows.map(row => row[selectedXCol]);
@@ -1954,114 +1972,129 @@ const HistogramPanel = React.memo(function HistogramPanel({ id, data, onRemove, 
     }
     return data.xValues || data.data.map((_, i) => i + 1);
   }, [isTabular, selectedXCol, data]);
+  
   const [chartContainerRef, { height }] = useElementSize({ debounceMs: 90 });
+
   return (
-  <PanelContainer
-    id={id}
-    linkedTo={linkedTo}
-    hoveredPanelId={hoveredPanelId}
-    setHoveredPanelId={setHoveredPanelId}
-    //onDoubleClick={() => onReupload(id)}
-    panelLinks={panelLinks} 
-    isEligibleLinkTarget={isEligibleLinkTarget}
-    justLinkedPanels={justLinkedPanels}
-  >
-    <PanelHeader
+    <PanelContainer
       id={id}
-      prefix=""
-      filename={filename}
-      setPanelData={setPanelData}
-      onDuplicate={onDuplicate}
-      onLinkClick={onLinkClick}
-      isLinkModeActive={isLinkModeActive}
+      linkedTo={linkedTo}
+      hoveredPanelId={hoveredPanelId}
+      setHoveredPanelId={setHoveredPanelId}
+      panelLinks={panelLinks} 
       isEligibleLinkTarget={isEligibleLinkTarget}
-      linkBadges={linkBadges}
-      onRestoreLink={onRestoreLink}
-      onUnlink={onUnlink}
-      colorForLink={colorForLink}
-      onRemove={onRemove}
-      onMouseEnter={handlePanelMouseLeave}
-      extraButtons={[
-      { element: <LogYButton onClick={() => {
-          setPanelData(prev => ({
-            ...prev,
-            [id]: { ...prev[id], yLog: !yLog }
-          }));
-          setYLog(v => !v);
-        }} isActive={yLog} />,
-       tooltip: "Toggle log scale on the y axis"},
-      { element: <DownloadButton onClick={handleDownload} />,
-       tooltip: "Download data" }
-      ]}
-      />
-    <div className="p-2" >
-      {isTabular && (
-        <div className="flex items-center gap-4">
-          <div>
-            <label className="mr-2">X:</label>
-            <select
-              value={selectedXCol ?? ''}
-              onChange={e => {
-                setSelectedXCol(e.target.value);
-                setPanelData(prev => ({
-                  ...prev,
-                  [id]: {
-                    ...prev[id],
-                    selectedXCol: e.target.value
-                  }
-                }));
-              }}
-              className="border rounded-xl p-1"
-            >
-               {numericCols.map(col => (
-                <option key={col} value={col}>{col}</option>
-              ))}
-            </select>
-          </div>
-                    <div>
-            <label className="mr-2">Y:</label>
-            <select
-              value={selectedCol ?? ''}
-              onChange={e => {
-                setSelectedCol(e.target.value);
-                setPanelData(prev => ({
-                  ...prev,
-                  [id]: {
-                    ...prev[id],
-                    selectedCol: e.target.value
-                  }
-                }));
-              }}
-              className="border rounded-xl p-1"
-            >
-              {numericCols.map(col => (
-                <option key={col} value={col}>{col}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-      )}
-    </div>
-    <div ref={chartContainerRef} className="flex flex-col h-full px-2 pb-2 overflow-hidden"
-    onPointerLeave={handlePanelMouseLeave}>
-      <Histogram
-        values={valuesToPlot}
-        xValues={xValues}
-        panelId={id}
-        onHighlight={onHighlight}
-        highlightedSite={highlightedSite}
-        highlightOrigin={highlightOrigin}
+      justLinkedPanels={justLinkedPanels}
+    >
+      <PanelHeader
+        id={id}
+        prefix=""
+        filename={filename}
         setPanelData={setPanelData}
-        highlightedSites={data?.highlightedSites || []}
-        persistentHighlights={data?.persistentHighlights || []}
-        linkedTo={linkedTo}
-        height={height}
-        yLogActive={yLog}
+        onDuplicate={onDuplicate}
+        onLinkClick={onLinkClick}
+        isLinkModeActive={isLinkModeActive}
+        isEligibleLinkTarget={isEligibleLinkTarget}
+        linkBadges={linkBadges}
+        onRestoreLink={onRestoreLink}
+        onUnlink={onUnlink}
+        colorForLink={colorForLink}
+        onRemove={onRemove}
+        onMouseEnter={handlePanelMouseLeave}
+        extraButtons={[
+          
+          { 
+            element: <LogYButton onClick={() => {
+              setPanelData(prev => ({
+                ...prev,
+                [id]: { ...prev[id], yLog: !yLog }
+              }));
+              setYLog(v => !v);
+            }} isActive={yLog} />,
+            tooltip: "Toggle log scale on the y axis"
+          },
+          ...(isTabular && numericCols.length >= 2 ? [{
+            element: <DistanceMatrixButton onClick={handleCorrelationMatrix} />,
+            tooltip: (
+              <>
+                Compute correlation matrix<br />
+                (Pearson)
+              </>
+            )
+          }] : []),
+          { 
+            element: <DownloadButton onClick={handleDownload} />,
+            tooltip: "Download data" 
+          }
+        ]}
       />
-    </div>
-  </PanelContainer>
-);
-},(prevProps, nextProps) => {
+      <div className="p-2" >
+        {isTabular && (
+          <div className="flex items-center gap-4">
+            <div>
+              <label className="mr-2">X:</label>
+              <select
+                value={selectedXCol ?? ''}
+                onChange={e => {
+                  setSelectedXCol(e.target.value);
+                  setPanelData(prev => ({
+                    ...prev,
+                    [id]: {
+                      ...prev[id],
+                      selectedXCol: e.target.value
+                    }
+                  }));
+                }}
+                className="border rounded-xl p-1"
+              >
+                {numericCols.map(col => (
+                  <option key={col} value={col}>{col}</option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="mr-2">Y:</label>
+              <select
+                value={selectedCol ?? ''}
+                onChange={e => {
+                  setSelectedCol(e.target.value);
+                  setPanelData(prev => ({
+                    ...prev,
+                    [id]: {
+                      ...prev[id],
+                      selectedCol: e.target.value
+                    }
+                  }));
+                }}
+                className="border rounded-xl p-1"
+              >
+                {numericCols.map(col => (
+                  <option key={col} value={col}>{col}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
+      </div>
+      <div ref={chartContainerRef} className="flex flex-col h-full px-2 pb-2 overflow-hidden"
+        onPointerLeave={handlePanelMouseLeave}>
+        <Histogram
+          values={valuesToPlot}
+          xValues={xValues}
+          panelId={id}
+          onHighlight={onHighlight}
+          highlightedSite={highlightedSite}
+          highlightOrigin={highlightOrigin}
+          setPanelData={setPanelData}
+          highlightedSites={data?.highlightedSites || []}
+          persistentHighlights={data?.persistentHighlights || []}
+          linkedTo={linkedTo}
+          height={height}
+          yLogActive={yLog}
+        />
+      </div>
+    </PanelContainer>
+  );
+}, (prevProps, nextProps) => {
   return (
     prevProps.id === nextProps.id &&
     prevProps.data === nextProps.data &&
@@ -2194,6 +2227,7 @@ const PanelWrapper = React.memo(({
   handleFastME,
   handleCreateSequenceFromStructure,
   handleStructureToDistance,
+  handleGenerateCorrelationMatrix,
   setPanelData
 }) => {
   const commonProps = usePanelProps(panel.i, {
@@ -2245,6 +2279,9 @@ const PanelWrapper = React.memo(({
       onHighlight: handleHighlight,
       onGenerateTree: handleHeatmapToTree 
     }),
+...(panel.type === 'histogram' && {
+  onGenerateCorrelationMatrix: handleGenerateCorrelationMatrix
+}),
     ...(panel.type === 'structure' && {
       onCreateSequenceFromStructure: handleCreateSequenceFromStructure,
       onGenerateDistance: handleStructureToDistance,
@@ -2910,6 +2947,33 @@ async function handleFastME(alignmentPanelId, evoModel) {
     alert(`FastME failed: ${err?.message || err}`);
   }
 }
+
+const handleGenerateCorrelationMatrix = useCallback((id) => {
+  const histogramData = panelData[id];
+  if (!histogramData || Array.isArray(histogramData.data)) {
+    alert('Correlation matrix can only be computed for tabular data');
+    return;
+  }
+
+  try {
+    const { labels, matrix } = computeCorrelationMatrix(histogramData.data);
+    
+    const base = baseName(histogramData.filename, 'data');
+    
+    addPanel({
+      type: 'heatmap',
+      data: { 
+        labels,
+        matrix,
+        filename: `${base}_corr.phy`,
+      },
+      basedOnId: id,
+      layoutHint: { w: 4, h: 20 },
+    });
+  } catch (error) {
+    alert(`Failed to compute correlation matrix: ${error.message}`);
+  }
+}, [panelData, addPanel]);
 
 const handleTreeToDistance = useCallback((id) => {
   const treeData = panelData[id];
@@ -4178,6 +4242,7 @@ const canLink = (typeA, typeB) => {
         scrollPositions={scrollPositions}
         highlightedSequenceId={highlightedSequenceId}
         setHighlightedSequenceId={setHighlightedSequenceId}
+        handleGenerateCorrelationMatrix={handleGenerateCorrelationMatrix}
         handleDuplicateTranslate={handleDuplicateTranslate}
         handleCreateSeqLogo={handleCreateSeqLogo}
         handleCreateSiteStatsHistogram={handleCreateSiteStatsHistogram}

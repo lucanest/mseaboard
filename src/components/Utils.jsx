@@ -934,6 +934,77 @@ export function parseNewick(newickString) {
 }
 
 
+export function computeCorrelationMatrix(data) {
+  if (!data?.headers || !data?.rows) {
+    throw new Error('Invalid tabular data structure');
+  }
+
+  // Get numeric columns only
+  const numericHeaders = data.headers.filter(header => 
+    data.rows.every(row => typeof row[header] === 'number')
+  );
+
+  if (numericHeaders.length < 2) {
+    throw new Error('Need at least 2 numeric columns to compute correlations');
+  }
+
+  const n = numericHeaders.length;
+  const matrix = Array(n).fill().map(() => Array(n).fill(0));
+  const labels = numericHeaders;
+
+  // Extract values for each column
+  const columnValues = numericHeaders.map(header => 
+    data.rows.map(row => row[header])
+  );
+
+  // Compute Pearson correlation for each pair
+  for (let i = 0; i < n; i++) {
+    for (let j = i; j < n; j++) {
+      if (i === j) {
+        matrix[i][j] = 1.0; // Correlation with itself is 1
+      } else {
+        const corr = pearsonCorrelation(columnValues[i], columnValues[j]);
+        matrix[i][j] = corr;
+        matrix[j][i] = corr; // Symmetric matrix
+      }
+    }
+  }
+
+  return { labels, matrix };
+}
+
+function pearsonCorrelation(x, y) {
+  if (x.length !== y.length) {
+    throw new Error('Arrays must have the same length');
+  }
+
+  const n = x.length;
+  if (n === 0) return 0;
+
+  // Calculate means
+  const meanX = x.reduce((sum, val) => sum + val, 0) / n;
+  const meanY = y.reduce((sum, val) => sum + val, 0) / n;
+
+  // Calculate covariance and standard deviations
+  let covariance = 0;
+  let stdDevX = 0;
+  let stdDevY = 0;
+
+  for (let i = 0; i < n; i++) {
+    const diffX = x[i] - meanX;
+    const diffY = y[i] - meanY;
+    covariance += diffX * diffY;
+    stdDevX += diffX * diffX;
+    stdDevY += diffY * diffY;
+  }
+
+  // Avoid division by zero
+  if (stdDevX === 0 || stdDevY === 0) return 0;
+
+  return covariance / Math.sqrt(stdDevX * stdDevY);
+}
+
+
 // --- download helpers -------------------------
 
 /** strip extension safely; fall back if empty */
