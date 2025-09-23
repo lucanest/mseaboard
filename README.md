@@ -100,7 +100,7 @@ npm install
 npm run start
 ```
 
-Visit `http://localhost:3000` and upload your files. Alternatively head directly to https://mseaboard.com
+Visit `http://localhost:3000` and upload your files.
 
 ## Project structure
 
