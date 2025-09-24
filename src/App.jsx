@@ -887,17 +887,6 @@ const MSACell = React.memo(function MSACell({
   );
 });
 
-const MemoizedMSACell = React.memo(MSACell, (prevProps, nextProps) => {
-  return (
-    prevProps.char === nextProps.char &&
-    prevProps.isHoverHighlight === nextProps.isHoverHighlight &&
-    prevProps.isLinkedHighlight === nextProps.isLinkedHighlight &&
-        prevProps.isPersistentHighlight === nextProps.isPersistentHighlight &&
-    prevProps.isSearchHighlight === nextProps.isSearchHighlight
-  );
-});
-
-
 
 const AlignmentPanel = React.memo(function AlignmentPanel({
   id,
@@ -1357,7 +1346,7 @@ const Cell = useCallback(
     const isLinkedHighlight = isLinkedHighlightByGlobal || isLinkedHighlightByData;
 
     return (
-      <MemoizedMSACell
+      <MSACell
         columnIndex={columnIndex}
         rowIndex={rowIndex}
         style={style}
