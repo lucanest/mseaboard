@@ -3307,12 +3307,6 @@ const handleHighlight = useCallback((site, originId) => {
         });
     }
   
-  if (sourcePanel.type === 'histogram' && targetPanel.type === 'alignment') {
-    setScrollPositions(prev => {
-      if (prev[targetId] === 0) return prev;
-      return { ...prev, [targetId]: 0 };
-    });
-  }
   
   if (sourcePanel.type === 'histogram' && targetPanel.type === 'seqlogo') {
     setPanelData(prev => {
