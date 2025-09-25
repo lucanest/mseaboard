@@ -22,6 +22,7 @@ import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import throttle from 'lodash.throttle'
+import debounce from 'lodash.debounce'; 
 import GridLayout from 'react-grid-layout';
 import ReactDOM from 'react-dom';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
@@ -330,33 +331,33 @@ function EditableFilename({ id, filename, setPanelData, prefix = '', className =
   );
 }
 
-function MSATooltip({ x, y, children }) {
+function MSATooltip({ x, y, children, boundary }) {
   const ref = React.useRef(null);
   const [size, setSize] = React.useState({ w: 0, h: 0 });
 
-  // Measure tooltip whenever content/position changes
   React.useLayoutEffect(() => {
     if (!ref.current) return;
     const r = ref.current.getBoundingClientRect();
-    // Only update if changed (prevents layout thrash)
     if (Math.abs(r.width - size.w) > 0.5 || Math.abs(r.height - size.h) > 0.5) {
       setSize({ w: r.width, h: r.height });
     }
- }, [x, y, size.w, size.h]);
+  }, [x, y, size.w, size.h]);
 
-  const GAP = 12; // distance from pointer
+  const GAP = 12;
   const vw = window.innerWidth;
   const vh = window.innerHeight;
 
-  // Decide flips against the viewport edges
-  const flipX = x + GAP + size.w > vw; // too close to right edge
-  const flipY = y + GAP + size.h > vh; // too close to bottom edge
+  const rightEdge = boundary ? boundary.right : vw;
 
-  // Anchor at the pointer, nudge by GAP, and flip using translate
+  // 3. Calculate flip based on the right edge.
+  const flipX = x + 15 * GAP > rightEdge;
+
+
+  const flipY = y + GAP + size.h > vh;
+
   const left = x + (flipX ? -GAP : GAP);
   const top  = y + (flipY ? -GAP : GAP);
 
-  // Keep inside small margins
   const clampedLeft = Math.max(4, Math.min(vw - 4, left));
   const clampedTop  = Math.max(4, Math.min(vh - 4, top));
 
@@ -376,7 +377,6 @@ function MSATooltip({ x, y, children }) {
     document.body
   );
 }
-
 function PanelContainer({
   id,
   linkedTo,
@@ -475,7 +475,7 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
 
       if (targetScroll != null) {
         targetScroll = Math.max(0, Math.min(maxScroll, targetScroll));
-        container.scrollTo({ left: targetScroll, behavior: "smooth" });
+        container.scrollTo({ left: targetScroll });
       }
     }
   }, [highlightedSite, highlightOrigin, linkedTo, id]);
@@ -905,6 +905,9 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [gridContainerRef, dims] = useElementSize({ debounceMs: 90 });
   const gridRef = useRef(null);
   const outerRef = useRef(null); 
+  const [tooltipSite, setTooltipSite] = useState(null);
+  const isScrollingRef = useRef(false);
+  const lastMousePosRef = useRef({ x: 0, y: 0 });
   // Search UI state
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -1014,22 +1017,25 @@ useEffect(() => {
     out.push({ start: s, end: prev + 1 });
     return out;
   }, []);
-    const scrollToColumn = useCallback((col) => {
+const scrollToColumn = useCallback((col) => {
     if (col == null || !outerRef.current || !gridRef.current) return;
     const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
-    const targetPx = col * itemWidth-2; // -2 for border compensation
+    const targetPx = col * itemWidth - 4; // -4 for border compensation
     gridRef.current.scrollTo({ scrollLeft: targetPx });
   }, [codonMode]);
 
   const linkedSiteFromData = data.linkedSiteHighlight;
-  // The global highlight is used for other link types
+  
+  // The global highlight is used for other link types, but not for highlights coming from a structure panel,
+  // as those are handled by the panel-specific `linkedSiteHighlight`.
   const globalHighlightedSite = (
+      highlightOriginType !== 'structure' &&
       Array.isArray(linkedTo) && 
       linkedTo.includes(highlightOrigin) && 
       id !== highlightOrigin
   ) ? highlightedSite : null;
 
-  // Use the panel-specific highlight if available, otherwise fall back to the global one
+  // Use the panel-specific highlight if available, otherwise fall back to the global one.
   const finalHighlightedSite = linkedSiteFromData ?? globalHighlightedSite;
 
   // useEffect that correctly positions the tooltip for both highlight types
@@ -1045,7 +1051,7 @@ useEffect(() => {
     }
   }, [finalHighlightedSite, id, highlightOrigin, codonMode, dims.height, isSyncScrolling, scrollTop]);
 
-  // throttle highlight to once every 90ms
+// throttle highlight to once every 90ms
 const throttledHighlight = useMemo(
   () =>
     throttle(
@@ -1058,27 +1064,62 @@ const throttledHighlight = useMemo(
   [onHighlight]
 );
 
-  // throttle scroll handler to once every 90ms
-const throttledOnScroll = useCallback(
-  throttle(({ scrollTop, scrollLeft }) => {
-    setScrollTop(scrollTop);
 
-    if (isSyncScrolling) {
-      const outer = outerRef.current;
-      if (outer && highlightedSite != null) {
-        const rect = outer.getBoundingClientRect();
-        const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
-        const x = rect.left + (highlightedSite * itemWidth) - scrollLeft + (itemWidth / 2);
-        const y = rect.top + (rect.height / 2);
-        setTooltipPos({ x, y });
-      }
+// This function is called when scrolling ends.
+const handleScrollEnd = useMemo(
+  () =>
+    debounce(() => {
+      isScrollingRef.current = false;
+      // After any scroll event finishes, reset the sync flag.
       setIsSyncScrolling(false);
-    }
-
-
-  }, 90),
-  [onSyncScroll, linkedTo, id, isSyncScrolling, highlightedSite, codonMode, hoveredPanelId]
+    }, 1), // 1ms delay after the last scroll event
+  []
 );
+
+const handleScroll = useMemo(
+  () =>
+    throttle(({ scrollLeft, scrollTop }) => {
+      isScrollingRef.current = true;
+      setScrollTop(scrollTop);
+      
+      // We do not try to calculate column from mouse position during a sync scroll,
+      // as the mouse position is stale and unrelated to this panel.
+      if (!isSyncScrolling) {
+        if (hoveredPanelId !== id) {
+          return;
+        }
+
+        const outer = outerRef.current;
+        if (outer) {
+          const gridRect = outer.getBoundingClientRect();
+          
+          const mouseXRelative = lastMousePosRef.current.x - gridRect.left;
+          const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
+          const currentColumn = Math.floor((scrollLeft + mouseXRelative) / itemWidth);
+          setTooltipSite(currentColumn);
+          
+          // Send highlight events during the scroll
+          throttledHighlight(currentColumn, id);
+
+          const mouseYRelative = lastMousePosRef.current.y - gridRect.top;
+          const currentRow = Math.floor((scrollTop + mouseYRelative) / CELL_SIZE);
+          if (currentRow >= 0 && currentRow < msaData.length) {
+              setHoveredRow(currentRow);
+              if (Array.isArray(linkedTo) && linkedTo.length > 0 && setHighlightedSequenceId) {
+                  const seqId = msaData[currentRow]?.id;
+                  if (seqId) {
+                      setHighlightedSequenceId(seqId);
+                  }
+              }
+          }
+        }
+      }
+      
+      handleScrollEnd();
+    }, 90),
+  [id, codonMode, handleScrollEnd, msaData, linkedTo, setHighlightedSequenceId, throttledHighlight, isSyncScrolling, hoveredPanelId]
+);
+
 
   const runSearch = useCallback(() => {
     if (!searchQuery?.trim() || !Array.isArray(msaData) || msaData.length === 0) return;
@@ -1189,6 +1230,22 @@ useEffect(() => {
 }, [hoveredPanelId, id, linkedTo, highlightOrigin, onHighlight, setHighlightedSequenceId]);
 
 useEffect(() => {
+  // This effect positions the tooltip for highlights coming from linked panels.
+  if (finalHighlightedSite != null && outerRef.current) {
+    const outer = outerRef.current;
+    const rect = outer.getBoundingClientRect();
+    const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
+
+    // Calculate the X position based on the site index and scroll offset
+    const x = rect.left + (finalHighlightedSite * itemWidth) - outer.scrollLeft + (itemWidth / 2);
+    // Center the Y position vertically within the grid
+    const y = rect.top + (rect.height / 2);
+
+    setTooltipPos({ x, y });
+  }
+}, [finalHighlightedSite, codonMode, dims.height, scrollTop]); // Re-run if site, mode, or dimensions change
+
+useEffect(() => {
   if (!gridRef.current || typeof externalScrollLeft !== 'number') return;
   const outer = outerRef.current;
   if (!outer) return;
@@ -1230,24 +1287,29 @@ useEffect(() => {
 
 const handleGridMouseMove = useCallback(
   (e) => {
+    // Store the latest mouse position
+    lastMousePosRef.current = { x: e.clientX, y: e.clientY };
+
     const hit = pickCellFromEvent(e);
     if (!hit) return;
+
     const { rowIndex, columnIndex } = hit;
     const codonIndex = Math.floor(columnIndex / 3);
     const idx = codonMode ? codonIndex : columnIndex;
 
-    // immediate, per-frame UI updates
+    // Update local visual state and tooltip content
     setHoveredRow(rowIndex);
     setHoveredCol(idx);
+    setTooltipSite(idx); // Update the dedicated tooltip state
     setTooltipPos({ x: e.clientX, y: e.clientY });
 
-    // cross-panel (throttled)
+    // Always trigger the highlight on mouse move.
     throttledHighlight(idx, id);
 
-  if (Array.isArray(linkedTo) && linkedTo.length > 0 && setHighlightedSequenceId) {
-    const seqId = msaData[rowIndex]?.id;
-    if (seqId) setHighlightedSequenceId(seqId);
-  }
+    if (Array.isArray(linkedTo) && linkedTo.length > 0 && setHighlightedSequenceId) {
+      const seqId = msaData[rowIndex]?.id;
+      if (seqId) setHighlightedSequenceId(seqId);
+    }
   },
   [pickCellFromEvent, codonMode, throttledHighlight, id, linkedTo, setHighlightedSequenceId, msaData]
 );
@@ -1257,6 +1319,7 @@ const handleGridMouseLeave = useCallback(() => {
   throttledHighlight.cancel();
   setHoveredCol(null);
   setHoveredRow(null);
+  setTooltipSite(null);
   if (id === highlightOrigin) onHighlight(null, id);
   if (Array.isArray(linkedTo) && linkedTo.length > 0 && setHighlightedSequenceId) setHighlightedSequenceId(null);
 }, [throttledHighlight, id, highlightOrigin, onHighlight, linkedTo, setHighlightedSequenceId]);
@@ -1345,6 +1408,21 @@ const Cell = useCallback(
 
     const isLinkedHighlight = isLinkedHighlightByGlobal || isLinkedHighlightByData;
 
+    const finalHighlightedSite = useMemo(() => {
+  // Check for a panel-specific highlight first (e.g., from structure link)
+  if (data.linkedSiteHighlight != null) {
+    return data.linkedSiteHighlight;
+  }
+  
+  // Check for a global highlight from a linked panel
+  const isLinked = Array.isArray(linkedTo) && linkedTo.includes(highlightOrigin);
+  if (isLinked && id !== highlightOrigin && highlightedSite != null) {
+    return highlightedSite;
+  }
+  
+  return null;
+}, [data.linkedSiteHighlight, linkedTo, highlightOrigin, id, highlightedSite]);
+
     return (
       <MSACell
         columnIndex={columnIndex}
@@ -1380,12 +1458,14 @@ const Cell = useCallback(
     });
   }, [msaData]);
 
-  useEffect(() => {
-    return () => {
-      throttledHighlight.cancel();
-      throttledOnScroll.cancel();
-    };
-  }, [throttledHighlight, throttledOnScroll]);
+useEffect(() => {
+  return () => {
+    // These functions have internal timers, so we must cancel them
+    // when the component unmounts to prevent memory leaks.
+    throttledHighlight.cancel();
+    handleScrollEnd.cancel();
+  };
+}, [throttledHighlight, handleScrollEnd]);
 
   const gridItemData = useMemo(() => ({
     msaData,
@@ -1593,31 +1673,34 @@ const Cell = useCallback(
           </div>
         )}
 
-        {hoveredCol != null && hoveredPanelId === id && (
-          <MSATooltip x={tooltipPos.x} y={tooltipPos.y}>
-            <div className="flex flex-col items-center">
-              <span className="font-bold">
-                {codonMode ? `Codon ${hoveredCol + 1}` : `Site ${hoveredCol + 1}`}
-              </span>
-              {hoveredRow != null && msaData[hoveredRow] && (
-                <span className="text-gray-700 font-mono text-sm">{msaData[hoveredRow].id}</span>
-              )}
-            </div>
-          </MSATooltip>
-        )}
+{/* --- Unified Tooltip Logic --- */}
+{(() => {
+  // Determine if a tooltip should be shown at all
+  const isLocalHover = tooltipSite != null && hoveredPanelId === id;
+  const isExternalHighlight = finalHighlightedSite != null;
 
-       {finalHighlightedSite != null && finalHighlightedSite >= 0 &&
-       id !== highlightOrigin &&
-       highlightOriginType !== 'heatmap' && (
-          <MSATooltip x={tooltipPos.x} y={tooltipPos.y}>
-            <span>
-              {codonMode ? 'Codon ' : 'Site '}
-              <span className="font-bold">
-                {typeof finalHighlightedSite === 'number' ? finalHighlightedSite + 1 : ''}
-              </span>
-            </span>
-          </MSATooltip>
-      )}
+  if (!isLocalHover && !isExternalHighlight) {
+    return null;
+  }
+
+  // Prioritize displaying the local hover site, but fall back to the external one
+  const siteToDisplay = isLocalHover ? tooltipSite : finalHighlightedSite;
+  const siteLabel = codonMode ? `Codon ${siteToDisplay + 1}` : `Site ${siteToDisplay + 1}`;
+
+  // Get the panel's current boundary rectangle from the ref.
+  const panelBoundary = outerRef.current?.getBoundingClientRect();
+
+  return (
+    <MSATooltip x={tooltipPos.x} y={tooltipPos.y} boundary={panelBoundary}>
+      <div className="flex flex-col items-center">
+        <span className="font-bold">{siteLabel}</span>
+        {isLocalHover && hoveredRow != null && msaData[hoveredRow] && (
+          <span className="text-gray-700 font-mono text-sm">{msaData[hoveredRow].id}</span>
+        )}
+      </div>
+    </MSATooltip>
+  );
+})()}
 
         <div
           ref={gridContainerRef}
@@ -1687,7 +1770,7 @@ const Cell = useCallback(
             rowCount={rowCount}
             rowHeight={CELL_SIZE}
             width={Math.max(dims.width - LABEL_WIDTH, 0)}
-            onScroll={throttledOnScroll}
+            onScroll={handleScroll} 
             overscanRowCount={2}
             overscanColumnCount={8}
             itemData={gridItemData}
@@ -3604,7 +3687,15 @@ targetIds.forEach(targetId => {
   });
 }, [panelLinks, panels, panelData, highlightSite, highlightOrigin]);
 
-
+ useEffect(() => {
+    // This effect acts as a safeguard. If a highlight is active (highlightOrigin is set)
+    // but the mouse is no longer hovering over that origin panel, it means the
+    // hover has ended. We then explicitly call handleHighlight with `null` to ensure
+    // all downstream clearing logic (for both global and panel-specific highlights) is run.
+    if (highlightOrigin && hoveredPanelId !== highlightOrigin) {
+      handleHighlight(null, highlightOrigin);
+    }
+  }, [hoveredPanelId, highlightOrigin, handleHighlight]);
 
   const triggerUpload = useCallback((type, panelId = null) => {
       pendingTypeRef.current = type;
