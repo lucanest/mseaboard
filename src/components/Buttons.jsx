@@ -334,9 +334,9 @@ function RulerGlyph(props) {
   viewBox="0 0 24 24"
   fill="none"
   stroke="currentColor"
-  stroke-width="1.5"
-  stroke-linecap="round"
-  stroke-linejoin="round"
+  strokeWidth="1.5"
+  strokeLinecap="round"
+  strokeLinejoin="round"
   {...props}
 > <g transform="translate(0,-1)">
   <path d="M16 2l6 6L8 22l-6-6L16 2" />
