@@ -32,6 +32,21 @@ export const chainColors = [
   '#C4B5FD', '#FECACA', '#FDBA74', '#BBF7D0', '#DBEAFE', '#DDD6FE'
 ];
 
+export const atomColors = {
+      'C': '#909090', 'O': '#FF0D0D', 'N': '#3050FF', 'S': '#FFFF30',
+      'P': '#FF8000', 'H': '#FFFFFF', 'FE': '#E06633', 'CU': '#D98050'
+    };
+
+
+export const secondaryStructureColors = {
+  helix: '#EF4444', // Red
+  sheet: '#3B82F6', // Blue
+  coil: '#10B981',  // Green
+  turn: '#F59E0B',  // Amber
+  bend: '#8B5CF6',  // Purple
+  bridge: '#06B6D4' // Cyan
+};
+
 export const residueSvgColors = {
   A: '#22c55e', C: '#facc15', D: '#ef4444', E: '#ef4444',
   F: '#a855f7', G: '#6b7280', H: '#ec4899', I: '#3b82f6',
