@@ -52,6 +52,33 @@ import useElementSize from './hooks/useElementSize.js'
 const LABEL_WIDTH = 66;
 const CELL_SIZE = 24;
 
+function useIsVisible(ref) {
+  const [isIntersecting, setIntersecting] = useState(false);
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('IntersectionObserver' in window)) {
+      setIntersecting(true);
+      return;
+    }
+    const observer = new IntersectionObserver(([entry]) => {
+      setIntersecting(entry.isIntersecting);
+    });
+
+    const currentRef = ref.current;
+    if (currentRef) {
+      observer.observe(currentRef);
+    }
+
+    return () => {
+      if (currentRef) {
+        observer.unobserve(currentRef);
+      }
+    };
+  }, [ref]);
+
+  return isIntersecting;
+}
+
 function PanelHeader({
   id,
   prefix = '',
@@ -911,6 +938,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const msaData = useMemo(() => data.data, [data.data]);
   const filename = data.filename;
   const containerRef = useRef(null);
+  const isVisible = useIsVisible(containerRef);
   const [gridContainerRef, dims] = useElementSize({ debounceMs: 90 });
   const gridRef = useRef(null);
   const outerRef = useRef(null); 
@@ -1694,6 +1722,10 @@ useEffect(() => {
   if (!isLocalHover && !isExternalHighlight) {
     return null;
   }
+
+  if (!isVisible || (!isLocalHover && !isExternalHighlight)) {
+            return null;
+          }
 
   // Prioritize displaying the local hover site, but fall back to the external one
   const siteToDisplay = isLocalHover ? tooltipSite : finalHighlightedSite;
