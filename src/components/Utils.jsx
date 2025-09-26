@@ -1004,6 +1004,21 @@ function pearsonCorrelation(x, y) {
   return covariance / Math.sqrt(stdDevX * stdDevY);
 }
 
+export function hslToHex(h, s, l) {
+  // h in [0,360], s and l in [0,100]
+  l /= 100;
+  s /= 100;
+  const k = n => (n + h / 30) % 12;
+  const a = s * Math.min(l, 1 - l);
+  const f = n =>
+    l - a * Math.max(-1, Math.min(Math.min(k(n) - 3, 9 - k(n)), 1));
+  const toHex = x => {
+    const hex = Math.round(x * 255).toString(16).padStart(2, '0');
+    return hex;
+  };
+  return `#${toHex(f(0))}${toHex(f(8))}${toHex(f(4))}`;
+}
+
 
 // --- download helpers -------------------------
 

@@ -2,7 +2,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Stack, Slider, IconButton, Button, Tooltip, Box, Chip } from '@mui/material';
 import { Cog6ToothIcon } from '@heroicons/react/24/outline';
-import { threeToOne } from './Utils.jsx';
+import { threeToOne, hslToHex } from './Utils.jsx';
 import { residueColorHex, chainColors } from '../constants/colors.js';
 import { SurfaceGlyph } from './Buttons.jsx';
 import { secondaryStructureColors, atomColors } from '../constants/colors.js';  
@@ -31,31 +31,14 @@ const getChainColor = (chain) => {
   return chainColors[idx];
 };
 
-// New color schemes
-const colorSchemes = {
-  chain: (atom) => getChainColor(atom.chain),
-  residue: (atom) => {
-    const resn = (atom.resn || '').trim().toUpperCase();
-    const one = threeToOne[resn] || '-';
-    return residueColorHex[one] || '#FFFFFF';
-  },
-  element: (atom) => {
-    const elem = (atom.elem || '').toUpperCase();
-    return atomColors[elem] || '#EA80FC';
-  },
-secondary: (atom) => {
-    // Enhanced secondary structure coloring
-    // Accepts: h=helix, s=sheet, c=coil, t=turn, b=bend, e=bridge
-    const ss = (atom.ss || '').toLowerCase();
-    if (ss === 'h') return secondaryStructureColors.helix;
-    if (ss === 's') return secondaryStructureColors.sheet;
-    if (ss === 'c') return secondaryStructureColors.coil;
-    if (ss === 't') return secondaryStructureColors.turn;
-    if (ss === 'b') return secondaryStructureColors.bend;
-    if (ss === 'e') return secondaryStructureColors.bridge;
-    return '#CCCCCC'; // default
-  }
-};
+
+function getSpectrumColor(idx, total) {
+  // Rainbow: hue from 0 (red) to 270 (violet)
+  const t = total > 1 ? idx / (total - 1) : 0;
+  const hue = 270 * t; // 0=red, 90=yellow, 180=cyan, 270=violet
+  return hslToHex(hue, 100, 70);
+}
+
 
 // Representation styles
 const representationStyles = {
@@ -74,8 +57,6 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
   const [opacity, setOpacity] = useState(0.8);
   const [isHovering, setIsHovering] = useState(false);
   const didInitOpacity = useRef(false);
-
-  // New state variables for enhanced features
   const [showControls, setShowControls] = useState(false);
   const [colorScheme, setColorScheme] = useState('residue');
   const [representation, setRepresentation] = useState('cartoon');
@@ -83,6 +64,44 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
   const [showHydrogens, setShowHydrogens] = useState(false);
   const [showLabels, setShowLabels] = useState(false);
   const [backgroundColor, setBackgroundColor] = useState(data?.backgroundColor || 'white');
+
+
+  const colorSchemes = {
+      chain: (atom) => getChainColor(atom.chain),
+      residue: (atom) => {
+        const resn = (atom.resn || '').trim().toUpperCase();
+        const one = threeToOne[resn] || '-';
+        return residueColorHex[one] || '#FFFFFF';
+      },
+      element: (atom) => {
+        const elem = (atom.elem || '').toUpperCase();
+        return atomColors[elem] || '#EA80FC';
+      },
+    secondary: (atom) => {
+        // Enhanced secondary structure coloring
+        // Accepts: h=helix, s=sheet, c=coil, t=turn, b=bend, e=bridge
+        const ss = (atom.ss || '').toLowerCase();
+        if (ss === 'h') return secondaryStructureColors.helix;
+        if (ss === 's') return secondaryStructureColors.sheet;
+        if (ss === 'c') return secondaryStructureColors.coil;
+        if (ss === 't') return secondaryStructureColors.turn;
+        if (ss === 'b') return secondaryStructureColors.bend;
+        if (ss === 'e') return secondaryStructureColors.bridge;
+        return '#CCCCCC'; // default
+      },
+      spectrum: (atom) => {
+        // Color by residue index along a spectrum
+        const chain = (atom.chain || 'A').trim() || 'A';
+        const info = chainInfoRef.current.byChain[chain];
+        if (!info) return '#888';
+        // Find index of this residue
+        const icode = String(atom.inscode ?? atom.icode ?? '').trim();
+        const key = `${chain}|${atom.resi}|${icode}`;
+        const idx = info.keyToIndex.get(key);
+        if (typeof idx !== 'number') return '#888';
+        return getSpectrumColor(idx, info.length);
+      }
+    };
 
   // Restore opacity from data
   useEffect(() => {
@@ -802,7 +821,7 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
                   size="small"
                   variant={colorScheme === scheme ? "contained" : "outlined"}
                   onClick={() => setColorScheme(scheme)}
-                  sx={{ justifyContent: 'flex-start', textTransform: 'none',
+                  sx={{ justifyContent: 'center', textTransform: 'none',
                     backgroundColor: colorScheme === scheme ? '#60a5fa' : 'inherit',
                    }}
                 >
@@ -837,7 +856,7 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
                   size="small"
                   variant={representation === style ? "contained" : "outlined"}
                   onClick={() => setRepresentation(style)}
-                  sx={{ justifyContent: 'flex-start', textTransform: 'none',
+                  sx={{ justifyContent: 'center', textTransform: 'none',
                     backgroundColor: representation === style ? '#60a5fa' : 'inherit',
                    }}
                 >
