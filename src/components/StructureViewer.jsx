@@ -246,37 +246,49 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
     }
   };
 
-  const setupHoverStructureTooltip = () => {
+const setupHoverStructureTooltip = () => {
     const v = viewerRef.current;
     if (!v) return;
 
+    // Make all atoms hoverable
     v.setHoverable(
-      { atom: 'CA' },
+      {},
       true,
       function onHover(atom) {
         setIsHovering(true);
         if (!atom || atom.hetflag) return;
 
-        const resn = (atom.resn || '').trim().toUpperCase();
-        const one = threeToOne[resn] || '-';
+        // Find the Alpha Carbon for the hovered residue ---
+        // No matter which atom of a residue is hovered (e.g., sidechain),
+        // we want to highlight and report its Alpha Carbon (CA).
+
         const chain = (atom.chain || 'A').trim() || 'A';
         const info = chainInfoRef.current.byChain[chain];
-        const minResi = info ? info.minResi : 1;
-        const dispResi = atom.resi - minResi + 1;
+        if (!info) return; // Not a chain we have indexed
+
+        const icode = String(atom.inscode ?? atom.icode ?? '').trim();
+        const key = `${chain}|${atom.resi}|${icode}`;
+        const idx = info.keyToIndex.get(key);
+
+        // If we can't find a corresponding CA atom for this residue, bail.
+        if (typeof idx !== 'number') return;
+        const caAtom = info.caAtoms[idx];
+        if (!caAtom) return;
+
+        // Now, use caAtom for all display and highlighting logic
+        const resn = (caAtom.resn || '').trim().toUpperCase();
+        const one = threeToOne[resn] || '-';
+        const minResi = info.minResi;
+        const dispResi = caAtom.resi - minResi + 1;
         const label = `chain ${chain}, ${dispResi}: ${one}`;
         showStructureTooltipText(label);
 
         try {
-          const icode = String(atom.inscode ?? atom.icode ?? '').trim();
-          const key = `${chain}|${atom.resi}|${icode}`;
-          const info = chainInfoRef.current.byChain[chain];
-          const idx = info ? info.keyToIndex.get(key) : null;
-
           if (typeof onHighlightRef.current === 'function' && idx != null) {
             const payload = { residueIndex: idx, chainId: chain };
             const last = lastSentHighlightRef.current;
             const isSame = last && last.residueIndex === payload.residueIndex && last.chainId === payload.chainId;
-            
+
             if (!isSame) {
               lastSentHighlightRef.current = payload;
               onHighlightRef.current(payload, panelIdRef.current);
@@ -284,9 +296,11 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
           }
         } catch {}
 
-        scheduleHalo(atom);
+        // Pass the caAtom to the halo function to ensure the highlight
+        // is always centered on the backbone.
+        scheduleHalo(caAtom);
       },
-      function onUnhover() {
+        function onUnhover() {
         setIsHovering(false);
         hideStructureTooltipText();
         scheduleHalo(null);
@@ -437,7 +451,9 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
 
   // useEffect hooks for highlighting
   useEffect(() => {
-    if (isHovering) return;
+    // If this panel is the source of the highlight, 
+    // let the direct onHover/onUnhover logic handle it exclusively.
+    if (highlightOrigin === panelId) return;
     if (Array.isArray(data?.linkedResiduesByKey) && data.linkedResiduesByKey.length > 0) {
       return;
     }
@@ -466,7 +482,7 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
 
     hideStructureTooltipText();
     scheduleHalo(null);
-  }, [data?.linkedResidueIndex, data?.linkedChainId, linkedPanelData]);
+  }, [data?.linkedResidueIndex, data?.linkedChainId, linkedPanelData, highlightOrigin, panelId]);
 
   useEffect(() => {
     const v = viewerRef.current;
