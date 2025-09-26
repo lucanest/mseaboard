@@ -67,12 +67,13 @@ function PhylipHeatmap({
   linkedHighlightCell,
   showlegend = true,
   diamondView = true,
+  threshold,
+  onThresholdChange,
 }) {
   const containerRef = useRef();
   const canvasRef = useRef();
   const rafIdRef = useRef(null);
   const lastHoverRef = useRef({ row: null, col: null });
-  const [threshold, setThreshold] = useState(null);
   const [colorbarTooltip, setColorbarTooltip] = useState({
   visible: false,
   x: 0,
@@ -239,8 +240,9 @@ function PhylipHeatmap({
       value = min + ((relX / rect.width) * (max - min));
       value = Math.max(min, Math.min(max, value));
     }
-    // Toggle threshold: set if not set, reset if set
-    setThreshold((prev) => (prev === null ? value : null));
+    if (onThresholdChange) {
+      onThresholdChange(threshold === null ? value : null);
+    }
   };
 
   // Convert linkedHighlightCell (labels) to indices

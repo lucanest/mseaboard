@@ -560,7 +560,7 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
   hoveredPanelId, setHoveredPanelId, setPanelData, onReupload, highlightedSite, panelLinks,
   highlightOrigin, onHighlight, justLinkedPanels,linkBadges, onRestoreLink, colorForLink, onUnlink, onGenerateTree
 }) {
-  const { labels, matrix, filename, diamondMode=false } = data || {};
+  const { labels, matrix, filename, diamondMode=false, threshold=null } = data || {};
   const [containerRef, dims] = useElementSize({ debounceMs: 90 });
   const handleDiamondToggle = useCallback(() => {
   setPanelData(pd => ({
@@ -598,6 +598,19 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
       };
     });
   };
+
+    const handleThresholdChange = useCallback(
+    (newThreshold) => {
+      setPanelData(prev => ({
+        ...prev,
+        [id]: {
+          ...prev[id],
+          threshold: newThreshold,
+        },
+      }));
+    },
+    [id, setPanelData]
+  );
 
   if (!labels || !matrix) {
     return (
@@ -670,6 +683,8 @@ return (
         diamondView={diamondMode}
         highlightedCells={data.highlightedCells || []}
         linkedHighlightCell={data.linkedHighlightCell}
+        threshold={threshold}                      
+        onThresholdChange={handleThresholdChange}
         />
       ) : (
         <div className="flex-1 flex items-center justify-center text-gray-400">No data</div>
