@@ -1,8 +1,11 @@
 // StructureViewer.jsx
 import React, { useEffect, useRef, useState } from 'react';
-import { Stack, Slider } from '@mui/material';
+import { Stack, Slider, IconButton, Button, Tooltip, Box, Chip } from '@mui/material';
+import { Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { threeToOne } from './Utils.jsx';
-import { residueColorHex,chainColors } from '../constants/colors.js';
+import { residueColorHex, chainColors } from '../constants/colors.js';
+import { SurfaceGlyph } from './Buttons.jsx';
+import { secondaryStructureColors, atomColors } from '../constants/colors.js';  
 
 function ensure3Dmol(cb) {
   if (window.$3Dmol) return cb();
@@ -22,26 +25,66 @@ function ensure3Dmol(cb) {
   document.body.appendChild(script);
 }
 
-
 const getChainColor = (chain) => {
   if (!chain) return '#FFFFFF';
   const idx = chain.split('').reduce((acc, c) => acc + c.charCodeAt(0), 0) % chainColors.length;
   return chainColors[idx];
 };
 
+// New color schemes
+const colorSchemes = {
+  chain: (atom) => getChainColor(atom.chain),
+  residue: (atom) => {
+    const resn = (atom.resn || '').trim().toUpperCase();
+    const one = threeToOne[resn] || '-';
+    return residueColorHex[one] || '#FFFFFF';
+  },
+  element: (atom) => {
+    const elem = (atom.elem || '').toUpperCase();
+    return atomColors[elem] || '#EA80FC';
+  },
+secondary: (atom) => {
+    // Enhanced secondary structure coloring
+    // Accepts: h=helix, s=sheet, c=coil, t=turn, b=bend, e=bridge
+    const ss = (atom.ss || '').toLowerCase();
+    if (ss === 'h') return secondaryStructureColors.helix;
+    if (ss === 's') return secondaryStructureColors.sheet;
+    if (ss === 'c') return secondaryStructureColors.coil;
+    if (ss === 't') return secondaryStructureColors.turn;
+    if (ss === 'b') return secondaryStructureColors.bend;
+    if (ss === 'e') return secondaryStructureColors.bridge;
+    return '#CCCCCC'; // default
+  }
+};
+
+// Representation styles
+const representationStyles = {
+  cartoon: { cartoon: {} },
+  stick: { stick: { radius: 0.15 } },
+  sphere: { sphere: { radius: 0.5 } },
+  line: { line: {} }
+};
+
 function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onHighlight,
   linkedPanelData, highlightOrigin }) {
   const viewerDiv = useRef(null);
   const viewerRef = useRef(null);
-  const surfaceHandleRef = useRef(null);
   const appliedInitialViewRef = useRef(false);
   const lastSentHighlightRef = useRef(undefined);
   const [opacity, setOpacity] = useState(0.8);
-  const [sliderTooltip, setSliderTooltip] = useState(false);
   const [isHovering, setIsHovering] = useState(false);
   const didInitOpacity = useRef(false);
 
-  // restore opacity from data
+  // New state variables for enhanced features
+  const [showControls, setShowControls] = useState(false);
+  const [colorScheme, setColorScheme] = useState('residue');
+  const [representation, setRepresentation] = useState('cartoon');
+  const [showWaters, setShowWaters] = useState(false);
+  const [showHydrogens, setShowHydrogens] = useState(false);
+  const [showLabels, setShowLabels] = useState(false);
+  const [backgroundColor, setBackgroundColor] = useState(data?.backgroundColor || 'white');
+
+  // Restore opacity from data
   useEffect(() => {
     didInitOpacity.current = false;
   }, [panelId]);
@@ -55,10 +98,18 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
       }
       didInitOpacity.current = true;
     }
-  // Only run on mount or panelId change
   }, [panelId, data?.opacity]);
 
-  // StructureTooltip: use state for small structures, direct DOM updates in perf mode
+  // Restore other settings from data
+  useEffect(() => {
+    if (data?.colorScheme) setColorScheme(data.colorScheme);
+    if (data?.representation) setRepresentation(data.representation);
+    if (data?.showWaters !== undefined) setShowWaters(data.showWaters);
+    if (data?.showHydrogens !== undefined) setShowHydrogens(data.showHydrogens);
+    if (data?.backgroundColor) setBackgroundColor(data.backgroundColor);
+  }, [data]);
+
+  // StructureTooltip
   const [tooltip, setStructureTooltip] = useState(null);
   const tooltipRef = useRef(null);
 
@@ -68,10 +119,33 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
   const rafIdRef = useRef(null);
   const lastRenderTsRef = useRef(0);
 
+  const controlsRef = useRef(null);
+
+  // Close controls when clicking outside
+  useEffect(() => {
+    if (!showControls) return;
+
+    function handleClickOutside(event) {
+      if (
+        controlsRef.current &&
+        !controlsRef.current.contains(event.target)
+      ) {
+        setShowControls(false);
+      }
+    }
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showControls]);
+
   // 3Dmol handles
   const modelRef = useRef(null);
-  const hoverShapeRef = useRef(null);     // needed for the hover halo
-  const linkedShapesRef = useRef([]);     // shapes for multi-highlights
+  const hoverShapeRef = useRef(null);
+  const linkedShapesRef = useRef([]);
+  const labelShapesRef = useRef([]);
+
   const _clearLinkedShapes = () => {
     const v = viewerRef.current;
     if (!v) return;
@@ -79,6 +153,15 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
       try { v.removeShape(sh); } catch {}
     }
     linkedShapesRef.current = [];
+  };
+
+  const _clearLabels = () => {
+    const v = viewerRef.current;
+    if (!v) return;
+    for (const sh of labelShapesRef.current) {
+      try { v.removeLabel(sh); } catch {}
+    }
+    labelShapesRef.current = [];
   };
 
   const _addLinkedSphere = (atom) => {
@@ -92,14 +175,10 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
     });
     return sh;
   };
-  // throttle window in ms when perfMode = true
-  const HOVER_THROTTLE_MS = 60; // tuned a bit higher for giant structures
 
-  const chainInfoRef = useRef({
-    // byChain: { [chainId]: { caAtoms: Array<atom>, keyToIndex: Map, length: number } }
-    byChain: {}
-  });
+  const HOVER_THROTTLE_MS = 60;
 
+  const chainInfoRef = useRef({ byChain: {} });
   const linkedChainIdRef = useRef(data?.linkedChainId);
   useEffect(() => { linkedChainIdRef.current = data?.linkedChainId; }, [data?.linkedChainId]);
 
@@ -139,6 +218,7 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
       setStructureTooltip(text);
     }
   };
+
   const hideStructureTooltipText = () => {
     if (perfModeRef.current && tooltipRef.current) {
       tooltipRef.current.style.display = 'none';
@@ -154,7 +234,7 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
     v.setHoverable(
       { atom: 'CA' },
       true,
-            function onHover(atom) {
+      function onHover(atom) {
         setIsHovering(true);
         if (!atom || atom.hetflag) return;
 
@@ -178,8 +258,6 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
             const last = lastSentHighlightRef.current;
             const isSame = last && last.residueIndex === payload.residueIndex && last.chainId === payload.chainId;
             
-            // Always emit the highlight with detailed chain info.
-            // App.jsx will handle routing to the correct linked panel.
             if (!isSame) {
               lastSentHighlightRef.current = payload;
               onHighlightRef.current(payload, panelIdRef.current);
@@ -193,58 +271,129 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
         setIsHovering(false);
         hideStructureTooltipText();
         scheduleHalo(null);
-          if (typeof onHighlightRef.current === 'function') {
-            if (lastSentHighlightRef.current !== null) {
-              lastSentHighlightRef.current = null;
-              onHighlightRef.current(null, panelIdRef.current);
-            }
+        if (typeof onHighlightRef.current === 'function') {
+          if (lastSentHighlightRef.current !== null) {
+            lastSentHighlightRef.current = null;
+            onHighlightRef.current(null, panelIdRef.current);
           }
+        }
       }
     );
   };
 
-
-
-  const defaultColorFunc = (atom) => {
-    const resn = (atom.resn || '').trim().toUpperCase();
-    const one = threeToOne[resn] || '-';
-    return residueColorHex[one] || '#FFFFFF';
+  const applyColorScheme = () => {
+    const m = modelRef.current;
+    const v = viewerRef.current;
+    if (!m || !v) return;
+    
+    m.setColorByFunction({}, colorSchemes[colorScheme]);
+    v.render();
   };
 
-  const applyCartoonOnce = () => {
+  const applyRepresentation = () => {
     const v = viewerRef.current;
     if (!v) return;
-    // Use per-atom colors (pre-bake them via setColorByFunction)
-    v.setStyle({}, { cartoon: {} });
+    
+    // Clear existing styles
+    v.setStyle({}, {});
+    
+    // Apply main representation
+    v.setStyle({}, representationStyles[representation]);
+    
+    // Apply additional styles for specific atom types
+    if (showWaters) {
+      v.setStyle({ resn: 'HOH' }, { sphere: { radius: 0.3 } });
+    }
+    
+    if (showHydrogens) {
+      v.setStyle({ atom: 'H' }, { sphere: { radius: 0.1 } });
+    }
+    
+    v.render();
   };
 
-  const colorAllDefaultOnce = () => {
-    const m = modelRef.current;
-    if (!m) return;
-    m.setColorByFunction({}, defaultColorFunc);
+  const applyLabels = () => {
+    _clearLabels();
+    if (!showLabels) return;
+    
+    const v = viewerRef.current;
+    const byChain = chainInfoRef.current.byChain;
+    if (!v || !byChain) return;
+
+    Object.keys(byChain).forEach(chainId => {
+      const info = byChain[chainId];
+      // Label every 10th residue to avoid clutter
+      info.caAtoms.forEach((atom, index) => {
+        if (index % 10 === 0) {
+          const label = v.addLabel(
+            `${chainId}:${index + 1}`,
+            { 
+              position: atom, 
+              backgroundColor: 'rgba(0,0,0,0.7)', 
+              fontColor: 'white',
+              fontSize: 10
+            }
+          );
+          labelShapesRef.current.push(label);
+        }
+      });
+    });
+    v.render();
+  };
+
+  const applyBackgroundColor = () => {
+    const v = viewerRef.current;
+    if (!v) return;
+    
+    v.setBackgroundColor(backgroundColor);
+    v.render();
+  };
+
+
+  const saveViewState = () => {
+    const v = viewerRef.current;
+    if (!v) return;
+    
+    const view = v.getView();
+    const slab = v.getSlab();
+    const center = v.getCenter ? v.getCenter() : undefined;
+    
+    setPanelData((prev) => ({
+      ...prev,
+      [panelId]: {
+        ...prev[panelId],
+        view,
+        slab,
+        center,
+        opacity,
+        colorScheme,
+        representation,
+        showWaters,
+        showHydrogens,
+        backgroundColor
+      }
+    }));
   };
 
   const _removeHoverShape = () => {
-      const v = viewerRef.current;
-      if (!v) return;
-      if (hoverShapeRef.current) {
-        v.removeShape(hoverShapeRef.current);
-        hoverShapeRef.current = null;
-      }
-    };
+    const v = viewerRef.current;
+    if (!v) return;
+    if (hoverShapeRef.current) {
+      v.removeShape(hoverShapeRef.current);
+      hoverShapeRef.current = null;
+    }
+  };
 
   const showHoverHalo = (atom) => {
     const v = viewerRef.current;
     if (!v) return;
 
-    _removeHoverShape(); 
-    // Remove previous halo
+    _removeHoverShape();
     if (!atom) {
       v.render();
       return;
     }
 
-    // Draw a small translucent sphere centered at the hovered CA
     hoverShapeRef.current = v.addSphere({
       center: { x: atom.x, y: atom.y, z: atom.z },
       radius: 1.8,
@@ -267,11 +416,9 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
     });
   };
 
-
-
+  // useEffect hooks for highlighting
   useEffect(() => {
-    if (isHovering) return; // Don't override tooltip/halo if user is hovering
-    // If multi-linked residues are present, don't override them here.
+    if (isHovering) return;
     if (Array.isArray(data?.linkedResiduesByKey) && data.linkedResiduesByKey.length > 0) {
       return;
     }
@@ -281,50 +428,35 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
     if (!v || !byChain) return;
 
     const chainId = data?.linkedChainId;
-    //console.log('[Structure] chosen chain for single-link (data.linkedChainId):', chainId);
     const residIdx = data?.linkedResidueIndex;
 
     if (chainId && byChain[chainId] && Number.isInteger(residIdx)) {
       const a = byChain[chainId].caAtoms[residIdx];
-        if (a) {
-          //console.log('[Structure] single-link highlight:', { chainId, residIdx, resi: a.resi, icode: a.inscode || a.icode || '' });
-          // Show halo
-          scheduleHalo(a);
-
-          // Build tooltip label same as hover
-          const info = byChain[chainId];
-          const minResi = info ? info.minResi : 1;
-          const resn = (a.resn || '').trim().toUpperCase();
-          const one = threeToOne[resn] || '-';
-          const dispResi = a.resi - minResi + 1;
-          const label = `chain ${a.chain || ''}, ${dispResi}: ${one}`;
-
-          // StructureTooltip (linked-driven)
-          showStructureTooltipText(label);
-          return;
-    
+      if (a) {
+        scheduleHalo(a);
+        const info = byChain[chainId];
+        const minResi = info ? info.minResi : 1;
+        const resn = (a.resn || '').trim().toUpperCase();
+        const one = threeToOne[resn] || '-';
+        const dispResi = a.resi - minResi + 1;
+        const label = `chain ${a.chain || ''}, ${dispResi}: ${one}`;
+        showStructureTooltipText(label);
+        return;
       }
-      //console.log('[Structure] single-link: atom not found for', { chainId, residIdx });
     }
-    //console.log('[Structure] single-link: no valid chain/residIdx:', { chainId, residIdx, chains: Object.keys(byChain) });
 
-    // Clear if no valid linked highlight
     hideStructureTooltipText();
     scheduleHalo(null);
   }, [data?.linkedResidueIndex, data?.linkedChainId, linkedPanelData]);
 
-  // Render multiple persistent highlights from heatmap links
   useEffect(() => {
     const v = viewerRef.current;
     const byChain = chainInfoRef.current.byChain;
     if (!v || !byChain) return;
 
     const list = data?.linkedResiduesByKey;
-    // If list is defined (even empty), it owns the persistent linked shapes
     if (!Array.isArray(list) || list.length === 0) return;
-    //console.log('[Structure] incoming linkedResiduesByKey:', list);
 
-    // Clear previous linked shapes
     _clearLinkedShapes();
 
     const fmt = (a) => {
@@ -337,7 +469,6 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
       return `chain ${chain}, ${dispResi}:${one}`;
     };
 
-    // Build and draw
     const atomsToShow = [];
     for (const item of list) {
       if (!item) continue;
@@ -348,23 +479,15 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
       const icode = (item.icode || '').trim();
 
       const info = byChain[chain];
-      if (!info){
-        console.log('[Structure] no such chain in structure:', chain, 'available:', Object.keys(byChain));
-        continue;
-      }
+      if (!info) continue;
+      
       const key = `${chain}|${dispResi}|${icode}`;
       const idx = info.keyToIndex.get(key);
-      if (idx == null) {
-       // Try fallback without insertion code for visibility
-       const idxNoIcode = info.keyToIndex.get(`${chain}|${resi}|`);
-        console.log('[Structure] key miss:', { wanted: key, fallbackIdxNoIcode: idxNoIcode });
-        continue;
-      }
+      if (idx == null) continue;
+      
       const atom = info.caAtoms[idx];
       if (atom) atomsToShow.push(atom);
     }
-
-    //console.log('[Structure] will draw spheres for N atoms =', atomsToShow.length);
 
     for (const a of atomsToShow) {
       const sh = _addLinkedSphere(a);
@@ -373,26 +496,25 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
 
     v.render();
 
-      // ---- Combined tooltip for multi-highlights ----
-   if (atomsToShow.length > 0) {
-     const tip = atomsToShow.map(fmt).join(' | ');
-     showStructureTooltipText(tip);
-   } else {
-     hideStructureTooltipText();
-   }
+    if (atomsToShow.length > 0) {
+      const tip = atomsToShow.map(fmt).join(' | ');
+      showStructureTooltipText(tip);
+    } else {
+      hideStructureTooltipText();
+    }
 
     return () => {
       _clearLinkedShapes();
     };
   }, [data?.linkedResiduesByKey]);
+
   const rebuildSurface = () => {
     const v = viewerRef.current;
     if (!v) return;
     v.removeAllSurfaces();
-    surfaceHandleRef.current = null;
 
     if (surface) {
-      surfaceHandleRef.current = v.addSurface('SAS', {
+      v.addSurface('SAS', {
         opacity: opacity,
         colorfunc: function (atom) {
           return getChainColor(atom.chain);
@@ -403,16 +525,15 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
     v.render();
   };
 
-  // Create viewer once per PDB string
+  // Initialization
   useEffect(() => {
     if (!pdb || !viewerDiv.current) return;
 
     ensure3Dmol(() => {
-      // reset container
       viewerDiv.current.innerHTML = '';
 
       const viewer = window.$3Dmol.createViewer(viewerDiv.current, {
-        backgroundColor: 'white',
+        backgroundColor: backgroundColor,
         antialias: true,
         id: `viewer-${panelId}`,
         width: '100%',
@@ -425,39 +546,37 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
       modelRef.current = viewer.getModel(0);
       buildChainInfo(modelRef.current);
 
-
-      // size check → enable perf mode for big structures
       let isPerf = false;
       try {
-        const atomCount = modelRef.current.selectedAtoms({}).length; // all atoms
-        isPerf = atomCount > 20000000;
+        const atomCount = modelRef.current.selectedAtoms({}).length;
+        isPerf = atomCount > 20000;
       } catch {
-        isPerf = true; // safe fallback
+        isPerf = true;
       }
       perfModeRef.current = isPerf;
       setPerfMode(isPerf);
 
-      applyCartoonOnce();
-      colorAllDefaultOnce();
+      // Apply all styles and settings
+      applyRepresentation();
+      applyColorScheme();
       rebuildSurface();
       setupHoverStructureTooltip();
+      applyLabels();
+      applyBackgroundColor();
 
       viewer.setZoomLimits(0.9, 1000);
 
-      // ---- APPLY SAVED CAMERA + CENTER + SLAB ----
+      // Restore saved view state
       const savedView = data?.view;
       const savedSlab = data?.slab;
       const savedCenter = data?.center;
 
-      // 1) Center on all atoms so rotation group exists
       if (viewer.center) viewer.center({}, false);
 
-      // 2) If we previously saved an explicit center, restore it
       if (savedCenter && viewer.setCenter) {
         viewer.setCenter(savedCenter);
       }
 
-      // 3) Apply the saved camera or a sensible default
       if (savedView) {
         if (typeof savedView.zoom === 'number') {
           savedView.zoom = Math.max(0.1, Math.min(savedView.zoom, 5000));
@@ -469,78 +588,77 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
         viewer.zoom(0.8);
       }
 
-      // 4) Apply slab (or widen if missing)
-      if (
-        savedSlab &&
-        Number.isFinite(savedSlab.near) &&
-        Number.isFinite(savedSlab.far) &&
-        savedSlab.far > savedSlab.near
-      ) {
+      if (savedSlab && Number.isFinite(savedSlab.near) && Number.isFinite(savedSlab.far) && savedSlab.far > savedSlab.near) {
         viewer.setSlab(savedSlab.near, savedSlab.far);
       } else {
         const { near, far } = viewer.getSlab();
         viewer.setSlab(near - 1e6, far + 1e6);
       }
 
-      // Debounce hit-testing a bit more in perf mode
       viewer.setHoverDuration(isPerf ? 60 : 0);
-
       viewer.render();
     });
 
     return () => {
-      // Cleanup on PDB change/unmount
       if (rafIdRef.current) cancelAnimationFrame(rafIdRef.current);
       const v = viewerRef.current;
       if (v) {
         _removeHoverShape();
         _clearLinkedShapes();
+        _clearLabels();
         v.removeAllSurfaces();
         try { v.clear(); } catch {}
       }
       viewerRef.current = null;
       modelRef.current = null;
-      surfaceHandleRef.current = null;
     };
   }, [pdb, panelId]);
 
-  // Update surface without rebuilding the viewer
+  // Effect hooks
   useEffect(() => {
-    if (!viewerRef.current) return;
-    rebuildSurface();
+    if (viewerRef.current) {
+      applyColorScheme();
+      saveViewState();
+    }
+  }, [colorScheme]);
+
+  useEffect(() => {
+    if (viewerRef.current) {
+      applyRepresentation();
+      saveViewState();
+    }
+  }, [representation, showWaters, showHydrogens]);
+
+  useEffect(() => {
+    if (viewerRef.current) {
+      applyLabels();
+    }
+  }, [showLabels]);
+
+  useEffect(() => {
+    if (viewerRef.current) {
+      applyBackgroundColor();
+      saveViewState();
+    }
+  }, [backgroundColor]);
+
+  useEffect(() => {
+    if (viewerRef.current) {
+      rebuildSurface();
+    }
   }, [surface, opacity]);
 
-
-
-useEffect(() => {
-  setPanelData((prev) => ({
-    ...prev,
-    [panelId]: {
-      ...prev[panelId],
-      opacity,
-    },
-  }));
-}, [opacity, panelId, setPanelData]);
-
-  // Apply saved view once when workspace loads (if viewer already exists)
   useEffect(() => {
-    const v = viewerRef.current;
-    if (!v) return;
-    if (appliedInitialViewRef.current) return;
-    const savedView = data?.view;
-    if (savedView) {
-      v.setView(savedView);
-      v.render();
-      appliedInitialViewRef.current = true;
-    }
-  }, [data?.view]);
+    setPanelData((prev) => ({
+      ...prev,
+      [panelId]: {
+        ...prev[panelId],
+        opacity,
+      },
+    }));
+  }, [opacity, panelId, setPanelData]);
 
-  // Reset last sent highlight when chain changes, so the first hover on the new chain still emits
-useEffect(() => {
-  lastSentHighlightRef.current = null;
-}, [data?.linkedChainId]);
-
-  // Persist view only on interaction end (avoid re-rendering during drag)
+  // useEffect hooks for view persistence
   useEffect(() => {
     const el = viewerDiv.current;
     const v = viewerRef.current;
@@ -582,6 +700,10 @@ useEffect(() => {
     };
   }, [panelId, setPanelData]);
 
+  useEffect(() => {
+    lastSentHighlightRef.current = null;
+  }, [data?.linkedChainId]);
+
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
       <div
@@ -592,27 +714,218 @@ useEffect(() => {
           position: 'relative',
           overflow: 'hidden',
           borderRadius: '0.75rem',
-          background: 'white'
+          background: backgroundColor
         }}
         className="structure-viewer-container"
       />
-  {surface && (
-  <div style={{ position: 'relative', width: '26%', height: '10%',bottom: '28px', left: '4px'  } }>
-  <Stack spacing={2} direction="row" sx={{ alignItems: 'center', mb: 1 }}>
-  
-  <Slider aria-label="Volume" value={opacity} onChange={(_, v) => setOpacity(Array.isArray(v) ? v[0] : v)}
-  step={0.01}
-  min={0.4}
-  max={1}
-  sx={(t) => ({
-              color: 'rgba(0,0,0,0.37)',
-              '& .MuiSlider-track': {
-                border: 'none',
-              },
-              '& .MuiSlider-thumb': {
-                width: 18,
-                height: 18,
-                backgroundColor: '#fff',
+      
+      {/* Control Panel */}
+      {showControls && (
+        
+        <Box
+          ref={controlsRef}
+          sx={{
+            position: 'absolute',
+            top: 5,
+            left: 5,
+            background: 'rgba(255, 255, 255, 0.95)',
+            borderRadius: 2,
+            p: 1,
+            boxShadow: 2,
+            minWidth: 200,
+            maxWidth: 300,
+            maxHeight: 'calc(100% - 20px)', // 20px for top+bottom margin
+            overflowY: 'auto',
+          }}
+        >
+
+          {/* Color Scheme */}
+          <Box sx={{ mb: 1 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+            <Chip
+              label="Colors"
+              size="small"
+              sx={{
+                mb: 0.5,
+                bgcolor: '#E5E7EB',
+                color: 'black',
+                fontWeight: 300,
+                borderRadius: 1.5,
+                fontSize: 10,
+                px: 0.5,
+                boxShadow: 1,
+              }}
+            />
+      {/* Surface toggle button */}
+    <Tooltip
+      title={surface ? "Hide surface" : "Show surface"}
+      placement="right"
+      slotProps={{
+        popper: {
+          sx: {
+            '& .MuiTooltip-tooltip': {
+              backgroundColor: '#E5E7EB',
+              color: 'black',
+              fontSize: 10,
+              fontWeight: 500,
+              borderRadius: 2,
+              boxShadow: 2,
+            }
+          }
+        }
+      }}
+    >
+      <IconButton
+        size="small"
+        sx={{
+          ml: 1,
+          mb: 0.5,
+          background: 'transparent',
+          transition: 'background 0.2s',
+        }}
+        onClick={() => setPanelData(prev => ({
+          ...prev,
+          [panelId]: {
+            ...prev[panelId],
+            surface: !surface
+          }
+        }))}
+      >
+        <SurfaceGlyph style={{ width: 20, height: 20}} />
+      </IconButton>
+    </Tooltip>
+  </Box>
+            <Stack spacing={0.4}>
+              {Object.keys(colorSchemes).map(scheme => (
+                <Button
+                  key={scheme}
+                  size="small"
+                  variant={colorScheme === scheme ? "contained" : "outlined"}
+                  onClick={() => setColorScheme(scheme)}
+                  sx={{ justifyContent: 'flex-start', textTransform: 'none',
+                    backgroundColor: colorScheme === scheme ? '#60a5fa' : 'inherit',
+                   }}
+                >
+                  {scheme.charAt(0).toUpperCase() + scheme.slice(1)}
+                </Button>
+              ))}
+            </Stack>
+          </Box>
+
+          {/* Representation */}
+          <Box sx={{ mb: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 1 }}>
+            <Chip
+              label="Representation"
+              size="small"
+              sx={{
+                mb: 0.5,
+                bgcolor: '#E5E7EB',
+                color: 'black',
+                fontWeight: 300,
+                borderRadius: 1.5,
+                fontSize: 10,
+                px: 0.5,
+                boxShadow: 1,
+              }}
+            />
+          </Box>
+            <Stack spacing={0.4}>
+              {Object.keys(representationStyles).map(style => (
+                <Button
+                  key={style}
+                  size="small"
+                  variant={representation === style ? "contained" : "outlined"}
+                  onClick={() => setRepresentation(style)}
+                  sx={{ justifyContent: 'flex-start', textTransform: 'none',
+                    backgroundColor: representation === style ? '#60a5fa' : 'inherit',
+                   }}
+                >
+                  {style.charAt(0).toUpperCase() + style.slice(1)}
+                </Button>
+              ))}
+            </Stack>
+          </Box>
+
+          {/* Options */}
+          <Box sx={{ mb: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 1 }}>
+            <Chip
+              label="Options"
+              size="small"
+              sx={{
+                mb: 0.5,
+                bgcolor: '#E5E7EB',
+                color: 'black',
+                fontWeight: 300,
+                borderRadius: 1.5,
+                fontSize: 10,
+                px: 0.5,
+                boxShadow: 1,
+              }}
+            />
+          </Box>
+            <Stack spacing={0.4}>
+              <Button 
+                size="small" 
+                variant={showWaters ? "contained" : "outlined"}
+                onClick={() => setShowWaters(!showWaters)}
+                sx={{ textTransform: 'none', backgroundColor: showWaters ? '#60a5fa' : 'inherit' }}
+              >
+                Waters
+              </Button>
+              <Button 
+                size="small" 
+                variant={showLabels ? "contained" : "outlined"}
+                onClick={() => setShowLabels(!showLabels)}
+                sx={{ textTransform: 'none', backgroundColor: showLabels ? '#60a5fa' : 'inherit' }}
+              >
+                Labels
+              </Button>
+              <Button 
+                size="small" 
+                variant={showHydrogens ? "contained" : "outlined"}
+                onClick={() => setShowHydrogens(!showHydrogens)}
+                sx={{ textTransform: 'none', backgroundColor: showHydrogens ? '#60a5fa' : 'inherit' }}
+              >
+                Hydrogens
+              </Button>
+            </Stack>
+          </Box>
+
+          {/* Surface Opacity Slider */}
+          {surface && (
+            <Box sx={{ mb: 1 }}>
+              <Chip 
+                label={`Surface opacity: ${Math.round(opacity * 100)}%`} 
+                size="small" 
+                
+                sx={{ mb: 0.5 ,                bgcolor: '#E5E7EB',
+                color: 'black',
+                fontWeight: 300,
+                borderRadius: 1.5,
+                fontSize: 10,
+                px: 0.5,
+                boxShadow: 1}} 
+              />
+              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+                <Slider
+                  value={opacity}
+                  onChange={(_, v) => setOpacity(Array.isArray(v) ? v[0] : v)}
+                  step={0.01}
+                  min={0.4}
+                  max={1}
+                  size="small"
+                  sx={{ 
+                    width: '90%',         
+                    maxWidth: 180,        
+                    color: 'rgba(0,0,0,0.87)',
+                    mx: 'auto',           
+                    '& .MuiSlider-track': { border: 'none' },
+                    '& .MuiSlider-thumb': {
+                      width: 16,
+                      height: 16,
+                      backgroundColor: '#fff',
                 '&::before': {
                   boxShadow: '0 4px 8px rgba(0,0,0,0.4)',
                 },
@@ -620,38 +933,52 @@ useEffect(() => {
                   boxShadow: 'none',
                 },
               },
-              ...t.applyStyles('dark', {
-                color: '#fff',
-              }),
-            })}
-        onMouseEnter={() => setSliderTooltip(true)}
-        onMouseLeave={() => setSliderTooltip(false)}
-      />
-      {/* Tooltip for the slider */}
-      {sliderTooltip && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '-30px',
-            left: '-18px',
-            background: 'rgba(0,0,0,0.3)',
-            color: '#fff',
-            padding: '2px 8px',
-            borderRadius: '10px',
-            fontSize: '12px',
-            pointerEvents: 'none',
-            whiteSpace: 'nowrap',
-            zIndex: 20,
+                  }}
+                />
+              </Box>
+            </Box>
+          )}
+
+{/* Background */}
+<Box sx={{ mb: 1 }}>
+  <Stack direction="row" spacing={1} alignItems="center">
+    <Chip
+      label="Background"
+      size="small"
+      sx={{
+        bgcolor: '#E5E7EB',
+        color: 'black',
+        fontWeight: 300,
+        borderRadius: 1.5,
+        fontSize: 10,
+        px: 0.5,
+        boxShadow: 1,
+      }}
+    />
+    <Stack direction="row" spacing={0.5} flexWrap="wrap">
+      {['white', '#1a1a1a'].map(color => (
+        <Box
+          key={color}
+          sx={{
+            width: 24,
+            height: 24,
+            bgcolor: color,
+            border: '2px solid',
+            borderColor: backgroundColor === color ? 'primary.main' : 'transparent',
+            cursor: 'pointer',
+            borderRadius: 1,
+            margin: '2px!important'
           }}
-        >
-          Surface Opacity: {Math.round(opacity * 100)}%
-        </div>
-      )}
+          onClick={() => setBackgroundColor(color)}
+        />
+      ))}
+    </Stack>
   </Stack>
-      </div>
+</Box>
+        </Box>
       )}
 
-      {/* StructureTooltip: in perf mode we update via ref to avoid React churn */}
+      {/* Structure Tooltip */}
       <div
         ref={tooltipRef}
         style={{
@@ -672,6 +999,25 @@ useEffect(() => {
       >
         {tooltip}
       </div>
+
+      {/* Toggle Controls Button (when hidden) */}
+      {!showControls && (
+        <IconButton
+          sx={{
+            position: 'absolute',
+            top: 5,
+            left: 5,
+            background: 'rgba(255, 255, 255, 0.9)',
+            boxShadow: 2,
+                '&:hover': {
+           background: '#DBEAFE',
+           },
+          }}
+          onClick={() => setShowControls(true)}
+        >
+          <Cog6ToothIcon style={{ width: 14, height: 14, color: '#333' }} />
+        </IconButton>
+      )}
     </div>
   );
 }
