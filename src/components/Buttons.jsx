@@ -289,10 +289,11 @@ function DiamondGlyph(props) {
   );
 }
 
-function SurfaceGlyph(props) {
+
+export function SurfaceGlyph(props) {
   return (
     <svg viewBox="0 0 1784.000000 1744.000000"
-    aria-hidden="true"  {...props} fill="#c2410c" >
+    aria-hidden="true"  {...props} fill="gray" >
     <g transform="translate(9000.000000,1744.000000) scale(10.100000,10.100000)" ></g>
     <g transform="translate(-1010.000000,2590.000000) scale(0.200000,-0.200000)" 
      strokeWidth="20px">
@@ -384,20 +385,6 @@ export function TreeButton({ onClick, tooltip = null }){
   );
 };
 
-export function SurfaceToggleButton({ onClick, isActive }) {
-  return (
-<button
-      type="button"
-      onClick={onClick}
-    >
-      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
-       ${isActive ? 'bg-orange-100' : 'bg-gray-100'}
-        border border-gray-400 hover:bg-orange-200`}>
-        <SurfaceGlyph className="w-4 h-4 text-orange-700 flex-shrink-0 -translate-y-[0px]" />
-      </span>
-    </button>
-  );
-}
 
 export function BranchLengthsButton({ onClick, isActive }) {
   return (
