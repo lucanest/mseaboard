@@ -1686,7 +1686,10 @@ useEffect(() => {
 {(() => {
   // Determine if a tooltip should be shown at all
   const isLocalHover = tooltipSite != null && hoveredPanelId === id;
-  const isExternalHighlight = finalHighlightedSite != null;
+    const isExternalHighlight = (
+    finalHighlightedSite != null &&
+    typeof finalHighlightedSite === "number"
+  );
 
   if (!isLocalHover && !isExternalHighlight) {
     return null;
