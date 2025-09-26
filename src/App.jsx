@@ -26,7 +26,7 @@ import debounce from 'lodash.debounce';
 import GridLayout from 'react-grid-layout';
 import ReactDOM from 'react-dom';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
-CodonToggleButton, TranslateButton, SurfaceToggleButton, SiteStatsButton, LogYButton,
+CodonToggleButton, TranslateButton, SiteStatsButton, LogYButton,
 SeqlogoButton, SequenceButton, DistanceMatrixButton,
  DownloadButton, GitHubButton, SearchButton, TreeButton,
  DiamondButton, BranchLengthsButton,
@@ -713,10 +713,6 @@ const chainIds = React.useMemo(() => {
   }, [chainIds]);
 
 
-  const handleSurfaceToggle = React.useCallback(() => {
-    setPanelData(pd => ({ ...pd, [id]: { ...pd[id], surface: !surface }}));
-  }, [id, setPanelData, surface]);
-
   const handleDownload = useCallback(() => {
     if (!pdb) return;
     const base = baseName(filename, 'structure');
@@ -773,8 +769,6 @@ const pickChain = React.useCallback((choice) => {
         onDuplicate={onDuplicate}
         onRemove={onRemove}
         extraButtons={[
-          { element: <SurfaceToggleButton onClick={handleSurfaceToggle} isActive={surface} />,
-           tooltip: surface ? "Hide surface" : "Show surface" },
           { element: <SequenceButton onClick={() => onCreateSequenceFromStructure(id)} />,
            tooltip: "Extract sequences from structure" },
           { element: <DistanceMatrixButton onClick={handleMatrixClick} title='Build distance matrix from structure' />,
