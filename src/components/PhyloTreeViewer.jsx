@@ -109,7 +109,7 @@ const maxMargin = radial ? 140 : 50;
 const margin = Math.max(minMargin, Math.min(maxMargin, maxLabelLength * approxCharWidth));
 const radius = Math.min(size.width, size.height) / 2 - margin;
 const diameter = radius * 2;
-const maxRadius = radius - 50;
+const maxRadius = radius - 30;
 const tooltip = d3.select(container).select(".tooltip").empty()
   ? d3.select(container)
       .append("div")
@@ -295,7 +295,7 @@ const branchPaths = g.append('g')
   .attr('fill', 'none')
   .style('pointer-events', 'none')
   .attr('stroke', LIGHT_GRAY_COLOR)
-  .attr('stroke-width', 2)
+  .attr('stroke-width', 2*scaleFactor)
   .attr('d', linkPathGen);
 
 // Invisible, thick hover targets for the same links
@@ -540,10 +540,16 @@ g.append('g')
 .attr('dy', radial ? '0.35em' : null)
 .attr('dominant-baseline', radial ? 'auto' : 'middle')
 .text(d => (d.data && typeof d.data.name !== 'undefined') ? d.data.name : '')
-  .style('font-size', d => {
+.style('font-size', d => {
     const { isHighlight, isPersistentHighlight } = getHighlightState(d);
-    const baseSize = Math.max(minFontSize, Math.min(maxFontSize, 12 * fontScale));
-    return isHighlight || isPersistentHighlight ? `${baseSize * 1.6}px` : `${baseSize}px`;
+    let baseSize = 12 * fontScale;
+    if (radial && maxLabelLength > 0) {
+      const availableWidth = margin - 12; // Buffer space
+      const fontSizeToFit = availableWidth / (maxLabelLength * 0.35); // Using 0.45 as a character width heuristic
+      baseSize = Math.min(baseSize, fontSizeToFit);
+    }
+    const finalSize = Math.max(minFontSize, Math.min(maxFontSize, baseSize));
+    return isHighlight || isPersistentHighlight ? `${finalSize * 1.6}px` : `${finalSize}px`;
   })
   .style('fill', d => {
     const { isHighlight, isPersistentHighlight } = getHighlightState(d);
