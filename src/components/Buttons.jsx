@@ -1,5 +1,5 @@
 // Buttons.jsx
-import { LinkIcon, MagnifyingGlassIcon, ChartBarIcon , Squares2X2Icon, DocumentDuplicateIcon, XMarkIcon, Bars3Icon, EyeIcon, LanguageIcon, CodeBracketIcon, ArrowDownTrayIcon, MagnifyingGlassCircleIcon } from '@heroicons/react/24/outline';
+import { LinkIcon, MagnifyingGlassIcon,ScissorsIcon, ChartBarIcon , Squares2X2Icon, DocumentDuplicateIcon, XMarkIcon, Bars3Icon, EyeIcon, LanguageIcon, CodeBracketIcon, ArrowDownTrayIcon, MagnifyingGlassCircleIcon } from '@heroicons/react/24/outline';
 
 export function DuplicateButton({ onClick }) {
   return (
@@ -221,6 +221,25 @@ export function DownloadButton({ onClick, title = "Download" }) {
       </span>
     </button>
   );
+}
+
+export function PruneButton({ onClick, isActive}) {
+  return (
+    <button
+
+      type="button"
+      onClick={onClick}
+      className='p-0.5'
+    >
+      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
+        ${isActive ? 'bg-red-200' : 'bg-gray-100'}
+        border ${isActive ? 'border-2 border-red-400' : 'border-gray-400'}
+        hover:bg-red-200`}>
+        <ScissorsIcon className="w-4 h-4 text-red-700 flex-shrink-0 -translate-y-[0px]" />
+      </span>
+    </button>
+  );
+
 }
 
 export function SearchButton({ onClick }) {

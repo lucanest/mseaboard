@@ -29,7 +29,7 @@ import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SiteStatsButton, LogYButton,
 SeqlogoButton, SequenceButton, DistanceMatrixButton,
  DownloadButton, GitHubButton, SearchButton, TreeButton,
- DiamondButton, BranchLengthsButton,
+ DiamondButton, BranchLengthsButton, PruneButton,
  TableChartButton} from './components/Buttons.jsx';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick,
@@ -1827,6 +1827,30 @@ useEffect(() => {
   );
 });
 
+function toNewick(node) {
+  let result = '';
+  if (node.children && node.children.length > 0) {
+    const childStrings = node.children.map(child => toNewick(child)).join(',');
+    result += `(${childStrings})`;
+  }
+  if (node.data && node.data.name) {
+    const sanitizedName = String(node.data.name).replace(/[():,;\s]/g, '_');
+    if(sanitizedName) result += sanitizedName;
+  }
+  // Check for and serialize NHX data
+  if (node.data && node.data.nhx && Object.keys(node.data.nhx).length > 0) {
+    const nhxString = Object.entries(node.data.nhx)
+      .map(([key, value]) => `${key}=${value}`)
+      .join(':');
+    if (nhxString) {
+      result += `[&&NHX:${nhxString}]`;
+    }
+  }
+  if (node.data && typeof node.data.length === 'number' && node.data.length > 0) {
+    result += `:${node.data.length}`;
+  }
+  return result;
+}
 const TreePanel = React.memo(function TreePanel({
   id, data, onRemove, onReupload, onDuplicate, onGenerateDistance,
   highlightedSequenceId, onHoverTip, panelLinks,
@@ -1835,7 +1859,7 @@ const TreePanel = React.memo(function TreePanel({
   setHoveredPanelId, setPanelData,justLinkedPanels,
   linkBadges, onRestoreLink, colorForLink, onUnlink,
 }) {
-  const { data: newick, filename, isNhx, RadialMode= true, drawBranchLengths=false } = data || {};
+  const { data: newick, filename, isNhx, RadialMode= true, drawBranchLengths=false, pruneMode = false } = data || {};
 
   const handleRadialToggle = useCallback(() => {
     setPanelData(pd => ({
@@ -1856,6 +1880,16 @@ const TreePanel = React.memo(function TreePanel({
       }
     }));
   }, [id, setPanelData, drawBranchLengths]);
+
+  const handlePruneToggle = useCallback(() => {
+    setPanelData(pd => ({
+      ...pd,
+      [id]: {
+        ...pd[id],
+        pruneMode: !pruneMode
+      }
+    }));
+  }, [id, setPanelData, pruneMode]);
 
   const handleDownload = useCallback(() => {
     const text = data?.data || '';
@@ -1888,6 +1922,7 @@ const TreePanel = React.memo(function TreePanel({
       { element: <BranchLengthsButton onClick={handleBranchLengthsToggle} isActive={drawBranchLengths} />, tooltip: !drawBranchLengths ? "Draw using branch lengths" : "Draw ignoring branch lengths" },
       { element: <RadialToggleButton onClick={handleRadialToggle} isActive={RadialMode}  />,
        tooltip: RadialMode ? "Switch to rectangular view" : "Switch to radial view" },
+      { element: <PruneButton onClick={handlePruneToggle} isActive={pruneMode} />, tooltip: pruneMode ? "Exit prune mode" : "Prune tree" },
       { element: <DistanceMatrixButton   onClick={() => onGenerateDistance(id)}  />,
        tooltip: "Build distance matrix from tree" },
       { element: <DownloadButton onClick={handleDownload} />,
@@ -1909,8 +1944,10 @@ const TreePanel = React.memo(function TreePanel({
             radial={RadialMode}
             useBranchLengths={drawBranchLengths}
             id={id}
-          setPanelData={setPanelData}
-          highlightedNodes={
+            setPanelData={setPanelData}
+            pruneMode={pruneMode}
+            toNewick={toNewick}
+            highlightedNodes={
             (hoveredPanelId === id || (Array.isArray(linkedTo) && linkedTo.includes(hoveredPanelId)))
               ? (data.highlightedNodes ? [...data.highlightedNodes, highlightedSequenceId] : [highlightedSequenceId])
               : (data.highlightedNodes || [])

@@ -14,6 +14,8 @@ const PhyloTreeViewer = ({
   linkedTo, highlightOrigin, radial= false, setPanelData,
   highlightedNodes = [], linkedHighlights = [],
   useBranchLengths = false,
+  pruneMode = false,
+  toNewick,
 }) => {
   const containerRef = useRef();
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -96,8 +98,8 @@ const convertToD3Hierarchy = (node) => {
   };
 };
 
-const data = convertToD3Hierarchy(parsed);
-const root = d3.hierarchy(data);
+let data = convertToD3Hierarchy(parsed);
+let root = d3.hierarchy(data);
 const leavesCount = root.leaves().length;
 const fontScale = 2.7*scaleFactor / Math.sqrt(leavesCount / 10 + 1);
 const maxLabelLength = d3.max(root.leaves(), d => (d.data.name || '').length);
@@ -277,7 +279,7 @@ const classicRadialLinkGenerator = (link) => {
     return `M ${sx},${sy} A ${sr},${sr} 0 0 ${sweepFlag} ${ix},${iy} L ${tx},${ty}`;
 };
 
-// Correct link generator for rectangular "elbow" paths
+// Link generator for rectangular "elbow" paths
 const classicRectangularLinkGenerator = d3.linkHorizontal()
     .x(d => d.y)
     .y(d => d.x);
@@ -306,19 +308,82 @@ g.append('g')
   .attr('stroke', 'transparent')
   .attr('stroke-width', 13)
   .attr('d', linkPathGen)
+  .style('cursor', pruneMode ? 'pointer' : 'default')
   .on('mouseenter', function (event, d) {
     const idx = links.indexOf(event);
-    if (idx > -1) d3.select(branchPaths.nodes()[idx]).attr('stroke', MAGENTA_COLOR);
+    if (idx > -1) {
+        const branchPath = d3.select(branchPaths.nodes()[idx]);
+        if (pruneMode) {
+            branchPath.attr('stroke', '#E50000').attr('stroke-width', 3);
+        } else {
+            branchPath.attr('stroke', MAGENTA_COLOR);
+        }
+    }
 
     const length = event?.target?.data?.length;
-    tooltip
-      .style("display", "block")
-      .html(`<strong>Branch length:</strong> ${length !== undefined ? d3.format(".4f")(length) : 'N/A'}`);
+    if (pruneMode) {
+        tooltip.style("display", "block").html(`<strong>Click to prune this branch</strong>`);
+    } else {
+        tooltip
+          .style("display", "block")
+          .html(`<strong>Branch length:</strong> ${length !== undefined ? d3.format(".4f")(length) : 'N/A'}`);
+    }
   })
   .on('mouseleave', function (event, d) {
     const idx = links.indexOf(event);
-    if (idx > -1) d3.select(branchPaths.nodes()[idx]).attr('stroke', LIGHT_GRAY_COLOR);
+    if (idx > -1) d3.select(branchPaths.nodes()[idx]).attr('stroke', LIGHT_GRAY_COLOR).attr('stroke-width', 2);
     tooltip.html('').style("display", "none");
+  })
+  .on('click', (event, d) => {
+    if (!pruneMode) return;
+  
+    const nodeToPrune = event.target;
+    const parent = nodeToPrune.parent;
+  
+    if (!parent) return; // Cannot prune a node without a parent (e.g., the root)
+  
+    // Case 1: Parent has exactly two children. Pruning one will create a unary node.
+    if (parent.children && parent.children.length === 2) {
+      const grandparent = parent.parent;
+      const sibling = parent.children.find(child => child !== nodeToPrune);
+  
+      if (!sibling) return;
+  
+      // New branch length for the sibling is its own plus its parent's branch length.
+      const parentBranchLength = parent.data.length || 0;
+      const siblingBranchLength = sibling.data.length || 0;
+      sibling.data.length = parentBranchLength + siblingBranchLength;
+  
+      if (grandparent) {
+        // Re-parent the sibling to the grandparent.
+        const parentIndex = grandparent.children.indexOf(parent);
+        if (parentIndex !== -1) {
+          grandparent.children[parentIndex] = sibling; // Replace parent with sibling.
+          sibling.parent = grandparent; // Update sibling's parent pointer.
+        }
+      } else {
+        // The parent was the root. The sibling becomes the new root.
+        sibling.parent = null;
+        root = sibling; // Re-assign the root of the hierarchy.
+      }
+    } 
+    // Case 2: Parent is part of a polytomy (more than 2 children).
+    else if (parent.children) {
+      // Just remove the node. This won't create a unary node.
+      parent.children = parent.children.filter(child => child !== nodeToPrune);
+    }
+  
+    // Reserialize the modified tree structure.
+    const newNewickString = toNewick(root) + ';';
+  
+    // Update the panel data.
+    setPanelData(prev => ({
+      ...prev,
+      [id]: {
+        ...prev[id],
+        data: newNewickString,
+      }
+    }));
   });
 
 // Add dotted lines for label alignment (if using branch lengths)
@@ -375,7 +440,7 @@ if (radial) {
       onHoverTip?.(nodeName || '', id);
       setHighlightedNode(nodeName || null);
     })
-    .on('mousemove', function (event) {
+    .on('mousemove', function (event, d) {
       setHighlightedNode(event.data?.name || null);
     })
     .on('mouseleave', (event, d) => {
@@ -538,7 +603,7 @@ g.append('g')
     }
 
     setDebugInfo(`Tree rendered successfully. Found ${Object.keys(colorMap).length} different ${colorField} values.`);
-  }, [newickStr, isNhx, size, linkedTo, highlightOrigin, onHoverTip,highlightedNodes,linkedHighlights, radial, useBranchLengths]);
+  }, [newickStr, isNhx, size, linkedTo, highlightOrigin, onHoverTip,highlightedNodes,linkedHighlights, radial, useBranchLengths, pruneMode, id, setPanelData, toNewick]);
 
   useEffect(() => {
     function handleDocumentMouseMove(e) {
