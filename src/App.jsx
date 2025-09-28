@@ -1859,7 +1859,7 @@ const TreePanel = React.memo(function TreePanel({
   setHoveredPanelId, setPanelData,justLinkedPanels,
   linkBadges, onRestoreLink, colorForLink, onUnlink,
 }) {
-  const { data: newick, filename, isNhx, RadialMode= true, drawBranchLengths=false, pruneMode = false } = data || {};
+  const { filename, isNhx, RadialMode= true, drawBranchLengths=false, pruneMode = false } = data || {};
 
   const handleRadialToggle = useCallback(() => {
     setPanelData(pd => ({
@@ -1898,14 +1898,31 @@ const TreePanel = React.memo(function TreePanel({
     mkDownload(base, text, ext)();
   }, [data]);
 
+  // Dynamic version of the panel data.
+  // This lets us merge stored highlights (from clicks) with live highlights (from hovers).
+  const dynamicPanelData = useMemo(() => {
+    const baseHighlights = data.highlightedNodes || [];
+    const isHoverActive = hoveredPanelId === id || (Array.isArray(linkedTo) && linkedTo.includes(hoveredPanelId));
+
+    // Add the sequence ID from a linked panel if hover is active
+    const finalHighlightedNodes = isHoverActive && highlightedSequenceId
+      ? [...new Set([...baseHighlights, highlightedSequenceId])] // Use a Set to prevent duplicates
+      : baseHighlights;
+
+    // Return a new object that includes the dynamic highlights
+    return {
+      ...data,
+      highlightedNodes: finalHighlightedNodes,
+    };
+  }, [data, highlightedSequenceId, hoveredPanelId, id, linkedTo]);
+
   return (
     <PanelContainer
     id={id}
     linkedTo={linkedTo}
     hoveredPanelId={hoveredPanelId}
     setHoveredPanelId={setHoveredPanelId}
-    //onDoubleClick={() => onReupload(id)}
-    panelLinks={panelLinks} 
+    panelLinks={panelLinks}
     isEligibleLinkTarget={isEligibleLinkTarget}
     justLinkedPanels={justLinkedPanels}
     >
@@ -1936,27 +1953,28 @@ const TreePanel = React.memo(function TreePanel({
       />
       <div className="flex-1 overflow-auto flex items-center justify-center">
           <PhyloTreeViewer
-            newick={newick}
-            isNhx={isNhx}
+            // Pass the entire data object. It contains the newick string,
+            // saved settings, and the dynamically calculated highlights.
+            panelData={dynamicPanelData}
+            
+            id={id}
+            setPanelData={setPanelData}
             onHoverTip={onHoverTip}
             linkedTo={linkedTo}
             highlightOrigin={highlightOrigin}
+            toNewick={toNewick}
+            
+            isNhx={isNhx}
             radial={RadialMode}
             useBranchLengths={drawBranchLengths}
-            id={id}
-            setPanelData={setPanelData}
             pruneMode={pruneMode}
-            toNewick={toNewick}
-            highlightedNodes={
-            (hoveredPanelId === id || (Array.isArray(linkedTo) && linkedTo.includes(hoveredPanelId)))
-              ? (data.highlightedNodes ? [...data.highlightedNodes, highlightedSequenceId] : [highlightedSequenceId])
-              : (data.highlightedNodes || [])
-          }
-          linkedHighlights={
-            (hoveredPanelId === id || (Array.isArray(linkedTo) && linkedTo.includes(hoveredPanelId)))
-              ? (data.linkedHighlights ? [...data.linkedHighlights, highlightedSequenceId] : [highlightedSequenceId])
-              : (data.linkedHighlights || [])
-          }
+
+            // This prop is also dynamic and used for a different highlight effect
+            linkedHighlights={
+              (hoveredPanelId === id || (Array.isArray(linkedTo) && linkedTo.includes(hoveredPanelId)))
+                ? (data.linkedHighlights ? [...data.linkedHighlights, highlightedSequenceId] : [highlightedSequenceId])
+                : (data.linkedHighlights || [])
+            }
           />
       </div>
     </PanelContainer>
