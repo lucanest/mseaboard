@@ -1956,7 +1956,7 @@ const TreePanel = React.memo(function TreePanel({
             // Pass the entire data object. It contains the newick string,
             // saved settings, and the dynamically calculated highlights.
             panelData={dynamicPanelData}
-            
+
             id={id}
             setPanelData={setPanelData}
             onHoverTip={onHoverTip}
@@ -2754,13 +2754,13 @@ const addPanel = useCallback((config = {}) => {
         y: newY,
         w: layoutHint.w || originalLayout.w,
         h: layoutHint.h || 10,
-        minW: 3,
-        minH: 5,
+        minW: 2,
+        minH: 3,
         ...layoutHint,
       };
     } else {
       const maxY = layoutWithoutFooter.reduce((max, l) => Math.max(max, l.y + l.h), 0);
-      newLayoutItem = { i: newId, x: (layoutWithoutFooter.length * 4) % 12, y: maxY, w: 4, h: 20, minW: 3, minH: 5, ...layoutHint };
+      newLayoutItem = { i: newId, x: (layoutWithoutFooter.length * 4) % 12, y: maxY, w: 4, h: 20, minW: 2, minH: 3, ...layoutHint };
     }
     const nextLayout = [...layoutWithoutFooter, newLayoutItem];
     const newMaxY = nextLayout.reduce((max, l) => Math.max(max, l.y + l.h), 0);
@@ -2937,7 +2937,7 @@ const handleCreateSequenceFromStructure = useCallback((id) => {
     if (!seq) return;
     const newId = `alignment-from-pdb-${chainId}-${Date.now()}-${idx}`;
     newPanels.push({ i: newId, type: 'alignment' });
-    newLayouts.push({ i: newId, x: 0, y: baseY + idx * 3, h: 3, w: 12, minH: 2, minW: 3 });
+    newLayouts.push({ i: newId, x: 0, y: baseY + idx * 3, h: 3, w: 12, minH: 2, minW: 2 });
     newPanelDataEntries[newId] = {
       data: [{ id: `${baseNameStr}_chain_${chainId}`, sequence: seq }],
       filename: `${baseNameStr}_chain_${chainId}.fasta`,
