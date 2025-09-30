@@ -149,6 +149,16 @@ function SeqLogoGlyph(props) {
   );
 }
 
+function ZeroOneGlyph(props) {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" {...props}>
+      <text x="0"  y="18" fill="#be185d" fontSize="16" fontWeight="500">0</text>
+      <text x="10"  y="18" fill="#be185d" fontSize="18" fontWeight="500">/</text>
+      <text x="16" y="18" fill="#be185d" fontSize="16" fontWeight="500">1</text>
+    </svg>
+  );
+}
+
 export function SeqlogoButton({ onClick }){
   return (
     <button
@@ -255,6 +265,8 @@ export function SearchButton({ onClick }) {
     </button>
   );
 }
+
+
 
 function DiamondGlyph(props) {
   return (
@@ -387,6 +399,20 @@ export function LogYButton({ onClick, isActive,  title = "Toggle log scale on Y"
 }
 
 
+
+export function ZeroOneButton({ onClick, tooltip = null }){
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+    >
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg
+        bg-gray-100 hover:bg-red-200 border border-gray-400">
+        <ZeroOneGlyph className="w-4 h-4 text-green-700 flex-shrink-0 -translate-y-[0px]" />
+      </span>
+    </button>
+  );
+};
 
 
 
