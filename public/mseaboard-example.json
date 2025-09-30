@@ -3381,7 +3381,8 @@
   "panelLinks": {
     "alignment-1758211720545": [
       "histogram-1759258157682",
-      "histogram-1759258129503"
+      "histogram-1759258129503",
+      "tree-1759259931812"
     ],
     "histogram-1759258157682": [
       "histogram-1759258129503",
@@ -3389,13 +3390,17 @@
     ],
     "histogram-1759258129503": [
       "histogram-1759258157682",
+      "alignment-1758211720545"
+    ],
+    "tree-1759259931812": [
       "alignment-1758211720545"
     ]
   },
   "panelLinkHistory": {
     "alignment-1758211720545": [
       "histogram-1759258157682",
-      "histogram-1759258129503"
+      "histogram-1759258129503",
+      "tree-1759259931812"
     ],
     "histogram-1759258157682": [
       "histogram-1759258129503",
@@ -3403,6 +3408,9 @@
     ],
     "histogram-1759258129503": [
       "histogram-1759258157682",
+      "alignment-1758211720545"
+    ],
+    "tree-1759259931812": [
       "alignment-1758211720545"
     ]
   }
