@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  **/
+// App.jsx
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
@@ -25,7 +26,7 @@ import ReactDOM from 'react-dom';
 import pako from 'pako';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SiteStatsButton, LogYButton,
-SeqlogoButton, SequenceButton, DistanceMatrixButton,
+SeqlogoButton, SequenceButton, DistanceMatrixButton, ZeroOneButton,
  DownloadButton, GitHubButton, SearchButton, TreeButton,
  DiamondButton, BranchLengthsButton, PruneButton,
  TableChartButton} from './components/Buttons.jsx';
@@ -47,6 +48,15 @@ import SequenceLogoCanvas from './components/Seqlogo.jsx';
 import StructureViewer from './components/StructureViewer.jsx';
 import useElementSize from './hooks/useElementSize.js'
 
+
+const detectIndexingMode = (xValues) => {
+  // If the first x-value is 0, assume the data is 0-based.
+  if (Array.isArray(xValues) && xValues.length > 0 && xValues[0] === 0) {
+    return '0-based';
+  }
+  // Otherwise, default to the more common 1-based convention.
+  return '1-based';
+};
 
 const LABEL_WIDTH = 66;
 const CELL_SIZE = 24;
@@ -1714,9 +1724,8 @@ useEffect(() => {
 {(() => {
   // Determine if a tooltip should be shown at all
   const isLocalHover = tooltipSite != null && hoveredPanelId === id;
-    const isExternalHighlight = (
-    finalHighlightedSite != null &&
-    typeof finalHighlightedSite === "number"
+  const isExternalHighlight = (
+    finalHighlightedSite != null && Number.isInteger(finalHighlightedSite) && finalHighlightedSite >= 0
   );
 
   if (!isLocalHover && !isExternalHighlight) {
@@ -2051,7 +2060,7 @@ const HistogramPanel = React.memo(function HistogramPanel({
   linkBadges, onRestoreLink, colorForLink, onUnlink,
   onGenerateCorrelationMatrix
 }) {
-  const { filename } = data;
+  const { filename, indexingMode = '1-based' } = data;
   const isTabular = !Array.isArray(data.data);
   const [selectedCol, setSelectedCol] = useState(
     isTabular
@@ -2074,6 +2083,7 @@ const HistogramPanel = React.memo(function HistogramPanel({
       : null
   );
 
+
   const handlePanelMouseLeave = useCallback(() => {
     setPanelData(prev => ({
       ...prev,
@@ -2083,6 +2093,18 @@ const HistogramPanel = React.memo(function HistogramPanel({
       }
     }));
   }, [id, setPanelData]);
+
+  const handleIndexingToggle = useCallback(() => {
+    setPanelData(prev => {
+      const currentMode = prev[id]?.indexingMode || '1-based';
+      const newMode = currentMode === '1-based' ? '0-based' : '1-based';
+      return {
+        ...prev,
+        [id]: { ...prev[id], indexingMode: newMode }
+      };
+    });
+  }, [id, setPanelData]);
+
 
   const handleDownload = useCallback(() => {
     const base = baseName(filename, 'data');
@@ -2196,22 +2218,32 @@ const HistogramPanel = React.memo(function HistogramPanel({
         onRemove={onRemove}
         onMouseEnter={handlePanelMouseLeave}
         extraButtons={[
-...(!tableViewMode ? [{
-    element: <LogYButton onClick={() => {
-      setPanelData(prev => ({
-        ...prev,
-        [id]: { ...prev[id], yLog: !yLog }
-      }));
-      setYLog(v => !v);
-    }} isActive={yLog} />,
-    tooltip: "Toggle log scale on the y axis"
-  }] : []),
-  {
+        ...(!tableViewMode ? [{
+            element: <LogYButton onClick={() => {
+              setPanelData(prev => ({
+                ...prev,
+                [id]: { ...prev[id], yLog: !yLog }
+              }));
+              setYLog(v => !v);
+            }} isActive={yLog} />,
+            tooltip: "Toggle log scale on the y axis"
+          }] : []),
+      {
             element: <TableChartButton 
               onClick={handleTableViewToggle} 
               isActive={tableViewMode}
             />,
             tooltip: tableViewMode ? "Switch to barchart view" : "Switch to table view"
+          },
+           {
+            element: <ZeroOneButton onClick={handleIndexingToggle} isActive={indexingMode === '1-based'} />,
+            tooltip: (
+              <>
+                Switch indexing base for linking.
+                <br />
+                Current: {indexingMode === '1-based' ? '1-based (site 1 is first)' : '0-based (site 0 is first)'}
+              </>
+            )
           },
           ...(isTabular && numericCols.length >= 2 ? [{
             element: <DistanceMatrixButton onClick={handleCorrelationMatrix} />,
@@ -2308,6 +2340,7 @@ const HistogramPanel = React.memo(function HistogramPanel({
             linkedTo={linkedTo}
             height={containerHeight}
             yLogActive={yLog}
+            indexingMode={indexingMode}
           />
         )}
       </div>
@@ -2740,7 +2773,7 @@ const colorForLink = useCallback((selfId, partnerId, active) => {
 }, [linkColors, pairKey, linkpalette]);
 
 const addPanel = useCallback((config = {}) => {
-  const { type, data, basedOnId, layoutHint = {}, autoLinkTo = null } = config;
+  const { type, data, layoutHint = {}, autoLinkTo = null } = config;
   const newId = `${type}-${Date.now()}`;
 
   setPanelData(prev => ({ ...prev, [newId]: data }));
@@ -2753,27 +2786,60 @@ const addPanel = useCallback((config = {}) => {
   setLayout(prevLayout => {
     const layoutWithoutFooter = prevLayout.filter(l => l.i !== '__footer');
     const footer = prevLayout.find(l => l.i === '__footer');
-    let newLayoutItem;
-    const originalLayout = basedOnId ? layoutWithoutFooter.find(l => l.i === basedOnId) : null;
-    if (originalLayout) {
-      const rightX = originalLayout.x + originalLayout.w;
-      const fitsRight = rightX + originalLayout.w <= 12;
-      const newX = fitsRight ? rightX : originalLayout.x;
-      const newY = fitsRight ? originalLayout.y : originalLayout.y + originalLayout.h;
-      newLayoutItem = {
-        i: newId,
-        x: newX,
-        y: newY,
-        w: layoutHint.w || originalLayout.w,
-        h: layoutHint.h || 10,
-        minW: 2,
-        minH: 3,
-        ...layoutHint,
-      };
-    } else {
-      const maxY = layoutWithoutFooter.reduce((max, l) => Math.max(max, l.y + l.h), 0);
-      newLayoutItem = { i: newId, x: (layoutWithoutFooter.length * 4) % 12, y: maxY, w: 4, h: 20, minW: 2, minH: 3, ...layoutHint };
+    const GRID_W = 12;
+    const defaultW = layoutHint.w || 4;
+    const defaultH = layoutHint.h || 20;
+
+    // Build a 2D occupancy map
+    const occupancy = {};
+    layoutWithoutFooter.forEach(l => {
+      for (let x = l.x; x < l.x + l.w; x++) {
+        for (let y = l.y; y < l.y + l.h; y++) {
+          occupancy[`${x},${y}`] = true;
+        }
+      }
+    });
+
+    // Find the first position (x, y) where the new panel fits
+    let found = false, newX = 0, newY = 0;
+    outer: for (let y = 0; y < 100; y++) { // Arbitrary max grid height
+      for (let x = 0; x <= GRID_W - defaultW; x++) {
+        let fits = true;
+        for (let dx = 0; dx < defaultW; dx++) {
+          for (let dy = 0; dy < defaultH; dy++) {
+            if (occupancy[`${x+dx},${y+dy}`]) {
+              fits = false;
+              break;
+            }
+          }
+          if (!fits) break;
+        }
+        if (fits) {
+          newX = x;
+          newY = y;
+          found = true;
+          break outer;
+        }
+      }
     }
+    if (!found) {
+      // Place below all panels
+      const maxY = layoutWithoutFooter.reduce((max, l) => Math.max(max, l.y + l.h), 0);
+      newX = 0;
+      newY = maxY;
+    }
+
+    const newLayoutItem = {
+      i: newId,
+      x: newX,
+      y: newY,
+      w: defaultW,
+      h: defaultH,
+      minW: 2,
+      minH: 3,
+      ...layoutHint,
+    };
+
     const nextLayout = [...layoutWithoutFooter, newLayoutItem];
     const newMaxY = nextLayout.reduce((max, l) => Math.max(max, l.y + l.h), 0);
     const newFooter = { ...(footer || {}), i: '__footer', x: 0, y: newMaxY, w: 12, h: 2, static: true };
@@ -2863,14 +2929,21 @@ if (autoLinkTo) {
   const duplicatePanel = useCallback((id) => {
     const panel = panels.find(p => p.i === id);
     const data = panelData[id];
-    if (!panel || !data) return;
+    const layoutItem = layout.find(l => l.i === id);
+    if (!panel || !data || !layoutItem) return;
 
     addPanel({
       type: panel.type,
       data: JSON.parse(JSON.stringify(data)), // Deep copy
       basedOnId: id,
+      layoutHint: {
+      w: layoutItem.w,
+      h: layoutItem.h,
+      minW: layoutItem.minW,
+      minH: layoutItem.minH,
+    },
     });
-  }, [panels, panelData, addPanel]);
+  }, [panels, panelData, addPanel, layout]);
 
   const handleUnlink = useCallback((selfId, partnerId) => {
     setPanelLinks(pl => {
@@ -2923,7 +2996,7 @@ if (autoLinkTo) {
         filename: (data.filename ? data.filename : 'alignment')+'.sl.png',
       },
       basedOnId: id,
-      layoutHint: { h: 8 },
+      layoutHint: { h: 8, w: 6 },
       autoLinkTo: shouldLink ? id : null,
 
     });
@@ -3658,26 +3731,19 @@ targetIds.forEach(targetId => {
 
     // Histogram -> Alignment (scroll to MSA column or mapped X)
     'histogram->alignment': () => {
-      const sourceData = panelData[originId];
+      // The 'site' parameter is the 0-based index.
       const targetData = panelData[targetId];
       if (!targetData) return;
-      let col = site;
-      if (sourceData && !Array.isArray(sourceData.data)) {
-        const xCol = sourceData.selectedXCol ||
-          sourceData.data.headers.find(h => typeof sourceData.data.rows[0][h] === 'number');
-        if (xCol) {
-          const xVal = sourceData.data.rows[site]?.[xCol];
-          if (typeof xVal === 'number') col = xVal;
-        }
-      }
+
       const isCodon = !!targetData.codonMode;
+      const scrollCol = site;
+      
+      // Perform the scroll
       setScrollPositions(prev => {
-     const v = col * (isCodon ? 3 : 1) * CELL_SIZE;
-     if (prev[targetId] === v) return prev;
-     return { ...prev, [targetId]: v };
-   });
-      setHighlightSite(col);
-      setHighlightOrigin(originId);
+        const v = scrollCol * (isCodon ? 3 : 1) * CELL_SIZE;
+        if (prev[targetId] === v) return prev;
+        return { ...prev, [targetId]: v };
+      });
     },
 
     // Histogram -> Histogram (highlight same bar index)
@@ -3814,7 +3880,7 @@ targetIds.forEach(targetId => {
       if (fileInputRef.current) fileInputRef.current.click();
     }, [panelData, layout]);
 
-  const handleFileUpload = async (e) => {
+const handleFileUpload = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
 
@@ -3832,59 +3898,71 @@ targetIds.forEach(targetId => {
         const text = await file.text();
         const isNhx = /\.nhx$/i.test(filename) || text.includes('[&&NHX');
         panelPayload = { data: text, filename, isNhx };
-    } else if (type === 'histogram') {
+    } else if (type === 'histogram') {.
         const text = await file.text();
         const lines = text.trim().split(/\r?\n/);
-        if (
-        (filename.toLowerCase().endsWith('.tsv') && lines[0].includes('\t')) ||
-        (filename.toLowerCase().endsWith('.csv') && lines[0].includes(','))
-        ) {
-          const isTSV = filename.toLowerCase().endsWith('.tsv');
-          const delimiter = isTSV ? '\t' : ',';
-          const headers = lines[0].split(delimiter).map(h => h.trim());
-          const rows = lines.slice(1).map(line => {
-            const cols = line.split(delimiter);
-            const obj = {};
-            headers.forEach((h, i) => {
-              const v = cols[i]?.trim();
-              const n = Number(v);
-              obj[h] = isNaN(n) ? v : n;
+        const lower = filename.toLowerCase();
+
+        if ((lower.endsWith('.tsv') && lines[0]?.includes('\t')) ||
+            (lower.endsWith('.csv') && lines[0]?.includes(','))) {
+            const isTSV = lower.endsWith('.tsv');
+            const delimiter = isTSV ? '\t' : ',';
+            const headers = lines[0].split(delimiter).map(h => h.trim());
+            const rows = lines.slice(1).map(line => {
+                const cols = line.split(delimiter);
+                const obj = {};
+                headers.forEach((h, i) => {
+                    const v = cols[i]?.trim();
+                    const n = Number(v);
+                    obj[h] = Number.isFinite(n) && v !== '' ? n : v;
+                });
+                return obj;
             });
-            return obj;
-          });
-          panelPayload = { data: { headers, rows }, filename };
-          }
-        else {
-          // Split by line to preserve line numbers
-          const values = lines.map(line => Number(line.trim())).filter(n => !isNaN(n));
-          // Use line numbers (1-based) as xValues
-          panelPayload = { data: values, filename, xValues: values.map((_, i) => i + 1) };
+
+            // Correctly determine the default X column and use it for detection.
+            const defaultXCol = headers.find(h => typeof rows[0]?.[h] === 'number') || headers[0];
+            const xValues = rows.map(r => r[defaultXCol]);
+            const indexingMode = detectIndexingMode(xValues);
+
+            panelPayload = {
+                data: { headers, rows },
+                filename,
+                indexingMode,
+                selectedXCol: defaultXCol
+            };
+
+        } else {
+            // This handles plain text files with lists of numbers
+            const values = lines.map(s => Number(s.trim())).filter(n => Number.isFinite(n));
+            const xValues = values.map((_, i) => i + 1);
+            const indexingMode = detectIndexingMode(xValues); // Will be '1-based'
+            panelPayload = { data: values, filename, xValues, indexingMode };
         }
     } else if (type === 'heatmap') {
         const text = await file.text();
         const parsed = parsePhylipDistanceMatrix(text);
         panelPayload = { ...parsed, filename };
-  }    else if (type === 'structure') {
+    } else if (type === 'structure') {
         const text = await file.text();
         panelPayload = { pdb: text, filename };
-        }
+    }
 
-      // Update or add panel data
-      if (isReupload) {
-      setPanelData(prev => ({ ...prev, [id]: panelPayload }));}
-      else {
+    // Update or add panel data
+    if (isReupload) {
+        setPanelData(prev => ({ ...prev, [id]: panelPayload }));
+    } else {
         addPanel({
-          type,
-          data: panelPayload,
-          layoutHint: { w: 4, h: 20 }
+            type,
+            data: panelPayload,
+            layoutHint: { w: 4, h: 20 }
         });
-      }
+    }
 
-      // Reset input
-      pendingTypeRef.current = null;
-      pendingPanelRef.current = null;
-      if (fileInputRef.current) fileInputRef.current.value = null;
-  };
+    // Reset input
+    pendingTypeRef.current = null;
+    pendingPanelRef.current = null;
+    if (fileInputRef.current) fileInputRef.current.value = null;
+};
 
   const removePanel = useCallback((id) => {
     setPanels(p => p.filter(p => p.i !== id));
@@ -4157,13 +4235,26 @@ const buildPanelPayloadFromFile = async (file) => {
         });
         return obj;
       });
-      return { type: 'histogram', payload: { data: { headers, rows }, filename } };
+      
+      // Determine the default X column and use it for detection.
+      const defaultXCol = headers.find(h => typeof rows[0]?.[h] === 'number') || headers[0];
+      const xValues = rows.map(r => r[defaultXCol]);
+      const indexingMode = detectIndexingMode(xValues);
+
+      return { type: 'histogram', payload: {
+          data: { headers, rows },
+          filename,
+          indexingMode,
+          selectedXCol: defaultXCol
+      }}; 
     } else {
       const values = lines.map(s => Number(s.trim())).filter(n => Number.isFinite(n));
-      return { type: 'histogram', payload: { data: values, filename, xValues: values.map((_, i) => i + 1) } };
+      const xValues = values.map((_, i) => i + 1);
+      const indexingMode = detectIndexingMode(xValues);
+      return { type: 'histogram', payload: { data: values, filename, xValues, indexingMode } };
     }
-  }
 
+    }
   if (kind === 'heatmap') {
     try {
       const parsed = parsePhylipDistanceMatrix(text);
@@ -4180,7 +4271,6 @@ const buildPanelPayloadFromFile = async (file) => {
   return { type: 'unknown', payload: { filename } };
 };
 
-
 const handleCreateSiteStatsHistogram = useCallback((id) => {
   const data = panelData[id];
   if (!data || !Array.isArray(data.data)) return;
@@ -4188,17 +4278,22 @@ const handleCreateSiteStatsHistogram = useCallback((id) => {
   const isCodon = !!data.codonMode;
   const table = computeSiteStats(data.data, isCodon);
 
+  const xCol = isCodon ? 'codon' : 'site';
+  const xValues = table.rows.map(row => row[xCol]);
+  const indexingMode = detectIndexingMode(xValues);
+
   const baseName = (data.filename ? data.filename : 'alignment');
   addPanel({
     type: 'histogram',
     data: {
       data: table,
       filename: `${baseName}.stats${isCodon ? '_codon' : ''}.csv`,
-      selectedXCol: isCodon ? 'codon' : 'site',
-      selectedCol: 'conservation'
+      selectedXCol: xCol,
+      selectedCol: 'conservation',
+      indexingMode: indexingMode,
     },
     basedOnId: id,
-    layoutHint: { w: 4, h: 14 },
+    layoutHint: { w: 12, h: 7 },
     autoLinkTo: id,
   });
 }, [panelData, addPanel]);

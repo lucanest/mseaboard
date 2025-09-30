@@ -38,6 +38,7 @@ function Histogram({
   setPanelData,
   persistentHighlights,
   yLogActive = false,
+  indexingMode = '1-based',
 }) {
   const data = useMemo(() => {
     const n = values.length;
@@ -87,24 +88,38 @@ function Histogram({
     [persistentHighlights]
   );
 
-  const mappedHighlightedIndices = useMemo(() => {
-    if (highlightedSite == null || !xValues) return [];
+const mappedHighlightedIndices = useMemo(() => {
+    // Determine if this highlight event is relevant to this panel.
+    const isLinkedHighlight =
+      highlightedSite != null &&
+      Array.isArray(linkedTo) &&
+      linkedTo.includes(highlightOrigin) &&
+      panelId !== highlightOrigin;
 
+    // If it's not a relevant event, or we have no data, do nothing.
+    if (!isLinkedHighlight || !xValues) {
+      return [];
+    }
+
+    // The 'highlightedSite' from an MSA/SeqLogo is its 0-based index.
+    // Example: User hovers Site 14 -> highlightedSite = 13.
+    const siteFromMsa = highlightedSite;
+
+    // Based on our own indexing mode, figure out what number we're looking for.
+    // If we are 1-based, we need to find the bar for site 14 (13 + 1).
+    // If we are 0-based, we need to find the bar for site 13.
+    const valueToFind = indexingMode === '1-based' ? siteFromMsa + 1 : siteFromMsa;
+
+    // Find all array indices in our xValues that match this number.
     const indices = [];
     for (let i = 0; i < xValues.length; i++) {
-      // Use the same tolerant equality check as before
-      if (String(xValues[i]) === String(highlightedSite)) {
-        indices.push(i);
-      } else if (
-        !Number.isNaN(Number(xValues[i])) &&
-        !Number.isNaN(Number(highlightedSite)) &&
-        Number(xValues[i]) === Number(highlightedSite)
-      ) {
+      // Use a tolerant Number() comparison for data that might be strings.
+      if (Number(xValues[i]) === valueToFind) {
         indices.push(i);
       }
     }
     return indices;
-  }, [highlightedSite, xValues]);
+  }, [highlightedSite, highlightOrigin, linkedTo, panelId, xValues, indexingMode]);
 
   // Set for efficient lookups inside the barVisuals loop.
   const mappedHighlightedIndicesSet = useMemo(
@@ -365,9 +380,20 @@ function Histogram({
       idx = Math.max(0, Math.min(values.length - 1, Math.floor(iFloat)));
     }
 
+    const rawXValue = getXLabel(idx);
+    const numericXValue = Number(rawXValue);
+    let valueToSend = null;
+
+    if (!isNaN(numericXValue)) {
+      // If mode is 1-based, subtract 1 to get the 0-based index for linking.
+      // If mode is 0-based, the value is already the correct 0-based index.
+      valueToSend = indexingMode === '1-based' ? numericXValue - 1 : numericXValue;
+    }
+    
     setIsLocalTooltipActive(true);
     setHoverIndex(idx);
-    onHighlight(getXLabel(idx), panelId);
+    onHighlight(valueToSend, panelId);
+
   }, [
     chartInnerHeight,
     needScroll,
@@ -378,6 +404,7 @@ function Histogram({
     panelId,
     containerWidth,
     getXLabel,
+    indexingMode,
   ]);
 
   const getColumnStyle = useCallback((index) => {
