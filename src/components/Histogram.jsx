@@ -87,19 +87,30 @@ function Histogram({
     [persistentHighlights]
   );
 
-  const mappedHighlightedIndex = useMemo(() => {
-    if (highlightedSite == null) return null;
-    if (Array.isArray(xValues)) {
-      for (let i = 0; i < xValues.length; i++) {
-        // tolerant equality for number/string mismatches
-        if (String(xValues[i]) === String(highlightedSite)) return i;
-        if (!Number.isNaN(Number(xValues[i])) && !Number.isNaN(Number(highlightedSite)) &&
-            Number(xValues[i]) === Number(highlightedSite)) return i;
+  const mappedHighlightedIndices = useMemo(() => {
+    if (highlightedSite == null || !xValues) return [];
+
+    const indices = [];
+    for (let i = 0; i < xValues.length; i++) {
+      // Use the same tolerant equality check as before
+      if (String(xValues[i]) === String(highlightedSite)) {
+        indices.push(i);
+      } else if (
+        !Number.isNaN(Number(xValues[i])) &&
+        !Number.isNaN(Number(highlightedSite)) &&
+        Number(xValues[i]) === Number(highlightedSite)
+      ) {
+        indices.push(i);
       }
-      return null;
     }
-    return highlightedSite;
-  }, [highlightedSite, xValues, values.length]);
+    return indices;
+  }, [highlightedSite, xValues]);
+
+  // Set for efficient lookups inside the barVisuals loop.
+  const mappedHighlightedIndicesSet = useMemo(
+    () => new Set(mappedHighlightedIndices),
+    [mappedHighlightedIndices]
+  );
 
   const getColor = useCallback(
     (v) => {
@@ -148,7 +159,6 @@ function Histogram({
   }, [min, max, chartInnerHeight]);
 
   const xInterval = useMemo(() => {
-    //return Math.max(0, Math.floor(Math.sqrt(values.length)) - 1);
     return 19
   }, [values.length]);
 
@@ -191,22 +201,16 @@ function Histogram({
   const scrollBarIntoView = useCallback((index) => {
   if (!needScroll || index == null || !listRef.current) return;
 
-  // 1) If already visible, do nothing
   if (isIndexVisible(index)) {
     setScrollingToIndex(null);
     return;
   }
 
-  // 2) Otherwise, center (or bias) it
   const listWidth = innerWidth;
   const contentWidth = values.length * itemSize;
-
   const targetCenter = index * itemSize + itemSize / 2;
-
-  // bias: 0.5 centers, 0.35 puts it slightly right-of-center for more left context
   const bias = 0.35;
   const desiredLeft = targetCenter - listWidth * bias;
-
   const maxScroll = Math.max(0, contentWidth - listWidth);
   const nextScroll = Math.max(0, Math.min(maxScroll, desiredLeft));
 
@@ -218,18 +222,20 @@ function Histogram({
 
   useLayoutEffect(() => {
     const isLinkedTarget =
-      mappedHighlightedIndex != null &&
-      Array.isArray(linkedTo) && linkedTo.includes(highlightOrigin) &&
+      mappedHighlightedIndices.length > 0 &&
+      Array.isArray(linkedTo) &&
+      linkedTo.includes(highlightOrigin) &&
       panelId !== highlightOrigin &&
       needScroll;
 
     if (!isLinkedTarget) return;
 
     const id = requestAnimationFrame(() => {
-      if (mappedHighlightedIndex != null) scrollBarIntoView(mappedHighlightedIndex);
+      const firstIndex = mappedHighlightedIndices[0];
+      if (firstIndex != null) scrollBarIntoView(firstIndex);
     });
     return () => cancelAnimationFrame(id);
-  }, [mappedHighlightedIndex, highlightOrigin, linkedTo, panelId, needScroll, scrollBarIntoView]);
+  }, [mappedHighlightedIndices, highlightOrigin, linkedTo, panelId, needScroll, scrollBarIntoView]);
 
   const handleBarClick = useCallback((index) => {
     setPanelData((prev) => {
@@ -253,49 +259,52 @@ function Histogram({
     const n = data.length;
     const out = new Array(n);
     for (let i = 0; i < n; i++) {
-      // Use mappedHighlightedIndex (bar index that corresponds to incoming highlight)
       const isCurrentLinkedHighlight =
-        mappedHighlightedIndex === i &&
-        (Array.isArray(linkedTo) && linkedTo.includes(highlightOrigin) || panelId === highlightOrigin);
+        mappedHighlightedIndicesSet.has(i) &&
+        Array.isArray(linkedTo) &&
+        linkedTo.includes(highlightOrigin) &&
+        panelId !== highlightOrigin;
 
+      const isLocalHover = isLocalTooltipActive && hoverIndex === i;
       const isPersistentHighlight = highlightedSet.has(i);
-      
+
       out[i] = {
         fill: getColor(data[i].value),
-        stroke: isCurrentLinkedHighlight
-          ? 'black'
-          : isPersistentHighlight
-          ? '#cc0066'
-          : undefined,
+        stroke:
+          isCurrentLinkedHighlight || isLocalHover
+            ? 'black'
+            : isPersistentHighlight
+            ? '#cc0066'
+            : undefined,
         strokeWidth:
-          isCurrentLinkedHighlight || isPersistentHighlight ? 2 : 0,
+          isCurrentLinkedHighlight || isLocalHover || isPersistentHighlight ? 2 : 0,
       };
     }
     return out;
   }, [
     data,
     getColor,
-    mappedHighlightedIndex,
     linkedTo,
     highlightOrigin,
     panelId,
     highlightedSet,
+    isLocalTooltipActive,
+    hoverIndex,
+    mappedHighlightedIndicesSet,
   ]);
 
-const getTooltipPos = useCallback((index) => {
-    // Add bounds checking to prevent accessing non-existent data
+  const getTooltipPos = useCallback((index) => {
     if (index == null || index < 0 || index >= data.length) return null;
 
     const barLeftOffset = needScroll ? (itemSize - barWidth) / 2 : 0;
-const left =
-   LEFT_MARGIN +
-   (index * itemSize - (needScroll ? scrollLeft : 0)) +
-   barLeftOffset +
-   barWidth / 2;
+    const left =
+      LEFT_MARGIN +
+      (index * itemSize - (needScroll ? scrollLeft : 0)) +
+      barLeftOffset +
+      barWidth / 2;
     const y = yScale(transformY(data[index].value));
     const top = TOP_MARGIN + y;
 
-    // Estimate tooltip dimensions (w:120px, h:50px) and add some buffer
     const tooltipWidth = 130;
     const tooltipHeight = 100;
 
@@ -312,15 +321,14 @@ const left =
     };
   }, [containerWidth, height, itemSize, barWidth, needScroll, scrollLeft, yScale, data]);
 
-const localTooltipPos = getTooltipPos(hoverIndex);
+  const localTooltipPos = getTooltipPos(hoverIndex);
 
-const formatTooltip = useCallback((v) => {
-  if (!yLogActive) return `${v}`;
-  if (yLogActive && v === 0) return 'NaN';
-  const tv = transformY(v);
-  return `${tv.toFixed(4)}`; 
-}, [yLogActive, transformY]);
-
+  const formatTooltip = useCallback((v) => {
+    if (!yLogActive) return `${v}`;
+    if (yLogActive && v === 0) return 'NaN';
+    const tv = transformY(v);
+    return `${tv.toFixed(4)}`;
+  }, [yLogActive, transformY]);
 
   const shouldMirror =
     highlightedSite !== null &&
@@ -328,125 +336,118 @@ const formatTooltip = useCallback((v) => {
     panelId !== highlightOrigin &&
     !isLocalTooltipActive;
 
-
   const handleMouseLeaveChart = useCallback(() => {
     setHoverIndex(null);
     setIsLocalTooltipActive(false);
-      onHighlight(null, panelId);
-  }, [onHighlight, panelId, highlightOrigin]);
+    onHighlight(null, panelId);
+  }, [onHighlight, panelId]);
 
-  // area-level hover -> highlight the bar column under the mouse X IF Y is inside plot area
-const handleAreaMouseMove = useCallback((e) => {
-  const el = chartAreaRef.current;
-  if (!el) return;
+  const handleAreaMouseMove = useCallback((e) => {
+    const el = chartAreaRef.current;
+    if (!el) return;
 
-  const rect = el.getBoundingClientRect();
-  const xIn = e.clientX - rect.left; // x inside scroll area (excluding left axis)
-  const yIn = e.clientY - rect.top;  // y inside scroll area
-  const inYBand = yIn >= TOP_MARGIN && yIn <= TOP_MARGIN + chartInnerHeight;
-  if (!inYBand) return;
+    const rect = el.getBoundingClientRect();
+    const xIn = e.clientX - rect.left;
+    const yIn = e.clientY - rect.top;
+    const inYBand = yIn >= TOP_MARGIN && yIn <= TOP_MARGIN + chartInnerHeight;
+    if (!inYBand) return;
 
-  let idx;
-  if (needScroll) {
-    // Scrollable: fixed width bars
-    const xWithScroll = scrollLeft + xIn;
-    idx = Math.max(0, Math.min(values.length - 1, Math.floor(xWithScroll / itemSize)));
-  } else {
-    // Not scrollable: use xScale inverse
+    let idx;
+    if (needScroll) {
+      const xWithScroll = scrollLeft + xIn;
+      idx = Math.max(0, Math.min(values.length - 1, Math.floor(xWithScroll / itemSize)));
+    } else {
+      const xScale = scaleLinear({
+        domain: [0, values.length],
+        range: [0, innerWidth],
+      });
+      const iFloat = xScale.invert(xIn);
+      idx = Math.max(0, Math.min(values.length - 1, Math.floor(iFloat)));
+    }
+
+    setIsLocalTooltipActive(true);
+    setHoverIndex(idx);
+    onHighlight(getXLabel(idx), panelId);
+  }, [
+    chartInnerHeight,
+    needScroll,
+    scrollLeft,
+    itemSize,
+    values.length,
+    onHighlight,
+    panelId,
+    containerWidth,
+    getXLabel,
+  ]);
+
+  const getColumnStyle = useCallback((index) => {
+    if (index == null || index < 0 || index >= values.length) return { display: 'none' };
+
+    const leftWithinChart =
+      (needScroll ? (index * itemSize - scrollLeft) : (index * itemSize));
+
+    return {
+      position: 'absolute',
+      left: leftWithinChart,
+      top: TOP_MARGIN,
+      width: itemSize,
+      height: chartInnerHeight,
+      background: 'rgba(0,0,0,0.1)',
+      pointerEvents: 'none',
+      zIndex: 10,
+    };
+  }, [needScroll, itemSize, scrollLeft, chartInnerHeight, values.length]);
+
+  const SmallSVG = () => {
     const xScale = scaleLinear({
       domain: [0, values.length],
       range: [0, innerWidth],
     });
-    // Map xIn to index using the inverse of xScale
-    const iFloat = xScale.invert(xIn);
-    idx = Math.max(0, Math.min(values.length - 1, Math.floor(iFloat)));
-  }
+    const y0 = yScale(0);
 
-  setIsLocalTooltipActive(true);
-  setHoverIndex(idx);
-  onHighlight(idx, panelId);
-}, [
-  chartInnerHeight,
-  needScroll,
-  scrollLeft,
-  itemSize,
-  values.length,
-  onHighlight,
-  panelId,
-  containerWidth,
-]);
+    return (
+      <svg width={innerWidth} height={height}>
+        <g transform={`translate(0,${TOP_MARGIN})`}>
+          <GridRows
+            scale={yScale}
+            width={innerWidth}
+            stroke="#e5e7eb"
+            numTicks={5}
+          />
+          {data.map((d, i) => {
+            const v = d.value;
+            const tv = transformY(v);
+            const vis = barVisuals[i];
+            const slotLeft = xScale(i);
+            const x = slotLeft + (itemSize - barWidth) / 2;
+            const barTop = tv >= 0 ? yScale(tv) : y0;
+            const barHeight = Math.abs(yScale(tv) - y0);
 
-const getColumnStyle = useCallback((index) => {
-  if (index == null || index < 0 || index >= values.length) return { display: 'none' };
-
-  const leftWithinChart =
-    (needScroll ? (index * itemSize - scrollLeft) : (index * itemSize));
-
-  return {
-    position: 'absolute',
-    left: leftWithinChart,
-    top: TOP_MARGIN,
-    width: itemSize,
-    height: chartInnerHeight,
-    background: 'rgba(0,0,0,0.1)',    // light gray veil
-    pointerEvents: 'none',              // don't block mouse
-    zIndex: 10,                         // below tooltips
+            return (
+              <VisxBar
+                key={i}
+                x={x}
+                y={barTop}
+                width={barWidth}
+                height={barHeight}
+                fill={vis.fill}
+                stroke={vis.stroke}
+                strokeWidth={vis.strokeWidth}
+                onClick={() => handleBarClick(i)}
+              />
+            );
+          })}
+        </g>
+      </svg>
+    );
   };
-}, [needScroll, itemSize, scrollLeft, chartInnerHeight, values.length]);
 
-const SmallSVG = () => {
-  const xScale = scaleLinear({
-    domain: [0, values.length],
-    range: [0, innerWidth],
-  });
-  const y0 = yScale(0);
-
-  return (
-    <svg width={innerWidth} height={height}>
-      <g transform={`translate(0,${TOP_MARGIN})`}>
-        <GridRows
-          scale={yScale}
-          width={innerWidth}
-          stroke="#e5e7eb"
-          numTicks={5}
-        />
-        {data.map((d, i) => {
-          const v = d.value;
-          const tv = transformY(v);
-          const vis = barVisuals[i];
-
-          // center each bar in its slot
-          const slotLeft = xScale(i);
-          const x = slotLeft + (itemSize - barWidth) / 2;
-
-          const barTop = tv >= 0 ? yScale(tv) : y0;
-          const barHeight = Math.abs(yScale(tv) - y0);
-
-          return (
-            <VisxBar
-              key={i}
-              x={x}
-              y={barTop}
-              width={barWidth}
-              height={barHeight}
-              fill={vis.fill}
-              stroke={vis.stroke}
-              strokeWidth={vis.strokeWidth}
-              onClick={() => handleBarClick(i)}
-            />
-          );
-        })}
-      </g>
-    </svg>
-  );
-};
-
-const Item = ({ index, style }) => {
-const v = data[index].value;
-const tv = transformY(v);
-const y0 = yScale(0);
-const barTop = tv >= 0 ? yScale(tv) : y0;
-const barHeight = Math.abs(yScale(tv) - y0);
+  const Item = ({ index, style }) => {
+    const v = data[index].value;
+    const tv = transformY(v);
+    const y0 = yScale(0);
+    const barTop = tv >= 0 ? yScale(tv) : y0;
+    const barHeight = Math.abs(yScale(tv) - y0);
     const vis = barVisuals[index];
     return (
       <div style={style}>
@@ -469,15 +470,12 @@ const barHeight = Math.abs(yScale(tv) - y0);
     );
   };
 
-const onListScroll = useCallback(({ scrollOffset, scrollUpdateWasRequested }) => {
+  const onListScroll = useCallback(({ scrollOffset, scrollUpdateWasRequested }) => {
     setScrollLeft(scrollOffset);
-    // After a programmatic scroll completes, clear the scrolling state.
-    // Use a timeout to ensure this runs after the current render cycle.
     if (scrollUpdateWasRequested && scrollingToIndex !== null) {
       setTimeout(() => setScrollingToIndex(null), 0);
     }
   }, [scrollingToIndex]);
-
 
   useLayoutEffect(() => {
     if (scrollingToIndex !== null && isIndexVisible(scrollingToIndex)) {
@@ -485,25 +483,23 @@ const onListScroll = useCallback(({ scrollOffset, scrollUpdateWasRequested }) =>
     }
   }, [scrollLeft, scrollingToIndex, isIndexVisible]);
 
-useEffect(() => {
-  function handleDocumentMouseMove(e) {
-    if (!outerRef.current) return;
-    const rect = outerRef.current.getBoundingClientRect();
-    // If mouse is outside the panel, clear tooltip
-    if (
-      e.clientX < rect.left ||
-      e.clientX > rect.right ||
-      e.clientY < rect.top ||
-      e.clientY > rect.bottom
-    ) {
-      setIsLocalTooltipActive(false);
-      // clear hover index
-      setHoverIndex(null);
+  useEffect(() => {
+    function handleDocumentMouseMove(e) {
+      if (!outerRef.current) return;
+      const rect = outerRef.current.getBoundingClientRect();
+      if (
+        e.clientX < rect.left ||
+        e.clientX > rect.right ||
+        e.clientY < rect.top ||
+        e.clientY > rect.bottom
+      ) {
+        setIsLocalTooltipActive(false);
+        setHoverIndex(null);
+      }
     }
-  }
-  document.addEventListener('mousemove', handleDocumentMouseMove);
-  return () => document.removeEventListener('mousemove', handleDocumentMouseMove);
-}, [onHighlight, panelId]);
+    document.addEventListener('mousemove', handleDocumentMouseMove);
+    return () => document.removeEventListener('mousemove', handleDocumentMouseMove);
+  }, [onHighlight, panelId]);
 
   const Legend = () =>
     discrete ? (
@@ -520,17 +516,14 @@ useEffect(() => {
       </div>
     ) : null;
 
-
   return (
     <>
       <Legend />
-
       <div
         ref={outerRef}
         style={{ position: 'relative', height, overflow: 'visible' }}
         onMouseLeave={handleMouseLeaveChart}
       >
-        {/* Static axes & grid */}
         <svg
           width={containerWidth}
           height={height}
@@ -543,36 +536,35 @@ useEffect(() => {
               stroke="#e5e7eb"
               numTicks={5}
             />
- <AxisBottom
-   top={chartInnerHeight}
-   scale={scaleLinear({
-     domain: needScroll
-       ? [visibleWindow.start, Math.max(visibleWindow.start + 1, visibleWindow.end)]
-       : [0, Math.max(0, values.length - 1)],
-     range: [0, needScroll
-       ? visibleWindow.listWidth
-       : Math.max(0, containerWidth - LEFT_MARGIN - RIGHT_MARGIN)],
-   })}
-   tickValues={
-     needScroll
-       ? Array.from(
-           { length: visibleWindow.end - visibleWindow.start + 1 },
-           (_, k) => k + visibleWindow.start
-         ).filter((i) => i % (xInterval + 1) === 0)
-       : Array.from({ length: values.length }, (_, i) => i).filter(
-           (i) => i % (xInterval + 1) === 0
-         )
-   }
-   tickFormat={(v) => `${getXLabel(Math.round(Number(v)))}`}
-   label="Index"
-   tickLabelProps={() => ({ fontSize: 10, dy: 6 })}
- />
+            <AxisBottom
+              top={chartInnerHeight}
+              scale={scaleLinear({
+                domain: needScroll
+                  ? [visibleWindow.start, Math.max(visibleWindow.start + 1, visibleWindow.end)]
+                  : [0, Math.max(0, values.length - 1)],
+                range: [0, needScroll
+                  ? visibleWindow.listWidth
+                  : Math.max(0, containerWidth - LEFT_MARGIN - RIGHT_MARGIN)],
+              })}
+              tickValues={
+                needScroll
+                  ? Array.from(
+                      { length: visibleWindow.end - visibleWindow.start + 1 },
+                      (_, k) => k + visibleWindow.start
+                    ).filter((i) => i % (xInterval + 1) === 0)
+                  : Array.from({ length: values.length }, (_, i) => i).filter(
+                      (i) => i % (xInterval + 1) === 0
+                    )
+              }
+              tickFormat={(v) => `${getXLabel(Math.round(Number(v)))}`}
+              label="Index"
+              tickLabelProps={() => ({ fontSize: 10, dy: 6 })}
+            />
           </g>
         </svg>
 
-        {/* Chart area (captures mouse to compute column under cursor) */}
         <div
-          ref={chartAreaRef}                                  // ref
+          ref={chartAreaRef}
           style={{
             position: 'absolute',
             left: LEFT_MARGIN,
@@ -582,18 +574,19 @@ useEffect(() => {
             overflowX: needScroll ? 'auto' : 'hidden',
             overflowY: 'hidden',
           }}
-          onMouseMove={handleAreaMouseMove}                   // area-level hover
-          onPointerLeave={handleMouseLeaveChart}              // area-level mouse leave
+          onMouseMove={handleAreaMouseMove}
+          onPointerLeave={handleMouseLeaveChart}
         >
-        {/* Column overlay for local hover */}
-        {isLocalTooltipActive && hoverIndex != null && (
-          <div style={getColumnStyle(hoverIndex)} />
-        )}
+          {isLocalTooltipActive && hoverIndex != null && (
+            <div style={getColumnStyle(hoverIndex)} />
+          )}
 
-        {/* Column overlay for linked highlight */}
-        {shouldMirror && mappedHighlightedIndex != null && scrollingToIndex === null && (
-          <div style={getColumnStyle(mappedHighlightedIndex)} />
-        )}
+          {/* block that renders multiple overlays */}
+          {shouldMirror && scrollingToIndex === null &&
+            mappedHighlightedIndices.map((index) => (
+              <div key={`overlay-${index}`} style={getColumnStyle(index)} />
+          ))}
+          
           {needScroll ? (
             <List
               ref={listRef}
@@ -612,49 +605,49 @@ useEffect(() => {
           )}
         </div>
 
-{/* Local tooltip */}
-{localTooltipPos && hoverIndex !== null && hoverIndex >= 0 && hoverIndex < data.length && (
-  <div
-    style={{
-      position: 'absolute',
-      left: localTooltipPos.left,
-      top: localTooltipPos.top,
-      transform: localTooltipPos.transform,
-      pointerEvents: 'none',
-      zIndex: 99999999,
-    }}
-    className="bg-white p-2 border border-gray-300 rounded-xl shadow-md text-sm"
-  >
-    <p className="font-medium">{`${getXLabel(hoverIndex)}`}</p>
-    <p className="text-blue-600">
-      {`Value${yLogActive ? ' (log)' : ''}: ${formatTooltip(data[hoverIndex].value)}`}
-    </p>
-  </div>
-)}
+        {localTooltipPos && hoverIndex !== null && hoverIndex >= 0 && hoverIndex < data.length && (
+          <div
+            style={{
+              position: 'absolute',
+              left: localTooltipPos.left,
+              top: localTooltipPos.top,
+              transform: localTooltipPos.transform,
+              pointerEvents: 'none',
+              zIndex: 99999999,
+            }}
+            className="bg-white p-2 border border-gray-300 rounded-xl shadow-md text-sm"
+          >
+            <p className="font-medium">{`${getXLabel(hoverIndex)}`}</p>
+            <p className="text-blue-600">
+              {`Value${yLogActive ? ' (log)' : ''}: ${formatTooltip(data[hoverIndex].value)}`}
+            </p>
+          </div>
+        )}
 
-        {/* Mirrored tooltip */}
-        {shouldMirror && scrollingToIndex === null && mappedHighlightedIndex !== null && (() => {
-  const mirroredTooltipPos = getTooltipPos(mappedHighlightedIndex);
-  if (!mirroredTooltipPos) return null;
-  return (
-    <div
-      style={{
-        position: 'absolute',
-        left: mirroredTooltipPos.left,
-        top: mirroredTooltipPos.top,
-        transform: mirroredTooltipPos.transform,
-        pointerEvents: 'none',
-        zIndex: 99999999,
-      }}
-      className="bg-white p-2 border border-gray-300 rounded-xl shadow-md text-sm"
-    >
-      <p className="font-medium">{`${getXLabel(mappedHighlightedIndex)}`}</p>
-      <p className="text-blue-600">
-        {`Value${yLogActive ? ' (log)' : ''}: ${formatTooltip(data[mappedHighlightedIndex].value)}`}
-      </p>
-    </div>
-  );
-})()}
+        {shouldMirror && scrollingToIndex === null && mappedHighlightedIndices.length > 0 && (() => {
+          const firstMirroredIndex = mappedHighlightedIndices[0];
+          const mirroredTooltipPos = getTooltipPos(firstMirroredIndex);
+
+          if (!mirroredTooltipPos) return null;
+          return (
+            <div
+              style={{
+                position: 'absolute',
+                left: mirroredTooltipPos.left,
+                top: mirroredTooltipPos.top,
+                transform: mirroredTooltipPos.transform,
+                pointerEvents: 'none',
+                zIndex: 99999999,
+              }}
+              className="bg-white p-2 border border-gray-300 rounded-xl shadow-md text-sm"
+            >
+              <p className="font-medium">{`${getXLabel(firstMirroredIndex)}`}</p>
+              <p className="text-blue-600">
+                {`Value${yLogActive ? ' (log)' : ''}: ${formatTooltip(data[firstMirroredIndex].value)}`}
+              </p>
+            </div>
+          );
+        })()}
       </div>
     </>
   );
