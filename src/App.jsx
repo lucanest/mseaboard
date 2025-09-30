@@ -15,28 +15,27 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  **/
-
-
-// App.jsx
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
 import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import throttle from 'lodash.throttle'
-import debounce from 'lodash.debounce'; 
+import debounce from 'lodash.debounce';
 import GridLayout from 'react-grid-layout';
 import ReactDOM from 'react-dom';
+import pako from 'pako';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SiteStatsButton, LogYButton,
 SeqlogoButton, SequenceButton, DistanceMatrixButton,
  DownloadButton, GitHubButton, SearchButton, TreeButton,
  DiamondButton, BranchLengthsButton, PruneButton,
  TableChartButton} from './components/Buttons.jsx';
-import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon, ArrowUpOnSquareIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick,
 newickToDistanceMatrix, detectFileType, toFasta, toPhylip, computeSiteStats, buildTreeFromDistanceMatrix,
 computeNormalizedHammingMatrix, pickAlignedSeqForChain, chainIdFromSeqId, residueIndexToMsaCol,
 msaColToResidueIndex, reorderHeatmapByLeafOrder, reorderMsaByLeafOrder, distanceMatrixFromAtoms,
-parsePdbChains, mkDownload, baseName, msaToPhylip, computeCorrelationMatrix} from './components/Utils.jsx';
+parsePdbChains, mkDownload, baseName, msaToPhylip, computeCorrelationMatrix, uint8ArrayToBase64, base64ToUint8Array,
+} from './components/Utils.jsx';
 import { residueColors, logoColors, linkpalette } from './constants/colors.js';
 import { TitleFlip, AnimatedList } from './components/Animations.jsx';
 import { FixedSizeGrid as Grid } from 'react-window';
@@ -51,6 +50,7 @@ import useElementSize from './hooks/useElementSize.js'
 
 const LABEL_WIDTH = 66;
 const CELL_SIZE = 24;
+
 
 function useIsVisible(ref) {
   const [isIntersecting, setIntersecting] = useState(false);
@@ -2579,7 +2579,19 @@ function App() {
   const pendingPanelRef = useRef(null);
   const [titleFlipKey, setTitleFlipKey] = useState(() => Date.now());
   const hideErrors = true;
+  const [transientMessage, setTransientMessage] = useState('');
 
+  // state for GitHub Token
+  const [githubToken, setGithubToken] = useState(() => localStorage.getItem('github-pat') || '');
+  const [showTokenModal, setShowTokenModal] = useState(false);
+  const [tempToken, setTempToken] = useState('');
+
+  useEffect(() => {
+    if (transientMessage) {
+      const timer = setTimeout(() => setTransientMessage(''), 1400);
+      return () => clearTimeout(timer);
+    }
+  }, [transientMessage]);
 
   // Suppress known-but-benign errors from 3Dmol.js and WebGL
 
@@ -3968,6 +3980,138 @@ targetIds.forEach(targetId => {
     mkDownload('mseaboard', JSON.stringify(board, null, 2), 'json', 'application/json')();
   };
 
+  // Gist Sharing with Token Auth and Compression
+  const handleShareBoard = useCallback(async (token) => {
+    const tokenToUse = token || githubToken;
+    if (!tokenToUse) {
+      setShowTokenModal(true);
+      return;
+    }
+    setTransientMessage('Creating shareable link...');
+    try {
+        const boardState = { panels, layout, panelData, panelLinks, panelLinkHistory };
+        const jsonString = JSON.stringify(boardState);
+        const compressed = pako.deflate(jsonString);
+        const base64 = uint8ArrayToBase64(compressed);
+
+        const content = JSON.stringify({
+            'description': 'MSEABOARD State',
+            'compressed_base64': base64
+        });
+        
+        const response = await fetch('https://api.github.com/gists', {
+            method: 'POST',
+            headers: {
+                'Authorization': `token ${tokenToUse}`,
+                'Content-Type': 'application/json',
+                'Accept': 'application/vnd.github.v3+json',
+            },
+            body: JSON.stringify({
+                description: 'A shared board from MSEABOARD',
+                public: false, // Creates a secret Gist
+                files: {
+                    'board.json': {
+                        content: content,
+                    },
+                },
+            }),
+        });
+
+        if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(`GitHub API Error: ${errorData.message}`);
+        }
+
+        const gist = await response.json();
+        const url = `${window.location.origin}${window.location.pathname}?board=${gist.id}`;
+
+        // Safari fix: Clipboard API requires HTTPS and user gesture
+        try {
+            // Try the modern clipboard API first (works in Chrome/Firefox)
+            await navigator.clipboard.writeText(url);
+            setTransientMessage('Shareable link copied to clipboard!');
+        } catch (err) {
+            // If it fails, fall back to the prompt for Safari and older browsers
+            console.warn('Clipboard API failed, falling back to prompt.', err);
+            window.prompt('Link created! Press ⌘+C (or Ctrl+C) to copy:', url);
+        }
+
+    } catch (error) {
+         alert("Authentication failed. Your GitHub token is likely invalid or expired. Please generate a new one.");
+                 localStorage.removeItem('github-pat'); // Clear the bad token
+                 setGithubToken('');
+                 setShowTokenModal(true); // Re-prompt the user
+                 return;
+    }
+  }, [githubToken, panels, layout, panelData, panelLinks, panelLinkHistory]);
+
+  // Load board from Gist on initial render
+    useEffect(() => {
+    const loadBoardFromGist = async (gistId) => {
+        try {
+            //alert(`Loading shared board: ${gistId}...`);
+            // Step 1: Fetch Gist metadata to find the raw_url
+            const gistMetaResponse = await fetch(`https://api.github.com/gists/${gistId}`);
+            if (!gistMetaResponse.ok) {
+                throw new Error('Could not find the shared board Gist.');
+            }
+            const gist = await gistMetaResponse.json();
+
+            const boardFile = gist.files['board.json'];
+            if (!boardFile) {
+                throw new Error("Gist is empty or has an invalid format (missing board.json).");
+            }
+
+            // Step 2: Fetch the full content from the raw_url to avoid truncation
+            const rawUrl = boardFile.raw_url;
+            const contentResponse = await fetch(rawUrl);
+            if (!contentResponse.ok) {
+                throw new Error("Could not fetch the board's raw content.");
+            }
+            const boardWrapper = await contentResponse.json();
+            
+            // Step 3: Decompress and parse the board state
+            const base64 = boardWrapper.compressed_base64;
+            if (!base64) {
+                throw new Error("Gist content is missing the compressed data.");
+            }
+            
+            const compressed = base64ToUint8Array(base64);
+            const jsonString = pako.inflate(compressed, { to: 'string' });
+            const board = JSON.parse(jsonString);
+
+            if (board.panels && board.layout && board.panelData) {
+                setPanels(board.panels);
+                setLayout(board.layout);
+                setPanelData(board.panelData);
+                setPanelLinks(board.panelLinks || {});
+                setPanelLinkHistory(buildHistory(board));
+                setTitleFlipKey(Date.now());
+            } else {
+                throw new Error("Board data is missing required fields.");
+            }
+
+        } catch (error) {
+            console.error("Failed to load board from Gist:", error);
+            alert(`Error loading shared board: ${error.message}`);
+        } finally {
+            // Clean the URL to prevent re-loading on refresh
+            if (window.history.replaceState) {
+                const url = new URL(window.location);
+                url.searchParams.delete('board');
+                window.history.replaceState({}, '', url.toString());
+            }
+        }
+    };
+    
+    const urlParams = new URLSearchParams(window.location.search);
+    const gistId = urlParams.get('board');
+    if (gistId) {
+        loadBoardFromGist(gistId);
+    }
+  }, []); // Empty dependency array ensures this runs only once on mount
+
+
 // Drag-and-drop file upload
 
 const [isDragging, setIsDragging] = useState(false);
@@ -4189,6 +4333,13 @@ const canLink = (typeA, typeB) => {
   onDragLeave={handleDragLeave}
   onDrop={handleDrop}
 >
+{transientMessage && (
+  <div className="fixed inset-0 z-[10002] flex items-center justify-center">
+    <div className="bg-blue-400 text-white px-6 py-5 rounded-xl shadow-lg text-2xl font-semibold transition-all animate-fade-in-out">
+      {transientMessage}
+    </div>
+  </div>
+)}
   {isDragging && (
   <div className="pointer-events-none fixed inset-0 z-[10000] bg-black/30 flex items-center justify-center">
     <div className="pointer-events-none bg-white rounded-xl shadow-xl px-6 py-4 text-center">
@@ -4198,6 +4349,59 @@ const canLink = (typeA, typeB) => {
       </div>
     </div>
   </div>
+)}
+{/* Token Modal */}
+{showTokenModal && (
+    <div className="fixed inset-0 z-[10001] bg-black/50 flex items-center justify-center" onClick={() => setShowTokenModal(false)}>
+        <div className="bg-white rounded-2xl shadow-2xl p-6 w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-2xl font-bold mb-4">GitHub Token Required</h2>
+            <p className="mb-4 text-gray-700">
+                To create a shareable link via a secret Gist, a GitHub Personal Access Token is required. This token is stored securely in your browser's local storage and is only used to communicate with the GitHub API.
+            </p>
+            <ol className="list-decimal list-inside mb-4 space-y-2">
+                <li>
+                    <a href="https://github.com/settings/tokens/new" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline font-semibold">
+                        Generate a new token
+                    </a> (classic).
+                </li>
+                <li>Give it a descriptive name (e.g., "MSEABOARD Sharing").</li>
+                <li>Set an expiration date (for the token, the links created with it won't expire).</li>
+                <li>
+                    Important: Under "Select scopes", check the box next to <strong><code>gist</code></strong>. No other permissions are needed.
+                </li>
+                <li>Click "Generate token" and copy the new token.</li>
+            </ol>
+            <input
+                type="password"
+                value={tempToken}
+                onChange={(e) => setTempToken(e.target.value)}
+                placeholder="Paste your token here (ghp_...)"
+                className="w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            />
+            <div className="mt-6 flex justify-end gap-4">
+                <button
+                    onClick={() => setShowTokenModal(false)}
+                    className="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300"
+                >
+                    Cancel
+                </button>
+                <button
+                    onClick={() => {
+                        if (tempToken) {
+                            localStorage.setItem('github-pat', tempToken);
+                            setGithubToken(tempToken);
+                            setShowTokenModal(false);
+                            handleShareBoard(tempToken); // Retry sharing immediately
+                        }
+                    }}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    disabled={!tempToken}
+                >
+                    Save & Share
+                </button>
+            </div>
+        </div>
+    </div>
 )}
         <div className="p-0 flex justify-between items-center fixed top-0 left-0 w-full z-50"
         style={{ pointerEvents: 'none' }}>
@@ -4239,6 +4443,23 @@ const canLink = (typeA, typeB) => {
     <br />
     Load a saved board <br /> from a file
   </DelayedTooltip>
+</div>
+{/* share button (gist) */}
+<div className="relative group ml-2">
+    <DelayedTooltip delay={135} top={54}
+        trigger={
+            <button
+                onClick={() => handleShareBoard()}
+                className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center"
+            >
+                <ArrowUpOnSquareIcon className="w-6 h-6" />
+            </button>
+        }
+    >
+        <b>Share via Gist</b>
+        <br />
+        Copy a shareable link to the clipboard
+    </DelayedTooltip>
 </div>
 </div>
   <DelayedTooltip delay={135} top={58}
