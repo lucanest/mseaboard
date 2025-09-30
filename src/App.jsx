@@ -3898,7 +3898,7 @@ const handleFileUpload = async (e) => {
         const text = await file.text();
         const isNhx = /\.nhx$/i.test(filename) || text.includes('[&&NHX');
         panelPayload = { data: text, filename, isNhx };
-    } else if (type === 'histogram') {.
+    } else if (type === 'histogram') {
         const text = await file.text();
         const lines = text.trim().split(/\r?\n/);
         const lower = filename.toLowerCase();
