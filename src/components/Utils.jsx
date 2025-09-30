@@ -381,7 +381,7 @@ export function computeSiteStats(msa, codonMode = false){
         conservation = max / nonGap.length; // fraction of most frequent non-gap residue
       }
 
-      rows.push({ site: col, conservation, gap_fraction: gapFraction });
+      rows.push({ site: col+1, conservation, gap_fraction: gapFraction });
     }
   } else {
     const codonCount = Math.floor(L / 3);
@@ -404,7 +404,7 @@ export function computeSiteStats(msa, codonMode = false){
         conservation = max / nonGap.length; // fraction of most frequent non-gap codon
       }
 
-      rows.push({ codon: i, conservation, gap_fraction: gapFraction });
+      rows.push({ codon: i + 1, conservation, gap_fraction: gapFraction });
     }
   }
 
