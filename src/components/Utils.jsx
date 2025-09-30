@@ -1029,3 +1029,26 @@ export const baseName = (fname, fallback) =>
 /** curry a click handler that downloads `content` as a text file */
 export const mkDownload = (base, content, ext, mime = 'text/plain;charset=utf-8') =>
   () => downloadText(`${base}.${ext}`, content, mime);
+
+
+// --- Gist Sharing Helpers ---
+// Helper to convert a Uint8Array (binary data from compression) to a Base64 string
+export function uint8ArrayToBase64(bytes) {
+  let binary = '';
+  const len = bytes.byteLength;
+  for (let i = 0; i < len; i++) {
+    binary += String.fromCharCode(bytes[i]);
+  }
+  return window.btoa(binary);
+}
+
+// Helper to convert a Base64 string back to a Uint8Array
+export function base64ToUint8Array(base64) {
+  const binary_string = window.atob(base64);
+  const len = binary_string.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binary_string.charCodeAt(i);
+  }
+  return bytes;
+}
