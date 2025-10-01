@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { parseNewick } from './Utils'; // Assuming you have this utility function
+import { parseNewick } from './Utils';
 import * as d3 from 'd3';
 import { Box, Button, Chip, IconButton, Slider, Stack } from '@mui/material';
 
@@ -32,21 +32,28 @@ const PhyloTreeViewer = ({
   const [tooltipContent, setTooltipContent] = useState('');
   const controlsRef = useRef(null);
 
-  // 1. Destructure all data and settings from the panelData prop.
-  // Provide default values for each setting to ensure the component works
-  // even if they aren't saved in the panel data yet.
+  // Destructure view-independent data from panelData.
   const {
     data: newickStr,
     highlightedNodes = [],
+    nhxColorField: initialNhxColorField,
+    radialSettings = {}, // Default to empty objects if not present
+    rectangularSettings = {},
+  } = panelData || {};
+
+  // Determine the current view's settings.
+  // This allows us to have separate settings for radial and rectangular views.
+  const currentViewSettings = radial ? radialSettings : rectangularSettings;
+  const {
     labelSize = 1,
     nodeRadius = 1,
     branchWidth = 1,
-    treeRadius = 1,
-    rightMargin = 100,
-    nhxColorField: initialNhxColorField,
-  } = panelData || {};
+    treeRadius = 1, // Specific to radial, but we can safely destructure
+    rightMargin = 100, // Specific to rectangular
+  } = currentViewSettings;
 
-  // 2. Manage the nhxColorField state. We use an internal state
+
+  // Manage the nhxColorField state. We use an internal state
   // that is initialized from props. This allows for automatic field detection logic
   // to run without immediately propagating a change upwards.
   const [nhxColorField, setNhxColorField] = useState(initialNhxColorField);
@@ -665,21 +672,36 @@ const PhyloTreeViewer = ({
     return () => document.removeEventListener('mousemove', handleDocumentMouseMove);
   }, [onHoverTip]);
 
-  // Create a generic handler to update settings in the parent state.
-  const handleSettingChange = (setting, value) => {
-    setPanelData(prev => ({
-      ...prev,
-      [id]: {
-        ...prev[id],
-        [setting]: Array.isArray(value) ? value[0] : value,
-      },
-    }));
-  };
+    // Create a generic handler to update settings for the current view
+    const handleSettingChange = (setting, value) => {
+        const viewSettingsKey = radial ? 'radialSettings' : 'rectangularSettings';
+        setPanelData(prev => {
+            const currentPanelData = prev[id] || {};
+            const currentViewSettings = currentPanelData[viewSettingsKey] || {};
+            return {
+                ...prev,
+                [id]: {
+                    ...currentPanelData,
+                    [viewSettingsKey]: {
+                        ...currentViewSettings,
+                        [setting]: Array.isArray(value) ? value[0] : value,
+                    },
+                },
+            };
+        });
+    };
 
   // Specific handler for the color field to also update local state.
   const handleColorFieldChange = (field) => {
     setNhxColorField(field); // Update local state for immediate visual feedback
-    handleSettingChange('nhxColorField', field); // Update parent state
+    // This updates the top-level setting, as it's view-independent
+    setPanelData(prev => ({
+        ...prev,
+        [id]: {
+            ...prev[id],
+            nhxColorField: field,
+        },
+    }));
   };
 
 
