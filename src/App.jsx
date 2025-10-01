@@ -962,8 +962,48 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [showModelPicker, setShowModelPicker] = React.useState(false);
   const isLinked = Array.isArray(linkedTo) && linkedTo.length > 0;
   
-  // When checking if a panel is linked to a specific panel:
-  //const isLinkedToSpecificPanel = linkedTo && linkedTo.includes(specificPanelId);
+  const [labelWidth, setLabelWidth] = useState(
+  data.labelWidth ?? LABEL_WIDTH*1.5
+);
+
+// Drag logic
+const dragRef = useRef();
+const isDraggingLabel = useRef(false);
+
+const handleDragStart = (e) => {
+  isDraggingLabel.current = true;
+  dragRef.current = e.clientX;
+  document.body.style.cursor = 'col-resize';
+};
+
+const handleDrag = (e) => {
+  if (!isDraggingLabel.current) return;
+  const delta = e.clientX - dragRef.current;
+  dragRef.current = e.clientX;
+  setLabelWidth(w => {
+  const clamped = Math.max(40, Math.min(300, w + delta));
+  setPanelData(prev => ({
+    ...prev,
+    [id]: { ...prev[id], labelWidth: clamped }
+  }));
+  return clamped;
+});
+};
+
+const handleDragEnd = () => {
+  isDraggingLabel.current = false;
+  document.body.style.cursor = '';
+};
+
+useEffect(() => {
+  if (!isDraggingLabel.current) return;
+  window.addEventListener('mousemove', handleDrag);
+  window.addEventListener('mouseup', handleDragEnd);
+  return () => {
+    window.removeEventListener('mousemove', handleDrag);
+    window.removeEventListener('mouseup', handleDragEnd);
+  };
+}, [isDraggingLabel.current]);
 
 useEffect(() => {
   if (showSearch) {
@@ -1297,7 +1337,7 @@ useEffect(() => {
   const outer = outerRef.current;
   if (!outer) return;
 
-  const viewportWidth = dims.width - LABEL_WIDTH;
+  const viewportWidth = dims.width - labelWidth;
   const currentScrollLeft = outer.scrollLeft;
   const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
   const MARGIN = 24;
@@ -1315,7 +1355,11 @@ useEffect(() => {
 
   if (targetScroll !== null) {
     setIsSyncScrolling(true);
-    gridRef.current.scrollTo({ scrollLeft: Math.max(0, Math.min(maxScroll, targetScroll)) });
+    // Clamp targetScroll between 0 and (outer.scrollWidth - viewportWidth)
+    const maxScrollPos = Math.max(0, outer.scrollWidth - viewportWidth);
+    gridRef.current.scrollTo({
+      scrollLeft: Math.max(0, Math.min(targetScroll, maxScrollPos))
+    });
   }
 }, [externalScrollLeft, dims.width, codonMode]);
 
@@ -1766,7 +1810,7 @@ useEffect(() => {
           {/* Left labels */}
           <div
             style={{
-              width: LABEL_WIDTH * 1.9,
+              width: labelWidth,
               height: dims.height,
               overflow: 'hidden',
               position: 'relative'
@@ -1782,13 +1826,22 @@ useEffect(() => {
                 right: 0
               }}
             >
-              {sequenceLabels.map(({ index, rawId, shortId, id: seqId }) => {
+              {sequenceLabels.map(({ index, rawId, id: seqId }) => {
                 const isrowhovered = msaData[hoveredRow]?.id === seqId ? hoveredRow : false;
                 const linkedNames = data?.linkedHighlights || [];
                 const isNameHighlight =
                   isrowhovered ||
                   (highlightedSequenceId === seqId && Array.isArray(linkedTo) && linkedTo.includes(hoveredPanelId)) ||
                   linkedNames.includes(seqId);
+
+                  // Dynamic truncation logic
+                  // Estimate max chars that fit in labelWidth (monospace: ~8px per char)
+                  const charWidth = 8; // px per char
+                  const maxChars = Math.floor((labelWidth - 8) / charWidth); // 8px padding
+                  let displayId = rawId;
+                  if (rawId.length > maxChars) {
+                    displayId = rawId.slice(0, Math.max(0, maxChars - 2)) + '..';
+                  }
                 return (
                   <div
                     key={index}
@@ -1806,11 +1859,26 @@ useEffect(() => {
                       isNameHighlight || setHoveredRow(null);
                     }}
                   >
-                    {shortId}
+                    {displayId}
                   </div>
                 );
               })}
             </div>
+            {/* Drag handle */}
+            <div
+              style={{
+                position: 'absolute',
+                top: 0,
+                right: 0,
+                width: 8,
+                height: '100%',
+                cursor: 'col-resize',
+                zIndex: 10,
+                background: 'rgba(0,0,0,0.02)'
+              }}
+              onMouseDown={handleDragStart}
+              title="Drag to resize label column"
+            />
           </div>
 
           {/* Virtualized grid */}
@@ -1822,7 +1890,7 @@ useEffect(() => {
             height={dims.height}
             rowCount={rowCount}
             rowHeight={CELL_SIZE}
-            width={Math.max(dims.width - LABEL_WIDTH, 0)}
+            width={Math.max(dims.width - labelWidth, 0)}
             onScroll={handleScroll} 
             overscanRowCount={2}
             overscanColumnCount={8}
