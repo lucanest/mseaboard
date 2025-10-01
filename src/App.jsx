@@ -2239,7 +2239,7 @@ const HistogramPanel = React.memo(function HistogramPanel({
             element: <ZeroOneButton onClick={handleIndexingToggle} isActive={indexingMode === '1-based'} />,
             tooltip: (
               <>
-                Switch indexing base for linking.
+                Switch indexing base for linking
                 <br />
                 Current: {indexingMode === '1-based' ? '1-based (site 1 is first)' : '0-based (site 0 is first)'}
               </>
@@ -4462,7 +4462,7 @@ const canLink = (typeA, typeB) => {
                 <li>Give it a descriptive name (e.g., "MSEABOARD Sharing").</li>
                 <li>Set an expiration date (for the token, the links created with it won't expire).</li>
                 <li>
-                    Important: Under "Select scopes", check the box next to <strong><code>gist</code></strong>. No other permissions are needed.
+                    Under "Select scopes", check the box next to <strong><code>gist</code></strong>. No other permissions are needed.
                 </li>
                 <li>Click "Generate token" and copy the new token.</li>
             </ol>
