@@ -15,6 +15,7 @@
  * You should have received a copy of the GNU Affero General Public License
  * along with this program.  If not, see <https://www.gnu.org/licenses/>.
  **/
+
 // App.jsx
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
@@ -28,13 +29,13 @@ import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SiteStatsButton, LogYButton,
 SeqlogoButton, SequenceButton, DistanceMatrixButton, ZeroOneButton,
  DownloadButton, GitHubButton, SearchButton, TreeButton,
- DiamondButton, BranchLengthsButton, PruneButton,
+ DiamondButton, BranchLengthsButton, PruneButton, SubMSAButton,
  TableChartButton} from './components/Buttons.jsx';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon, ArrowUpOnSquareIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick,
 newickToDistanceMatrix, detectFileType, toFasta, toPhylip, computeSiteStats, buildTreeFromDistanceMatrix,
-computeNormalizedHammingMatrix, pickAlignedSeqForChain, chainIdFromSeqId, residueIndexToMsaCol,
-msaColToResidueIndex, reorderHeatmapByLeafOrder, reorderMsaByLeafOrder, distanceMatrixFromAtoms,
+computeNormalizedHammingMatrix, pickAlignedSeqForChain, chainIdFromSeqId, residueIndexToMsaCol, 
+reorderHeatmapByLeafOrder, reorderMsaByLeafOrder, distanceMatrixFromAtoms, msaColToResidueIndex,
 parsePdbChains, mkDownload, baseName, msaToPhylip, computeCorrelationMatrix, uint8ArrayToBase64, base64ToUint8Array,
 } from './components/Utils.jsx';
 import { residueColors, logoColors, linkpalette } from './constants/colors.js';
@@ -943,7 +944,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   onSyncScroll, externalScrollLeft, onFastME, panelLinks,
   highlightedSequenceId, setHighlightedSequenceId,
   hoveredPanelId, setHoveredPanelId, setPanelData, justLinkedPanels,
-  linkBadges, onRestoreLink, colorForLink, onUnlink,
+  linkBadges, onRestoreLink, colorForLink, onUnlink, onCreateSubsetMsa,
 }) {
   const msaData = useMemo(() => data.data, [data.data]);
   const filename = data.filename;
@@ -962,6 +963,10 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [showModelPicker, setShowModelPicker] = React.useState(false);
   const isLinked = Array.isArray(linkedTo) && linkedTo.length > 0;
   
+  // Sequence selection state
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedSequences, setSelectedSequences] = useState(new Set());
+
   const [labelWidth, setLabelWidth] = useState(
   data.labelWidth ?? LABEL_WIDTH*1.5
 );
@@ -1298,6 +1303,39 @@ const handleScroll = useMemo(
     },
     [id, setPanelData]
   );
+  const handleToggleSelectionMode = () => {
+    if (!isSelectionMode) {
+      setShowSearch(false); // Hide search when entering selection mode
+    }
+    if (isSelectionMode) {
+      setSelectedSequences(new Set()); // Clear selection when leaving
+    }
+    setIsSelectionMode(prev => !prev);
+  };
+
+  const handleGoClick = () => {
+    if (selectedSequences.size === 0) return;
+    onCreateSubsetMsa(id, Array.from(selectedSequences));
+    // Reset state after creation
+    setIsSelectionMode(false);
+    setSelectedSequences(new Set());
+  };
+
+  const handleCancelSelection = () => {
+    setIsSelectionMode(false);
+    setSelectedSequences(new Set());
+  };
+
+  const handleLabelClick = (index) => {
+    if (!isSelectionMode) return;
+    const newSelection = new Set(selectedSequences);
+    if (newSelection.has(index)) {
+      newSelection.delete(index);
+    } else {
+      newSelection.add(index);
+    }
+    setSelectedSequences(newSelection);
+  };
 
   useEffect(() => {
     if (data.codonMode !== codonMode) {
@@ -1601,7 +1639,7 @@ useEffect(() => {
           setPanelData={setPanelData}
           extraButtons={
             isNuc
-              ? [ { element: <SearchButton onClick={() => setShowSearch(s => !s)} />, tooltip: "Search site or motif" },
+              ? [ { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) { setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
                   { element: <TreeButton onClick={() => handleTreeClick(id)} />, tooltip: (
                     <>
                       Build phylogenetic tree <br />
@@ -1628,9 +1666,11 @@ useEffect(() => {
                    )
                   
                   },
+                  { element: <SubMSAButton onClick={handleToggleSelectionMode} isActive={isSelectionMode} />, tooltip : (
+                    <> Extract sequences <br /> Choose a subset to create a new panel </> ) },
                   { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
                 ]
-              : [ { element: <SearchButton onClick={() => setShowSearch(s => !s)} />, tooltip: "Search site or motif" },
+              : [ { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) { setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
                   { element: <TreeButton onClick={() => handleTreeClick(id)} />,
                     tooltip: (
                       <>
@@ -1656,6 +1696,8 @@ useEffect(() => {
                    )
                   
                   },
+                  { element: <SubMSAButton onClick={handleToggleSelectionMode} isActive={isSelectionMode} />, tooltip : (
+                    <> Extract sequences <br /> Choose a subset to create a new panel </> ) },
                   { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
                 ]
           }
@@ -1763,6 +1805,39 @@ useEffect(() => {
             </button>
           </div>
         )}
+        {isSelectionMode && (
+          <div className="absolute right-2 top-14 z-[1100] bg-white border rounded-xl shadow p-2 flex items-center gap-2"
+            onMouseEnter={handleGridMouseLeave}
+          >
+            <input
+          type="text"
+          style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
+          autoFocus
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleGoClick();
+            if (e.key === 'Escape') handleCancelSelection();
+          }}
+          tabIndex={0}
+        />
+            <span className="text-sm text-gray-700 px-2">
+              Click on the label of a sequence to select it  <br /> <strong>{selectedSequences.size}/{msaData.length} sequences selected</strong>
+            </span>
+            <div className="flex-grow"></div>
+            <button
+              className="px-2 py-1 rounded-md bg-gray-200 text-gray-700 hover:bg-red-300"
+              onClick={handleCancelSelection}
+            >
+              Cancel
+            </button>
+            <button
+              className="px-2 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+              onClick={handleGoClick}
+              disabled={selectedSequences.size === 0}
+            >
+              Go
+            </button>
+          </div>
+        )}
 
 {/* --- Unified Tooltip Logic --- */}
 {(() => {
@@ -1842,14 +1917,16 @@ useEffect(() => {
                   if (rawId.length > maxChars) {
                     displayId = rawId.slice(0, Math.max(0, maxChars - 2)) + '..';
                   }
+                  const isSelected = selectedSequences.has(index);
                 return (
                   <div
                     key={index}
                     style={{ height: CELL_SIZE, lineHeight: `${CELL_SIZE}px` }}
                     className={`flex items-center pr-2 pl-2 text-right font-bold truncate ${
                       isNameHighlight ? 'bg-yellow-100' : ''
-                    }`}
+                    } ${isSelectionMode ? 'cursor-pointer hover:bg-gray-100' : ''} ${isSelected ? '!bg-blue-200' : ''}`}
                     title={rawId}
+                    onClick={() => handleLabelClick(index)}
                     onMouseEnter={() => {
                       if (Array.isArray(linkedTo) && linkedTo.length > 0) setHighlightedSequenceId(seqId);
                       isNameHighlight || setHoveredRow(index);
@@ -2548,6 +2625,7 @@ const PanelWrapper = React.memo(({
   handleCreateSequenceFromStructure,
   handleStructureToDistance,
   handleGenerateCorrelationMatrix,
+  onCreateSubsetMsa,
   setPanelData
 }) => {
   const commonProps = usePanelProps(panel.i, {
@@ -2588,7 +2666,8 @@ const PanelWrapper = React.memo(({
       onCreateSeqLogo: handleCreateSeqLogo,
       onCreateSiteStatsHistogram: handleCreateSiteStatsHistogram,
       onGenerateDistance: handleAlignmentToDistance,
-      onFastME: handleFastME
+      onFastME: handleFastME,
+      onCreateSubsetMsa: onCreateSubsetMsa
     }),
     ...(panel.type === 'tree' && {
       highlightedSequenceId,
@@ -2950,6 +3029,27 @@ if (autoLinkTo) {
       setTimeout(() => setJustLinkedPanels([]), 1000);
     }
   }, [upsertHistory, assignPairColor]);
+
+  const handleCreateSubsetMsa = useCallback((id, selectedIndices) => {
+    const sourceData = panelData[id];
+    if (!sourceData || !Array.isArray(sourceData.data)) return;
+
+    const subsetMsa = selectedIndices.map(index => sourceData.data[index]);
+    const newFilename = (sourceData.filename ? sourceData.filename.replace(/\.[^.]+$/, '') : 'alignment') + '.subset.fasta';
+
+    const newPanelData = JSON.parse(JSON.stringify(sourceData));
+    newPanelData.data = subsetMsa;
+    newPanelData.filename = newFilename;
+    delete newPanelData.highlightedSites;
+    delete newPanelData.searchHighlight;
+    delete newPanelData.linkedSiteHighlight;
+
+    addPanel({
+        type: 'alignment',
+        data: newPanelData,
+        basedOnId: id,
+    });
+  }, [panelData, addPanel]);
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -4857,6 +4957,7 @@ const canLink = (typeA, typeB) => {
         handleFastME={handleFastME}
         handleCreateSequenceFromStructure={handleCreateSequenceFromStructure}
         handleStructureToDistance={handleStructureToDistance}
+        onCreateSubsetMsa={handleCreateSubsetMsa}
         setPanelData={setPanelData}
       />
     </div>
