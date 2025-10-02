@@ -154,8 +154,17 @@ useEffect(() => {
   }
   }, [hoveredBtn, hoveredBadge, showTooltip]);
 
+    const handleLeave = useCallback(() => {
+    clearTimeout(showTimer.current); // Cancel any pending show action
+    hideTimer.current = setTimeout(() => {
+      clearAllTooltips();
+    }, 5); // Give a 5ms grace period for moving to the tooltip
+  }, [clearAllTooltips]);
 
   const handleEnter = useCallback((name, isBadge = false) => {
+    if (forceHideTooltip) {
+      return;
+    }
     clearTimeout(hideTimer.current); // Cancel any pending hide action
     showTimer.current = setTimeout(() => {
       if (isBadge) {
@@ -166,20 +175,12 @@ useEffect(() => {
         setShowTooltip(true);
       }
     }, 150);
-  }, []);
-
-  const handleLeave = useCallback(() => {
-    clearTimeout(showTimer.current); // Cancel any pending show action
-    hideTimer.current = setTimeout(() => {
-      clearAllTooltips();
-    }, 5); // Give a 5ms grace period for moving to the tooltip
-  }, [clearAllTooltips]);
+  }, [forceHideTooltip]);
 
 
   useEffect(() => {
     if (forceHideTooltip) {
       clearAllTooltips();
-      setForceHideTooltip(false); // reset after clearing
     }
   }, [forceHideTooltip, clearAllTooltips]);
 
@@ -254,7 +255,13 @@ useEffect(() => {
           onMouseEnter={() => clearTimeout(hideTimer.current)}
           onPointerLeave={handleLeave}
         >
-          {linkBadges.find(b => b.partnerId === hoveredBadge)?.title || hoveredBadge}
+          {(() => {
+  const badge = linkBadges.find(b => b.partnerId === hoveredBadge);
+  if (!badge) return hoveredBadge;
+  return badge.active
+    ? (<>{badge.title}<br /><span className="text-xs text-gray-600">Click to disable link</span></>)
+    : (<>{badge.title}<br /><span className="text-xs text-gray-600">Click to restore link</span></>)
+})()}
         </div>
       )}
 
@@ -948,6 +955,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
 }) {
   const msaData = useMemo(() => data.data, [data.data]);
   const filename = data.filename;
+  const [isUiElementHovered, setIsUiElementHovered] = useState(false);
   const containerRef = useRef(null);
   const isVisible = useIsVisible(containerRef);
   const [gridContainerRef, dims] = useElementSize({ debounceMs: 90 });
@@ -1632,18 +1640,23 @@ useEffect(() => {
         className="relative flex flex-col h-full border rounded-xl bg-white overflow-hidden"
         onPointerLeave={handleGridMouseLeave}
       >
+            <div
+        onMouseEnter={() => setIsUiElementHovered(true)}
+        onMouseLeave={() => setIsUiElementHovered(false)}
+      >
         <PanelHeader
           id={id}
           prefix=""
           filename={filename}
           setPanelData={setPanelData}
+          forceHideTooltip={showSearch || isSelectionMode}
           extraButtons={
             isNuc
               ? [ { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) { setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
                   { element: <TreeButton onClick={() => handleTreeClick(id)} />, tooltip: (
                     <>
                       Build phylogenetic tree <br />
-                      (FastME)
+                       <span className="text-xs text-gray-600">FastME</span>
                     </>
                     )
                   },
@@ -1654,20 +1667,20 @@ useEffect(() => {
                    tooltip: (
                               <>
                                 Compute per-site statistics<br />
-                                (conservation and gap fraction)
+                                <span className="text-xs text-gray-600">Conservation and gap fraction</span>
                               </>
                   ) },
                   { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)}/>,
                    tooltip: (
                     <>
                     Build distance matrix <br />
-                    (normalized hamming)
+                    <span className="text-xs text-gray-600">Normalized Hamming</span>
                     </>
                    )
                   
                   },
                   { element: <SubMSAButton onClick={handleToggleSelectionMode} isActive={isSelectionMode} />, tooltip : (
-                    <> Extract sequences <br /> Choose a subset to create a new panel </> ) },
+                    <> Extract sequences <br /> <span className="text-xs text-gray-600">Choose a subset to create a new panel </span> </> ) },
                   { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
                 ]
               : [ { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) { setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
@@ -1675,7 +1688,7 @@ useEffect(() => {
                     tooltip: (
                       <>
                         Build phylogenetic tree <br />
-                        (FastME)
+                        <span className="text-xs text-gray-600">FastME</span>
                       </>
                     )
                   },
@@ -1684,20 +1697,20 @@ useEffect(() => {
                    tooltip: (
                               <>
                                 Compute per-site statistics<br />
-                                (conservation and gap fraction)
+                                <span className="text-xs text-gray-600">Conservation and gap fraction</span>
                               </>
                   ) },
                   { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)} />,
                     tooltip: (
                     <>
                     Build distance matrix <br />
-                    (normalized hamming)
+                    <span className="text-xs text-gray-600">Normalized Hamming</span>
                     </>
                    )
                   
                   },
                   { element: <SubMSAButton onClick={handleToggleSelectionMode} isActive={isSelectionMode} />, tooltip : (
-                    <> Extract sequences <br /> Choose a subset to create a new panel </> ) },
+                    <> Extract sequences <br /> <span className="text-xs text-gray-600">Choose a subset to create a new panel </span> </> ) },
                   { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
                 ]
           }
@@ -1711,6 +1724,7 @@ useEffect(() => {
           colorForLink={colorForLink}
           onRemove={onRemove}
           />
+          </div>
           {/* model picker overlay */}
         {showModelPicker && (
           <div
@@ -1739,7 +1753,8 @@ useEffect(() => {
         )}
                 {showSearch && (
           <div className="absolute right-2 top-14 z-[1100] bg-white border rounded-xl shadow p-2 flex items-center gap-2"
-          onMouseEnter={handleGridMouseLeave}
+          onMouseEnter={() => setIsUiElementHovered(true)}
+          onMouseLeave={() => setIsUiElementHovered(false)}
           >
             <input
             ref={searchInputRef}
@@ -1841,6 +1856,10 @@ useEffect(() => {
 
 {/* --- Unified Tooltip Logic --- */}
 {(() => {
+  // If mouse is over header or search/select bars, hide all tooltips.
+  if (isUiElementHovered) {
+    return null;
+  }
   // Determine if a tooltip should be shown at all
   const isLocalHover = tooltipSite != null && hoveredPanelId === id;
   const isExternalHighlight = (
@@ -2093,9 +2112,18 @@ const TreePanel = React.memo(function TreePanel({
       { element: <BranchLengthsButton onClick={handleBranchLengthsToggle} isActive={drawBranchLengths} />, tooltip: !drawBranchLengths ? "Draw using branch lengths" : "Draw ignoring branch lengths" },
       { element: <RadialToggleButton onClick={handleRadialToggle} isActive={RadialMode}  />,
        tooltip: RadialMode ? "Switch to rectangular view" : "Switch to radial view" },
-      { element: <PruneButton onClick={handlePruneToggle} isActive={pruneMode} />, tooltip: pruneMode ? "Exit prune mode" : "Prune tree" },
+      { element: <PruneButton onClick={handlePruneToggle} isActive={pruneMode} />, tooltip: pruneMode ? "Exit prune mode" : 
+    (
+      <>Prune tree <br /> <span className="text-xs text-gray-600">Remove branches and their descendants</span></>
+    ) },
       { element: <DistanceMatrixButton   onClick={() => onGenerateDistance(id)}  />,
-       tooltip: "Build distance matrix from tree" },
+       tooltip: (
+        <>
+        Build distance matrix <br />
+        <span className="text-xs text-gray-600">Patristic distance</span>
+        </>
+       )
+      },
       { element: <DownloadButton onClick={handleDownload} />,
        tooltip: "Download tree" }
      ]}
@@ -2386,7 +2414,7 @@ const HistogramPanel = React.memo(function HistogramPanel({
               <>
                 Switch indexing base for linking
                 <br />
-                Current: {indexingMode === '1-based' ? '1-based (site 1 is first)' : '0-based (site 0 is first)'}
+                <span className="text-xs text-gray-600">Current: {indexingMode === '1-based' ? '1-based (site 1 is first)' : '0-based (site 0 is first)'}</span>
               </>
             )
           },
@@ -2395,7 +2423,7 @@ const HistogramPanel = React.memo(function HistogramPanel({
             tooltip: (
               <>
                 Compute correlation matrix<br />
-                (Pearson)
+                <span className="text-xs text-gray-600">Pearson</span>
               </>
             )
           }] : []),
