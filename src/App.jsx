@@ -697,7 +697,7 @@ return (
 
                 <>
                 Build tree from distances<br />
-                (Neighbor-Joining)
+                <span className="text-xs text-gray-600">Neighbor-Joining</span>
                 </>
               )
               
