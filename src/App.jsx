@@ -900,46 +900,57 @@ const MSACell = React.memo(function MSACell({
   rowIndex,
   columnIndex
 }) {
-  // Precompute styles to avoid object creation on every render
-  const cellStyle = style;
-
-  // Precompute class names
-  const className = React.useMemo(() => {
-    const base = 'flex items-center justify-center';
-    const background = residueColors[char?.toUpperCase()] || 'bg-white';
-    const highlightClass = isHoverHighlight || isLinkedHighlight
-      ? 'alignment-highlight'
-      : isPersistentHighlight
-      ? 'persistent-alignment-highlight'
-      : '';
-    const searchClass = isSearchHighlight ? 'search-alignment-highlight' : '';
-    
-    return `${base} ${background} ${highlightClass} ${searchClass}`.trim();
-  }, [char, isHoverHighlight, isLinkedHighlight, isPersistentHighlight, isSearchHighlight]);
+  const background = residueColors[char?.toUpperCase()] || 'bg-white';
+  
+  let highlightClass = '';
+  if (isHoverHighlight || isLinkedHighlight) {
+    highlightClass = 'alignment-highlight';
+  } else if (isPersistentHighlight) {
+    highlightClass = 'persistent-alignment-highlight';
+  }
+  
+  const searchClass = isSearchHighlight ? 'search-alignment-highlight' : '';
+  
+  const className = `flex items-center justify-center ${background} ${highlightClass} ${searchClass}`.trim();
 
   return (
     <div
       data-cell="1"
       data-row={rowIndex}
       data-col={columnIndex}
-      style={cellStyle}
+      style={style}
       className={className}
     >
       {char}
     </div>
   );
 }, (prevProps, nextProps) => {
-  // More aggressive comparison
   return (
     prevProps.char === nextProps.char &&
     prevProps.isHoverHighlight === nextProps.isHoverHighlight &&
     prevProps.isLinkedHighlight === nextProps.isLinkedHighlight &&
     prevProps.isPersistentHighlight === nextProps.isPersistentHighlight &&
     prevProps.isSearchHighlight === nextProps.isSearchHighlight &&
-    prevProps.style.width === nextProps.style.width &&
-    prevProps.style.height === nextProps.style.height
+    prevProps.style === nextProps.style
   );
 });
+
+const useVirtualization = (scrollTop, scrollLeft, viewportWidth, viewportHeight, totalRows, totalCols, itemHeight, itemWidth) => {
+    return useMemo(() => {
+        const overscan = 5; // extra rows/cols to render beyond the viewport
+
+        const visibleRows = Math.ceil(viewportHeight / itemHeight);
+        const visibleCols = Math.ceil(viewportWidth / itemWidth);
+
+        const firstRow = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan);
+        const lastRow = Math.min(totalRows, firstRow + visibleRows + (overscan * 2));
+
+        const firstCol = Math.max(0, Math.floor(scrollLeft / itemWidth) - overscan);
+        const lastCol = Math.min(totalCols, firstCol + visibleCols + (overscan * 2));
+        return { firstRow, lastRow, firstCol, lastCol };
+
+    }, [scrollTop, scrollLeft, viewportWidth, viewportHeight, totalRows, totalCols, itemHeight, itemWidth]);
+};
 
 
 const AlignmentPanel = React.memo(function AlignmentPanel({
@@ -958,1042 +969,709 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [isUiElementHovered, setIsUiElementHovered] = useState(false);
   const containerRef = useRef(null);
   const isVisible = useIsVisible(containerRef);
-  const [gridContainerRef, dims] = useElementSize({ debounceMs: 90 });
-  const gridRef = useRef(null);
-  const outerRef = useRef(null); 
+
+  const [viewportRef, viewportSize] = useElementSize({ debounceMs: 90 });
+  const scrollContainerRef = useRef(null);
+
+  const [scrollTop, setScrollTop] = useState(0);
+  const [scrollLeft, setScrollLeft] = useState(0);
+
   const [tooltipSite, setTooltipSite] = useState(null);
-  const isScrollingRef = useRef(false);
   const lastMousePosRef = useRef({ x: 0, y: 0 });
-  // Search UI state
+
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef(null);
   const [showModelPicker, setShowModelPicker] = React.useState(false);
-  const isLinked = Array.isArray(linkedTo) && linkedTo.length > 0;
-  
-  // Sequence selection state
+
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedSequences, setSelectedSequences] = useState(new Set());
 
-  const [labelWidth, setLabelWidth] = useState(
-  data.labelWidth ?? LABEL_WIDTH*1.5
-);
+  const [labelWidth, setLabelWidth] = useState(data.labelWidth ?? LABEL_WIDTH * 1.5);
 
-// Drag logic
-const dragRef = useRef();
-const isDraggingLabel = useRef(false);
 
-const handleDragStart = (e) => {
-  isDraggingLabel.current = true;
-  dragRef.current = e.clientX;
-  document.body.style.cursor = 'col-resize';
-};
+  // --- Pre-calculation for Linking/Highlighting ---
+  // Determine the active linked site once per render
+  const finalLinkedSite = useMemo(() => {
+    const linkedSiteFromData = data.linkedSiteHighlight;
+    const globalHighlightedSite = (highlightOriginType !== 'structure' && Array.isArray(linkedTo) && linkedTo.includes(highlightOrigin) && id !== highlightOrigin) ? highlightedSite : null;
+    return linkedSiteFromData ?? globalHighlightedSite;
+  }, [data.linkedSiteHighlight, highlightOriginType, linkedTo, highlightOrigin, id, highlightedSite]);
 
-const handleDrag = (e) => {
-  if (!isDraggingLabel.current) return;
-  const delta = e.clientX - dragRef.current;
-  dragRef.current = e.clientX;
-  setLabelWidth(w => {
-  const clamped = Math.max(40, Math.min(300, w + delta));
-  setPanelData(prev => ({
-    ...prev,
-    [id]: { ...prev[id], labelWidth: clamped }
-  }));
-  return clamped;
-});
-};
+  // Determine if this panel should show linked highlights from others
+  const isGlobalLinkActive = useMemo(() => {
+      return Array.isArray(linkedTo) && hoveredPanelId !== id && (linkedTo.includes(highlightOrigin) || id === highlightOrigin);
+  }, [linkedTo, hoveredPanelId, id, highlightOrigin]);
 
-const handleDragEnd = () => {
-  isDraggingLabel.current = false;
-  document.body.style.cursor = '';
-};
+  // Convert persistent highlights to a Set for O(1) lookup
+  const persistentHighlightSet = useMemo(() => new Set(data.highlightedSites || []), [data.highlightedSites]);
+  
+  // Convert linked sequence name highlights to a Set for O(1) lookup
+  const linkedHighlightsSet = useMemo(() => new Set(data.linkedHighlights || []), [data.linkedHighlights]);
 
-useEffect(() => {
-  if (!isDraggingLabel.current) return;
-  window.addEventListener('mousemove', handleDrag);
-  window.addEventListener('mouseup', handleDragEnd);
-  return () => {
+  const dragRef = useRef();
+  const isDraggingLabel = useRef(false);
+
+  const handleDrag = (e) => {
+    if (!isDraggingLabel.current) return;
+    const delta = e.clientX - dragRef.current;
+    dragRef.current = e.clientX;
+    setLabelWidth(w => {
+      const clamped = Math.max(40, Math.min(300, w + delta));
+      setPanelData(prev => ({ ...prev, [id]: { ...prev[id], labelWidth: clamped } }));
+      return clamped;
+    });
+  };
+
+  const handleDragEnd = () => {
+    isDraggingLabel.current = false;
+    document.body.style.cursor = '';
     window.removeEventListener('mousemove', handleDrag);
     window.removeEventListener('mouseup', handleDragEnd);
   };
-}, [isDraggingLabel.current]);
 
-useEffect(() => {
-  if (showSearch) {
-    // Next tick to ensure the input is mounted
-    setTimeout(() => {
-      const el = searchInputRef.current;
-      if (!el) return;
-      el.focus();
-      // optional: select existing contents for quick overwrite
-      el.setSelectionRange(0, el.value.length);
-    }, 0);
-  }
-}, [showSearch]);
+  const handleDragStart = (e) => {
+    isDraggingLabel.current = true;
+    dragRef.current = e.clientX;
+    document.body.style.cursor = 'col-resize';
+    window.addEventListener('mousemove', handleDrag);
+    window.addEventListener('mouseup', handleDragEnd);
+  };
 
-  // Columns that should be highlighted (whole-column highlight)
-  const [searchMask, setSearchMask] = useState(new Set());     // Set<number> of column indices
-  // Contiguous highlighted column ranges for navigation
-  const [searchRanges, setSearchRanges] = useState([]);        // [{start, end}] half-open
+
+  const [searchRanges, setSearchRanges] = useState([]);
   const [searchActiveIdx, setSearchActiveIdx] = useState(0);
+  const [searchHighlightPositions, setSearchHighlightPositions] = useState(new Set());
+
+  useEffect(() => {
+    if (showSearch) {
+      setTimeout(() => {
+        const el = searchInputRef.current;
+        if (!el) return;
+        el.focus();
+        el.setSelectionRange(0, el.value.length);
+      }, 0);
+    }
+  }, [showSearch]);
 
   const [hoveredCol, setHoveredCol] = useState(null);
   const [hoveredRow, setHoveredRow] = useState(null);
   const [tooltipPos, setTooltipPos] = useState({ x: 0, y: 0 });
   const [codonMode, setCodonModeState] = useState(data.codonMode || false);
-  const [scrollTop, setScrollTop] = useState(0);
   const [isSyncScrolling, setIsSyncScrolling] = useState(false);
   const isNuc = useMemo(() => isNucleotide(msaData), [msaData]);
 
   const pickerItems = React.useMemo(() => {
     const items = [];
-    if (isNuc) {
-      items.push('p-distance', 'RY symmetric', 'RY', 'JC69', 'K2P', 'F81', 'F84', 'TN93', 'LogDet');
-    }
-    if (!isNuc) {
-      items.push('p-distance', 'F81', 'LG', 'WAG', 'JTT', 'Dayhoff', 'DCMut', 'CpRev', 'MtREV', 'RtREV', 'HIVb', 'HIVw', 'FLU');
-    }
+    if (isNuc) items.push('p-distance', 'RY symmetric', 'RY', 'JC69', 'K2P', 'F81', 'F84', 'TN93', 'LogDet');
+    if (!isNuc) items.push('p-distance', 'F81', 'LG', 'WAG', 'JTT', 'Dayhoff', 'DCMut', 'CpRev', 'MtREV', 'RtREV', 'HIVb', 'HIVw', 'FLU');
     return items;
   }, [isNuc]);
 
   useEffect(() => {
-  function handleGlobalMouseMove(e) {
-    // Check for the custom upload button class
-    if (e.target instanceof Element && e.target.closest('.upload-btn-trigger')) {
-      setHoveredCol(null);
-      setHoveredRow(null);
-      if (id === highlightOrigin) onHighlight(null, id);
-    }
-  }
-  document.addEventListener('mousemove', handleGlobalMouseMove);
-  return () => document.removeEventListener('mousemove', handleGlobalMouseMove);
+    const handleGlobalMouseMove = (e) => {
+      if (e.target instanceof Element && e.target.closest('.upload-btn-trigger')) {
+        setHoveredCol(null); setHoveredRow(null);
+        if (id === highlightOrigin) onHighlight(null, id);
+      }
+    };
+    document.addEventListener('mousemove', handleGlobalMouseMove);
+    return () => document.removeEventListener('mousemove', handleGlobalMouseMove);
   }, [id, highlightOrigin, onHighlight]);
 
   const handleTreeClick = React.useCallback(() => {
-    if (!msaData || msaData.length === 0) { alert('No sequences available.'); return; }
-    if (msaData.length > 120 ) {
-      if (!window.confirm(`This alignment has ${msaData.length} sequences. Reconstructing a tree may take a long time and could crash your browser. Proceed?`)) {
-        return;
-      }
+    if (!msaData || msaData.length  < 4) { alert('At least 4 sequences are required to reconstruct a tree.'); return; }
+    if (msaData.length > 120 && !window.confirm(`This alignment has ${msaData.length} sequences. Reconstructing a tree may take a long time and could crash your browser. Proceed?`)) {
+      return;
     }
     setShowModelPicker(true);
-  }, [id, msaData, onFastME]);
+  }, [msaData]);
 
+  const pickModel = React.useCallback((choice) => { onFastME(id, choice); setShowModelPicker(false); }, [id, onFastME]);
+  const handleModelSelect = React.useCallback((item) => { pickModel(item); }, [pickModel]);
+  const handleDownload = useCallback(() => { mkDownload(baseName(data?.filename, 'alignment'), toFasta(data?.data || []), 'fasta')(); }, [data]);
 
-  const pickModel = React.useCallback((choice) => {
-      let evoModel = choice;
-      onFastME(id, evoModel);
-      setShowModelPicker(false);
-    }, [id, onFastME]);
-
-  const handleModelSelect = React.useCallback((item) => {
-      pickModel(item);
-  }, [pickModel]);
-
-
-  const handleDownload = useCallback(() => {
-    const msa = data?.data || [];
-    const content = toFasta(msa);
-    const base = baseName(data?.filename, 'alignment');
-    mkDownload(base, content, 'fasta')();
-  }, [data]);
-
-  const rangesFromMask = useCallback((mask, totalCols) => {
-    if (!mask || totalCols <= 0) return [];
+  const rangesFromMask = useCallback((mask) => {
     const cols = Array.from(mask).sort((a, b) => a - b);
     if (cols.length === 0) return [];
-    const out = [];
-    let s = cols[0];
-    let prev = cols[0];
+    const out = []; let s = cols[0], prev = cols[0];
     for (let i = 1; i < cols.length; i++) {
       const c = cols[i];
-      if (c === prev + 1) {
-        prev = c;
-      } else {
-        out.push({ start: s, end: prev + 1 }); // half-open
-        s = c; prev = c;
-      }
+      if (c === prev + 1) { prev = c; }
+      else { out.push({ start: s, end: prev + 1 }); s = c; prev = c; }
     }
     out.push({ start: s, end: prev + 1 });
     return out;
   }, []);
-const scrollToColumn = useCallback((col) => {
-    if (col == null || !outerRef.current || !gridRef.current) return;
+
+  const centerColumn = useCallback((col) => {
+    if (col == null || !scrollContainerRef.current) return;
+    const scroller = scrollContainerRef.current;
     const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
-    const targetPx = col * itemWidth - 4; // -4 for border compensation
-    gridRef.current.scrollTo({ scrollLeft: targetPx });
-  }, [codonMode]);
+    const viewportWidth = scroller.clientWidth - labelWidth;
+
+    const targetStart = col * itemWidth;
+    const targetScroll = Math.max(0, targetStart - (viewportWidth / 2) + (itemWidth / 2));
+
+    scroller.scrollTo({ left: targetScroll });
+  }, [codonMode, labelWidth]);
 
   const linkedSiteFromData = data.linkedSiteHighlight;
-  
-  // The global highlight is used for other link types, but not for highlights coming from a structure panel,
-  // as those are handled by the panel-specific `linkedSiteHighlight`.
-  const globalHighlightedSite = (
-      highlightOriginType !== 'structure' &&
-      Array.isArray(linkedTo) && 
-      linkedTo.includes(highlightOrigin) && 
-      id !== highlightOrigin
-  ) ? highlightedSite : null;
-
-  // Use the panel-specific highlight if available, otherwise fall back to the global one.
+  const globalHighlightedSite = (highlightOriginType !== 'structure' && Array.isArray(linkedTo) && linkedTo.includes(highlightOrigin) && id !== highlightOrigin) ? highlightedSite : null;
   const finalHighlightedSite = linkedSiteFromData ?? globalHighlightedSite;
 
-  // useEffect that correctly positions the tooltip for both highlight types
-  useEffect(() => {
-    if (finalHighlightedSite != null && !isSyncScrolling) {
-      const outer = outerRef.current;
-      if (!outer) return;
-      const rect = outer.getBoundingClientRect();
-      const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
-      const x = rect.left + (finalHighlightedSite * itemWidth) - outer.scrollLeft + (itemWidth / 2);
-      const y = rect.top + (rect.height / 2);
-      setTooltipPos({ x, y });
+  const handleScrollEnd = useMemo(() => debounce(() => { setIsSyncScrolling(false); }, 1), []);
+  const throttledHighlight = useMemo(() => throttle((col, originId) => onHighlight(col, originId), 90, { leading: true, trailing: true }), [onHighlight]);
+
+const onScroll = useMemo(() => 
+  throttle((e) => {
+    // Check if the event target still exists
+    if (!e?.currentTarget) return;
+    
+    const { scrollTop: newScrollTop, scrollLeft: newScrollLeft } = e.currentTarget;
+    setScrollTop(newScrollTop);
+    setScrollLeft(newScrollLeft);
+
+    if (hoveredCol == null && hoveredRow != null) {
+      setTooltipSite(null);
     }
-  }, [finalHighlightedSite, id, highlightOrigin, codonMode, dims.height, isSyncScrolling, scrollTop]);
 
-// throttle highlight to once every 90ms
-const throttledHighlight = useMemo(
-  () =>
-    throttle(
-      (col, originId) => {
-        onHighlight(col, originId);
-      },
-      90,
-      { leading: true, trailing: true }
-    ),
-  [onHighlight]
-);
+    if (!isSyncScrolling && hoveredPanelId === id) {
+      const gridRect = e.currentTarget.getBoundingClientRect();
+      const mouseXRelative = lastMousePosRef.current.x - gridRect.left;
+      const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
+      const currentColumn = Math.floor((newScrollLeft + mouseXRelative - labelWidth) / itemWidth);
+      setTooltipSite(currentColumn);
 
-
-// This function is called when scrolling ends.
-const handleScrollEnd = useMemo(
-  () =>
-    debounce(() => {
-      isScrollingRef.current = false;
-      // After any scroll event finishes, reset the sync flag.
-      setIsSyncScrolling(false);
-    }, 1), // 1ms delay after the last scroll event
-  []
-);
-
-const handleScroll = useMemo(
-  () =>
-    throttle(({ scrollLeft, scrollTop }) => {
-      isScrollingRef.current = true;
-      setScrollTop(scrollTop);
-      
-      // We do not try to calculate column from mouse position during a sync scroll,
-      // as the mouse position is stale and unrelated to this panel.
-      if (!isSyncScrolling) {
-        if (hoveredPanelId !== id) {
-          return;
-        }
-
-        const outer = outerRef.current;
-        if (outer) {
-          const gridRect = outer.getBoundingClientRect();
-          
-          const mouseXRelative = lastMousePosRef.current.x - gridRect.left;
-          const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
-          const currentColumn = Math.floor((scrollLeft + mouseXRelative) / itemWidth);
-          setTooltipSite(currentColumn);
-          
-          // Send highlight events during the scroll
-          throttledHighlight(currentColumn, id);
-
-          const mouseYRelative = lastMousePosRef.current.y - gridRect.top;
-          const currentRow = Math.floor((scrollTop + mouseYRelative) / CELL_SIZE);
-          if (currentRow >= 0 && currentRow < msaData.length) {
-              setHoveredRow(currentRow);
-              if (Array.isArray(linkedTo) && linkedTo.length > 0 && setHighlightedSequenceId) {
-                  const seqId = msaData[currentRow]?.id;
-                  if (seqId) {
-                      setHighlightedSequenceId(seqId);
-                  }
-              }
-          }
+      if (hoveredCol != null) {
+        throttledHighlight(currentColumn, id);
+      }
+      const mouseYRelative = lastMousePosRef.current.y - gridRect.top;
+      const RULER_HEIGHT = CELL_SIZE/Math.round(1.5);
+      const currentRow = Math.floor((newScrollTop + mouseYRelative - RULER_HEIGHT) / CELL_SIZE);
+      if (currentRow >= 0 && currentRow < msaData.length) {
+        setHoveredRow(currentRow);
+        if (Array.isArray(linkedTo) && linkedTo.length > 0 && setHighlightedSequenceId) {
+          const seqId = msaData[currentRow]?.id;
+          if (seqId) setHighlightedSequenceId(seqId);
         }
       }
-      
-      handleScrollEnd();
-    }, 90),
-  [id, codonMode, handleScrollEnd, msaData, linkedTo, setHighlightedSequenceId, throttledHighlight, isSyncScrolling, hoveredPanelId]
+    }
+    handleScrollEnd();
+  }, 8, { trailing: true }),
+  [
+    id, codonMode, handleScrollEnd, msaData, linkedTo,
+    setHighlightedSequenceId, throttledHighlight, isSyncScrolling,
+    hoveredPanelId, labelWidth, hoveredCol, hoveredRow,
+  ]
 );
 
+  useEffect(() => {
+
+      if (typeof externalScrollLeft !== 'number' || !scrollContainerRef.current) {
+          return;
+      }
+      
+      const scroller = scrollContainerRef.current;
+
+      const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
+      const viewportWidth = scroller.clientWidth - labelWidth;
+      const currentScrollLeft = scroller.scrollLeft;
+
+      const MARGIN = 0;
+      const padding = viewportWidth / 3;
+
+      const targetStart = externalScrollLeft;
+      const targetEnd = targetStart + itemWidth;
+
+      let targetScroll = null;
+
+      // Condition 1: The target is off the left side of the viewport (or inside the margin)
+      if (targetStart < currentScrollLeft + MARGIN) {
+          targetScroll = targetStart - padding;
+      }
+      // Condition 2: The target is off the right side of the viewport (or inside the margin)
+      else if (targetEnd > currentScrollLeft + viewportWidth - MARGIN) {
+          // Calculation: scroll to a position where the target's start is visible,
+          // plus padding, adjusted for its own width.
+          targetScroll = targetStart - viewportWidth + itemWidth + padding;
+      }
+
+      // Only perform the scroll if one of the conditions was met
+      if (targetScroll !== null) {
+          setIsSyncScrolling(true);
+
+          // Ensure the calculated scroll position is within valid bounds
+          const maxScroll = scroller.scrollWidth - scroller.clientWidth;
+          const clampedScroll = Math.max(0, Math.min(targetScroll, maxScroll));
+
+          scroller.scrollTo({
+              left: clampedScroll,
+          });
+      }
+  }, [externalScrollLeft, codonMode, labelWidth, viewportSize.width]);
+
+
+  useEffect(() => {
+    if (!scrollContainerRef.current) return;
+    const scroller = scrollContainerRef.current;
+    const gridRect = scroller.getBoundingClientRect();
+    const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
+    const RULER_HEIGHT = CELL_SIZE/Math.round(1.5);
+    const gridVisibleHeight = gridRect.height - RULER_HEIGHT;
+
+    let x, y;
+    if (hoveredPanelId === id && tooltipSite != null) {
+      // Local hover: use mouse position
+      x = lastMousePosRef.current.x;
+      y = lastMousePosRef.current.y;
+    } else if (finalHighlightedSite != null && Number.isInteger(finalHighlightedSite) && finalHighlightedSite >= 0) {
+      // External highlight: center tooltip on highlighted column
+      x = gridRect.left + labelWidth + (finalHighlightedSite * itemWidth) - scroller.scrollLeft + (itemWidth / 2);
+      y = gridRect.top + RULER_HEIGHT + (gridVisibleHeight / 2);
+    } else {
+      return;
+    }
+    setTooltipPos({ x, y });
+  }, [finalHighlightedSite, codonMode, labelWidth, viewportSize, scrollLeft, hoveredCol, hoveredPanelId, tooltipSite]);
 
   const runSearch = useCallback(() => {
-    if (!searchQuery?.trim() || !Array.isArray(msaData) || msaData.length === 0) return;
+    if (!searchQuery?.trim() || !msaData || msaData.length === 0) return;
     const q = searchQuery.trim();
     const asInt = Number(q);
-    // Reset previous results
-   setSearchMask(new Set());
-   setSearchRanges([]);
+    setSearchRanges([]);
     setSearchActiveIdx(0);
-    setPanelData(prev => ({ ...prev, [id]: { ...prev[id], searchHighlight: undefined }}));
+    setSearchHighlightPositions(new Set());
+    setPanelData(prev => ({ ...prev, [id]: { ...prev[id], searchHighlight: undefined } }));
 
-    // 1) Numeric site (1-based → 0-based)
     if (Number.isInteger(asInt) && String(asInt) === q) {
-    const col = asInt - 1;
-    if (col < 0 || col >= (msaData[0]?.sequence?.length || 0)) { alert('Index out of bounds'); return; }
-    else {scrollToColumn(col)
-     const mask = new Set([col]);
-     setSearchMask(mask);
-     const ranges = [{ start: col, end: col + 1 }];
-     setSearchRanges(ranges);
-     setSearchActiveIdx(0);
-     setPanelData(prev => ({ ...prev, [id]: { ...prev[id], searchHighlight: { row: null, start: col, end: col + 1 }}}));
+      const col = asInt - 1;
+      if (col < 0 || col >= (msaData[0]?.sequence?.length || 0)) { alert('Index out of bounds'); return; }
+      centerColumn(col);
+      const newPositions = new Set();
+      for (let i = 0; i < msaData.length; i++) {
+          newPositions.add(`${i}-${col}`);
+      }
+      setSearchHighlightPositions(newPositions);
+      setSearchRanges([{ start: col, end: col + 1 }]);
+      setPanelData(prev => ({ ...prev, [id]: { ...prev[id], searchHighlight: { start: col, end: col + 1 } } }));
       return;
-    }}
+    }
 
-    // 2) Motif (search occurrence in any row, exact consecutive, case-insensitive)
     const motif = q.toUpperCase();
+    const newPositions = new Set();
     const mask = new Set();
-    for (let r = 0; r < msaData.length; r++) {
-      const seq = (msaData[r]?.sequence || '').toUpperCase();
+    msaData.forEach((row, r) => {
+      const seq = row.sequence.toUpperCase();
       let idx = seq.indexOf(motif);
       while (idx >= 0) {
-        for (let c = idx; c < idx + motif.length; c++) mask.add(c); // mark ALL columns in motif span
+        for (let c = idx; c < idx + motif.length; c++) {
+            newPositions.add(`${r}-${c}`);
+            mask.add(c);
+        }
         idx = seq.indexOf(motif, idx + 1);
       }
-    }
-   if (mask.size === 0) { alert('No match found.'); return; }
-   const totalCols = msaData[0]?.sequence?.length || 0;
-   const ranges = rangesFromMask(mask, totalCols);
-   setSearchMask(mask);
-   setSearchRanges(ranges);
-   setSearchActiveIdx(0);
-  if (outerRef.current) {
-    const outer = outerRef.current;
-    const viewportLeft = outer.scrollLeft;
-    const viewportRight = viewportLeft + outer.offsetWidth;
-    const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
-    const motifStartPx = ranges[0].start * itemWidth;
-    const motifEndPx = ranges[0].end * itemWidth;
+    });
 
-    // If motif is not fully in view, scroll
-    if (motifStartPx < viewportLeft || motifEndPx > viewportRight) {
-      scrollToColumn(ranges[0].start);
-    }
-  } else {
-    // fallback: always scroll if ref missing
-    scrollToColumn(ranges[0].start);
-  }
-
-  setPanelData(prev => ({ ...prev, [id]: { ...prev[id], searchHighlight: ranges[0] }}));
-}, [searchQuery, msaData, id, setPanelData, scrollToColumn, codonMode, rangesFromMask]);
+    if (mask.size === 0) { alert('No match found.'); return; }
+    const ranges = rangesFromMask(mask);
+    setSearchHighlightPositions(newPositions);
+    setSearchRanges(ranges);
+    setSearchActiveIdx(0);
+    centerColumn(ranges[0].start);
+    setPanelData(prev => ({ ...prev, [id]: { ...prev[id], searchHighlight: ranges[0] } }));
+  }, [searchQuery, msaData, id, setPanelData, centerColumn, rangesFromMask]);
 
   const closeSearch = useCallback(() => {
     setShowSearch(false);
     setSearchQuery('');
-   setSearchMask(new Set());
-   setSearchRanges([]);
+    setSearchRanges([]);
     setSearchActiveIdx(0);
-    setPanelData(prev => ({
-      ...prev,
-      [id]: { ...prev[id], searchHighlight: undefined }
-    }));
+    setSearchHighlightPositions(new Set());
+    setPanelData(prev => ({ ...prev, [id]: { ...prev[id], searchHighlight: undefined } }));
   }, [id, setPanelData]);
 
-  const setCodonMode = useCallback(
-    (fnOrValue) => {
-      setCodonModeState(prev => {
-        const next = typeof fnOrValue === 'function' ? fnOrValue(prev) : fnOrValue;
-        setPanelData(prevData => ({
-          ...prevData,
-          [id]: {
-            ...prevData[id],
-            codonMode: next,
-            highlightedSites: [] // clear highlights when switching modes
-          }
-        }));
-        return next;
-      });
-    },
-    [id, setPanelData]
-  );
-  const handleToggleSelectionMode = () => {
-    if (!isSelectionMode) {
-      setShowSearch(false); // Hide search when entering selection mode
-    }
-    if (isSelectionMode) {
-      setSelectedSequences(new Set()); // Clear selection when leaving
-    }
-    setIsSelectionMode(prev => !prev);
-  };
+  const setCodonMode = useCallback((val) => setCodonModeState(prev => {
+    const next = typeof val === 'function' ? val(prev) : val;
+    setPanelData(d => ({ ...d, [id]: { ...d[id], codonMode: next, highlightedSites: [] } }));
+    return next;
+  }), [id, setPanelData]);
 
-  const handleGoClick = () => {
-    if (selectedSequences.size === 0) return;
-    onCreateSubsetMsa(id, Array.from(selectedSequences));
-    // Reset state after creation
-    setIsSelectionMode(false);
-    setSelectedSequences(new Set());
-  };
+  const handleToggleSelectionMode = () => { if (isSelectionMode) setSelectedSequences(new Set()); setIsSelectionMode(prev => !prev); };
+  const handleGoClick = () => { if (selectedSequences.size === 0) return; onCreateSubsetMsa(id, Array.from(selectedSequences)); setIsSelectionMode(false); setSelectedSequences(new Set()); };
+  const handleCancelSelection = () => { setIsSelectionMode(false); setSelectedSequences(new Set()); };
+  const handleLabelClick = (index) => { if (!isSelectionMode) return; const sel = new Set(selectedSequences); if (sel.has(index)) sel.delete(index); else sel.add(index); setSelectedSequences(sel); };
 
-  const handleCancelSelection = () => {
-    setIsSelectionMode(false);
-    setSelectedSequences(new Set());
-  };
-
-  const handleLabelClick = (index) => {
-    if (!isSelectionMode) return;
-    const newSelection = new Set(selectedSequences);
-    if (newSelection.has(index)) {
-      newSelection.delete(index);
-    } else {
-      newSelection.add(index);
-    }
-    setSelectedSequences(newSelection);
-  };
-
+  useEffect(() => { if (data.codonMode !== codonMode) setCodonModeState(data.codonMode || false); }, [data.codonMode, codonMode]);
   useEffect(() => {
-    if (data.codonMode !== codonMode) {
-      setCodonModeState(data.codonMode || false);
-    }
-  }, [data.codonMode]);
+      const clear = () => {
+        setHoveredCol(null);
+        setHoveredRow(null);
+        setTooltipSite(null);
+        
+        setHighlightedSequenceId(null);
+        if (id === highlightOrigin) onHighlight(null, id);
+      };
 
-useEffect(() => {
-  const clearHighlight = () => {
-    setHoveredCol(null);
-    setHoveredRow(null);
-    setHighlightedSequenceId(null);
-    if (id === highlightOrigin) onHighlight(null, id);
-  };
-  if (hoveredPanelId !== id) clearHighlight();
-  if (Array.isArray(linkedTo) && linkedTo.includes(hoveredPanelId)) return;
-}, [hoveredPanelId, id, linkedTo, highlightOrigin, onHighlight, setHighlightedSequenceId]);
-
-useEffect(() => {
-  // This effect positions the tooltip for highlights coming from linked panels.
-  if (finalHighlightedSite != null && outerRef.current) {
-    const outer = outerRef.current;
-    const rect = outer.getBoundingClientRect();
-    const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
-
-    // Calculate the X position based on the site index and scroll offset
-    const x = rect.left + (finalHighlightedSite * itemWidth) - outer.scrollLeft + (itemWidth / 2);
-    // Center the Y position vertically within the grid
-    const y = rect.top + (rect.height / 2);
-
-    setTooltipPos({ x, y });
-  }
-}, [finalHighlightedSite, codonMode, dims.height, scrollTop]); // Re-run if site, mode, or dimensions change
-
-useEffect(() => {
-  if (!gridRef.current || typeof externalScrollLeft !== 'number') return;
-  const outer = outerRef.current;
-  if (!outer) return;
-
-  const viewportWidth = dims.width - labelWidth;
-  const currentScrollLeft = outer.scrollLeft;
-  const itemWidth = codonMode ? 3 * CELL_SIZE : CELL_SIZE;
-  const MARGIN = 24;
-  const colStart = externalScrollLeft;
-  const colEnd = colStart + itemWidth;
-  const padding = viewportWidth / 3;
-  const maxScroll = outer.scrollWidth - viewportWidth + itemWidth + padding;
-
-  let targetScroll = null;
-  if (colStart < currentScrollLeft + MARGIN) {
-    targetScroll = colStart - padding;
-  } else if (colEnd > currentScrollLeft + viewportWidth - 2*MARGIN ) {
-    targetScroll = colStart - viewportWidth + itemWidth + padding;
-  }
-
-  if (targetScroll !== null) {
-    setIsSyncScrolling(true);
-    // Clamp targetScroll between 0 and (outer.scrollWidth - viewportWidth)
-    const maxScrollPos = Math.max(0, outer.scrollWidth - viewportWidth);
-    gridRef.current.scrollTo({
-      scrollLeft: Math.max(0, Math.min(targetScroll, maxScrollPos))
-    });
-  }
-}, [externalScrollLeft, dims.width, codonMode]);
-
+      // Clear all the local hover state when the globally hovered panel is not this one (and not a panel linked to this one),
+      if (hoveredPanelId !== id && !(Array.isArray(linkedTo) && linkedTo.includes(hoveredPanelId))) {
+        clear();
+      }
+    }, [hoveredPanelId, id, linkedTo, highlightOrigin, onHighlight, setHighlightedSequenceId]);
 
   const rowCount = msaData.length;
   const colCount = msaData[0]?.sequence.length || 0;
+  const totalGridWidth = colCount * CELL_SIZE;
+  const totalGridHeight = rowCount * CELL_SIZE;
+  const RULER_HEIGHT = CELL_SIZE/Math.round(1.5);
 
   const pickCellFromEvent = useCallback((e) => {
     const el = e.target.closest('[data-cell="1"]');
     if (!el) return null;
-    const rowIndex = Number(el.getAttribute('data-row'));
-    const columnIndex = Number(el.getAttribute('data-col'));
-    if (Number.isNaN(rowIndex) || Number.isNaN(columnIndex)) return null;
-    return { rowIndex, columnIndex };
+    return { rowIndex: Number(el.dataset.row), columnIndex: Number(el.dataset.col) };
   }, []);
 
-const handleGridMouseMove = useCallback(
-  (e) => {
-    // Store the latest mouse position
+const handleGridMouseMove = useMemo(() => 
+  throttle((e) => {
     lastMousePosRef.current = { x: e.clientX, y: e.clientY };
-
     const hit = pickCellFromEvent(e);
-    if (!hit) return;
+    if (!hit || Number.isNaN(hit.rowIndex)) return;
 
     const { rowIndex, columnIndex } = hit;
-    const codonIndex = Math.floor(columnIndex / 3);
-    const idx = codonMode ? codonIndex : columnIndex;
-
-    // Update local visual state and tooltip content
-    setHoveredRow(rowIndex);
-    setHoveredCol(idx);
-    setTooltipSite(idx); // Update the dedicated tooltip state
+    const idx = codonMode ? Math.floor(columnIndex / 3) : columnIndex;
+    
+    // Batch state updates
+    setHoveredRow(rowIndex); 
+    setHoveredCol(idx); 
+    setTooltipSite(idx);
     setTooltipPos({ x: e.clientX, y: e.clientY });
-
-    // Always trigger the highlight on mouse move.
+    
     throttledHighlight(idx, id);
-
+    
     if (Array.isArray(linkedTo) && linkedTo.length > 0 && setHighlightedSequenceId) {
-      const seqId = msaData[rowIndex]?.id;
-      if (seqId) setHighlightedSequenceId(seqId);
+      setHighlightedSequenceId(msaData[rowIndex]?.id);
     }
-  },
+  }, 16, { leading: true, trailing: true }), // ~60fps throttling
   [pickCellFromEvent, codonMode, throttledHighlight, id, linkedTo, setHighlightedSequenceId, msaData]
 );
 
+  const handleGridMouseLeave = useCallback(() => {
+    throttledHighlight.cancel(); setHoveredCol(null); setHoveredRow(null);
+    setTooltipSite(null);
+    if (id === highlightOrigin) onHighlight(null, id);
+    //if (Array.isArray(linkedTo) && linkedTo.length > 0 && setHighlightedSequenceId) setHighlightedSequenceId(null);
+  }, [throttledHighlight, id, highlightOrigin, onHighlight, linkedTo, setHighlightedSequenceId]);
 
-const handleGridMouseLeave = useCallback(() => {
-  throttledHighlight.cancel();
-  setHoveredCol(null);
-  setHoveredRow(null);
-  setTooltipSite(null);
-  if (id === highlightOrigin) onHighlight(null, id);
-  if (Array.isArray(linkedTo) && linkedTo.length > 0 && setHighlightedSequenceId) setHighlightedSequenceId(null);
-}, [throttledHighlight, id, highlightOrigin, onHighlight, linkedTo, setHighlightedSequenceId]);
-
-  const handleGridClick = useCallback(
-    (e) => {
-      const hit = pickCellFromEvent(e);
-      if (!hit) return;
-      const { rowIndex, columnIndex } = hit;
-      const codonIndex = Math.floor(columnIndex / 3);
-      const idx = codonMode ? codonIndex : columnIndex;
-
-      setPanelData(prev => {
-        const prevHighlights = prev[id]?.highlightedSites || [];
-        const isHighlighted = prevHighlights.includes(idx);
-        const updatedHighlights = isHighlighted
-          ? prevHighlights.filter(i => i !== idx)
-          : [...prevHighlights, idx];
-        return {
-          ...prev,
-          [id]: {
-            ...prev[id],
-            highlightedSites: updatedHighlights
-          }
-        };
-      });
-    },
-    [pickCellFromEvent, codonMode, id, setPanelData]
-  );
-
-
-
-const Cell = useCallback(
-  ({ columnIndex, rowIndex, style, data:itemData }) => {
-    const char = msaData[rowIndex].sequence[columnIndex];
-    const codonIndex = Math.floor(columnIndex / 3);
-    const idx = codonMode ? codonIndex : columnIndex;
-
-    const persistentHighlights = data.highlightedSites || [];
-    const isPersistentHighlight = persistentHighlights.includes(idx);
-
-    // Whole-column highlight: any column present in the mask is blue on all rows
-    const isInSearchMask = itemData?.searchHighlight && searchMask.size > 0
-      ? searchMask.has(columnIndex)
-      : false;
-
-    // Highlight all motif letters in each matching row
-    let isSearchHighlight = false;
-    const q = searchQuery.trim();
-    const asInt = Number(q);
-    if (Number.isInteger(asInt) && String(asInt) === q && isInSearchMask && asInt > 0 && asInt - 1 === columnIndex) {
-      isSearchHighlight = true;
-    }
-    else {
-    if (itemData?.searchHighlight && searchQuery) {
-      const motif = searchQuery.toUpperCase();
-      const seq = msaData[rowIndex].sequence.toUpperCase();
-      // Check if this cell is part of any motif occurrence in this row
-      for (let i = 0; i <= seq.length - motif.length; i++) {
-        if (seq.slice(i, i + motif.length) === motif) {
-          if (columnIndex >= i && columnIndex < i + motif.length) {
-            isSearchHighlight = true;
-            break;
-          }
-      
-        }
-      }
-    }}
-
-    const isHoverHighlight = codonMode
-      ? hoveredCol != null && hoveredCol === codonIndex
-      : hoveredCol === columnIndex;
-
-    const linkedSiteHighlight = itemData.linkedSiteHighlight;
-
-    const isLinkedHighlightByGlobal =
-          Array.isArray(linkedTo) &&
-          highlightedSite != null &&
-          hoveredPanelId !== id &&
-          (linkedTo.includes(highlightOrigin) || id === highlightOrigin) &&
-          (codonMode ? codonIndex === highlightedSite : columnIndex === highlightedSite);
-    
-    const isLinkedHighlightByData =
-          linkedSiteHighlight != null &&
-          (codonMode ? codonIndex === linkedSiteHighlight : columnIndex === linkedSiteHighlight);
-
-    const isLinkedHighlight = isLinkedHighlightByGlobal || isLinkedHighlightByData;
-
-    const finalHighlightedSite = useMemo(() => {
-  // Check for a panel-specific highlight first (e.g., from structure link)
-  if (data.linkedSiteHighlight != null) {
-    return data.linkedSiteHighlight;
-  }
-  
-  // Check for a global highlight from a linked panel
-  const isLinked = Array.isArray(linkedTo) && linkedTo.includes(highlightOrigin);
-  if (isLinked && id !== highlightOrigin && highlightedSite != null) {
-    return highlightedSite;
-  }
-  
-  return null;
-}, [data.linkedSiteHighlight, linkedTo, highlightOrigin, id, highlightedSite]);
-
-    return (
-      <MSACell
-        columnIndex={columnIndex}
-        rowIndex={rowIndex}
-        style={style}
-        char={char}
-        isHoverHighlight={isHoverHighlight}
-        isLinkedHighlight={isLinkedHighlight}
-        isPersistentHighlight={isPersistentHighlight}
-        isSearchHighlight={isSearchHighlight}
-      />
-    );
-  },
-  [
-    msaData,
-    codonMode,
-    hoveredCol,
-    highlightedSite,
-    highlightOrigin,
-    linkedTo,
-    id,
-    data.highlightedSites,
-    hoveredPanelId,
-    searchQuery
-  ]
-);
-
-  const sequenceLabels = useMemo(() => {
-    return msaData.map((seq, index) => {
-      const rawId = seq.id.replace(/\s+/g, ' ').trim();
-      const shortId = rawId.length > 10 ? rawId.slice(0, 8) + '..' : rawId;
-      return { index, rawId, shortId, id: seq.id };
+  const handleGridClick = useCallback((e) => {
+    const hit = pickCellFromEvent(e);
+    if (!hit || Number.isNaN(hit.rowIndex)) return;
+    const idx = codonMode ? Math.floor(hit.columnIndex / 3) : hit.columnIndex;
+    setPanelData(prev => {
+      const h = prev[id]?.highlightedSites || [];
+      const updated = h.includes(idx) ? h.filter(i => i !== idx) : [...h, idx];
+      return { ...prev, [id]: { ...prev[id], highlightedSites: updated } };
     });
-  }, [msaData]);
+  }, [codonMode, id, setPanelData, pickCellFromEvent]);
 
-useEffect(() => {
-  return () => {
-    // These functions have internal timers, so we must cancel them
-    // when the component unmounts to prevent memory leaks.
-    throttledHighlight.cancel();
-    handleScrollEnd.cancel();
-  };
-}, [throttledHighlight, handleScrollEnd]);
+  const sequenceLabels = useMemo(() => msaData.map((seq, index) => ({ index, rawId: seq.id.replace(/\s+/g, ' ').trim(), id: seq.id })), [msaData]);
 
-  const gridItemData = useMemo(() => ({
-    msaData,
-    searchMask,
-    searchHighlight: data.searchHighlight,
-    codonMode,
-    hoveredCol,
-    searchQuery,
-    highlightedSite,
-    highlightOrigin,
-    linkedTo,
-    hoveredPanelId,
-    id,
-    linkedSiteHighlight: data.linkedSiteHighlight,
-    highlightedSites: data.highlightedSites || []
-  }), [
-    msaData, searchMask, data.searchHighlight, codonMode, hoveredCol,
-    highlightedSite, highlightOrigin, linkedTo, hoveredPanelId, id, data.highlightedSites,data.linkedSiteHighlight,
-  ]);
+  useEffect(() => () => { throttledHighlight.cancel(); handleScrollEnd.cancel(); }, [throttledHighlight, handleScrollEnd]);
 
+  // Optimization: Get the boundaries object from the hook
+  const { firstRow, lastRow, firstCol, lastCol } = useVirtualization(
+      scrollTop,
+      scrollLeft,
+      viewportSize.width - labelWidth,
+      viewportSize.height - RULER_HEIGHT,
+      rowCount,
+      colCount,
+      CELL_SIZE,
+      CELL_SIZE
+  );
+
+  // Optimization: Create lightweight arrays of indices to map over in JSX
+  const rowIndices = useMemo(() => Array.from({ length: lastRow - firstRow }, (_, i) => firstRow + i), [firstRow, lastRow]);
+  const colIndices = useMemo(() => Array.from({ length: lastCol - firstCol }, (_, i) => firstCol + i), [firstCol, lastCol]);
 
   return (
-    <PanelContainer
-      id={id}
-      linkedTo={linkedTo}
-      panelLinks={panelLinks} 
-      hoveredPanelId={hoveredPanelId}
-      setHoveredPanelId={setHoveredPanelId}
-      //onDoubleClick={() => onReupload(id)}
-      isEligibleLinkTarget={isEligibleLinkTarget}
-      justLinkedPanels={justLinkedPanels}
-    >
-      <div
-        ref={containerRef}
-        className="relative flex flex-col h-full border rounded-xl bg-white overflow-hidden"
-        onPointerLeave={handleGridMouseLeave}
-      >
-            <div
-        onMouseEnter={() => setIsUiElementHovered(true)}
-        onMouseLeave={() => setIsUiElementHovered(false)}
-      >
-        <PanelHeader
-          id={id}
-          prefix=""
-          filename={filename}
-          setPanelData={setPanelData}
-          forceHideTooltip={showSearch || isSelectionMode}
-          extraButtons={
-            isNuc
-              ? [ { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) { setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
-                  { element: <TreeButton onClick={() => handleTreeClick(id)} />, tooltip: (
-                    <>
-                      Build phylogenetic tree <br />
-                       <span className="text-xs text-gray-600">FastME</span>
-                    </>
-                    )
-                  },
-                  { element: <CodonToggleButton onClick={() => setCodonMode(m => !m)} isActive={codonMode} />, tooltip: "Toggle codon mode" },
-                  { element: <TranslateButton onClick={() => onDuplicateTranslate(id)} />, tooltip: "Translate to amino acids" },
-                  { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
-                  { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />,
-                   tooltip: (
-                              <>
-                                Compute per-site statistics<br />
-                                <span className="text-xs text-gray-600">Conservation and gap fraction</span>
-                              </>
-                  ) },
-                  { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)}/>,
-                   tooltip: (
-                    <>
-                    Build distance matrix <br />
-                    <span className="text-xs text-gray-600">Normalized Hamming</span>
-                    </>
-                   )
-                  
-                  },
-                  { element: <SubMSAButton onClick={handleToggleSelectionMode} isActive={isSelectionMode} />, tooltip : (
-                    <> Extract sequences <br /> <span className="text-xs text-gray-600">Choose a subset to create a new panel </span> </> ) },
-                  { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
-                ]
-              : [ { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) { setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
-                  { element: <TreeButton onClick={() => handleTreeClick(id)} />,
-                    tooltip: (
-                      <>
-                        Build phylogenetic tree <br />
-                        <span className="text-xs text-gray-600">FastME</span>
-                      </>
-                    )
-                  },
-                  { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
-                  { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, 
-                   tooltip: (
-                              <>
-                                Compute per-site statistics<br />
-                                <span className="text-xs text-gray-600">Conservation and gap fraction</span>
-                              </>
-                  ) },
-                  { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)} />,
-                    tooltip: (
-                    <>
-                    Build distance matrix <br />
-                    <span className="text-xs text-gray-600">Normalized Hamming</span>
-                    </>
-                   )
-                  
-                  },
-                  { element: <SubMSAButton onClick={handleToggleSelectionMode} isActive={isSelectionMode} />, tooltip : (
-                    <> Extract sequences <br /> <span className="text-xs text-gray-600">Choose a subset to create a new panel </span> </> ) },
-                  { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
-                ]
-          }
-          onDuplicate={onDuplicate}
-          onLinkClick={onLinkClick}
-          isLinkModeActive={isLinkModeActive}
-          isEligibleLinkTarget={isEligibleLinkTarget}
-          linkBadges={linkBadges}
-          onRestoreLink={onRestoreLink}
-          onUnlink={onUnlink}
-          colorForLink={colorForLink}
-          onRemove={onRemove}
-          />
-          </div>
-          {/* model picker overlay */}
-        {showModelPicker && (
-          <div
-            className="absolute inset-0 z-[1000] bg-black/40 flex items-center justify-center rounded-2xl"
-            onClick={() => setShowModelPicker(false)}
-          >
-            <div
-              className="py-12 max-w-lg w-[min(90vw,36rem)] h-full flex flex-col items-center justify-center"
-              onClick={(e) => e.stopPropagation()}
-                    style={{
-        overflowY: 'auto',
-      }}
-            >
-              <div className="text-3xl font-bold text-white mb-4 flex-shrink-0 text-center">Choose substitution model for tree reconstruction</div>
-              <div className="flex-1 flex items-center justify-center w-full max-w-xs">
-                <AnimatedList
-                  items={pickerItems}
-                  onItemSelect={handleModelSelect}
-                  itemClassName="text-center font-semibold !py-3"
-                  className="h-full"
-                  maxHeight={dims.height - 150}
-                />
+    <PanelContainer 
+    id={id}
+    linkedTo={linkedTo}
+    panelLinks={panelLinks}
+    hoveredPanelId={hoveredPanelId}
+    setHoveredPanelId={setHoveredPanelId}
+    isEligibleLinkTarget={isEligibleLinkTarget}
+    justLinkedPanels={justLinkedPanels}>
+      <div ref={containerRef} className="relative flex flex-col h-full rounded-xl bg-white overflow-hidden">
+        {/* Panel Header and UI Buttons */}
+        <div onMouseEnter={() => setIsUiElementHovered(true)} onMouseLeave={() => setIsUiElementHovered(false)}>
+            <PanelHeader
+            id={id}
+            filename={filename} 
+            setPanelData={setPanelData} 
+            forceHideTooltip={showSearch || isSelectionMode} 
+            extraButtons={
+              isNuc ? [ 
+                { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowModelPicker(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
+                { element: <TreeButton onClick={() => { setIsSelectionMode(false); setShowSearch(false); handleTreeClick(); }} />, tooltip: <>Build phylogenetic tree <br /> <span className="text-xs text-gray-600">FastME</span></> },
+                { element: <CodonToggleButton onClick={() => setCodonMode(m => !m)} isActive={codonMode} />, tooltip: "Toggle codon mode" },
+                { element: <TranslateButton onClick={() => onDuplicateTranslate(id)} />, tooltip: "Translate to amino acids" },
+                { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
+                { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, tooltip: <>Compute per-site statistics<br /><span className="text-xs text-gray-600">Conservation and gap fraction</span></> },
+                { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)}/>, tooltip: <>Build distance matrix <br /><span className="text-xs text-gray-600">Normalized Hamming</span></> },
+                { element: <SubMSAButton onClick={() => { setShowSearch(false); handleToggleSelectionMode(); }} isActive={isSelectionMode} />, tooltip : <> Extract sequences <br /> <span className="text-xs text-gray-600">Choose a subset to create a new panel </span> </> },
+                { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
+                 ] : [
+                { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowModelPicker(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
+                { element: <TreeButton onClick={() => { setIsSelectionMode(false); setShowSearch(false); handleTreeClick(); }} />, tooltip: <>Build phylogenetic tree <br /> <span className="text-xs text-gray-600">FastME</span></> },
+                { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
+                { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, tooltip: <>Compute per-site statistics<br /><span className="text-xs text-gray-600">Conservation and gap fraction</span></> },
+                { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)} />, tooltip: <>Build distance matrix <br /><span className="text-xs text-gray-600">Normalized Hamming</span></> },
+                { element: <SubMSAButton onClick={() => { setShowSearch(false); handleToggleSelectionMode(); }} isActive={isSelectionMode} />, tooltip : <> Extract sequences <br /> <span className="text-xs text-gray-600">Choose a subset to create a new panel </span> </> },
+                { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" } ]}
+            onDuplicate={onDuplicate}
+            onLinkClick={onLinkClick} 
+            isLinkModeActive={isLinkModeActive} 
+            isEligibleLinkTarget={isEligibleLinkTarget} 
+            linkBadges={linkBadges} onRestoreLink={onRestoreLink} 
+            onUnlink={onUnlink} 
+            colorForLink={colorForLink} 
+            onRemove={onRemove} />
+        </div>
+
+        {/* --- Overlays --- */}
+        {showModelPicker && ( 
+        <div className="absolute inset-0 z-[1000] bg-black/40 flex items-center justify-center rounded-2xl"
+         onClick={() => setShowModelPicker(false)}> 
+          <div className="py-12 max-w-lg w-[min(90vw,36rem)] h-full flex flex-col items-center justify-center"
+            onClick={(e) => e.stopPropagation()}
+            style={{overflowY: 'auto'}}> 
+            <div className="text-3xl font-bold text-white mb-4 flex-shrink-0 text-center"
+            >Choose substitution model for tree reconstruction
+            </div> 
+            <div className="flex-1 flex items-center justify-center w-full max-w-xs"> 
+              <AnimatedList 
+              items={pickerItems} 
+              onItemSelect={handleModelSelect} 
+              itemClassName="text-center font-semibold !py-3" 
+              className="h-full" maxHeight={viewportSize.height - 150} />
+            </div> 
+          </div> 
+        </div>)}
+        {showSearch && (
+        <div className="absolute right-3 top-10 z-[1100] bg-white border rounded-xl shadow p-2 flex items-center gap-2" 
+        onMouseEnter={() => setIsUiElementHovered(true)} 
+        onMouseLeave={() => setIsUiElementHovered(false)}> 
+          <input ref={searchInputRef} 
+          autoFocus 
+          className="border rounded-md px-2 py-1 w-32" 
+          placeholder="e.g. 128 or ACTT" 
+          value={searchQuery} 
+          onChange={e => setSearchQuery(e.target.value)} 
+          onKeyDown={(e) => { if (e.key === 'Enter') runSearch(); if (e.key === 'Escape') closeSearch(); }} /> 
+             <button 
+             className="px-2 py-0 rounded-md text-gray-700 bg-gray-300 hover:bg-gray-400 disabled:opacity-50 text-lg"
+             onClick={() => { 
+              if (!searchRanges.length) return;
+               const next = (searchActiveIdx - 1 + searchRanges.length) % searchRanges.length;
+              setSearchActiveIdx(next); 
+              centerColumn(searchRanges[next].start); 
+              setPanelData(prev => ({ ...prev, [id]: { ...prev[id], searchHighlight: searchRanges[next] }}));
+             }}
+             disabled={searchRanges.length < 2} 
+             title="Previous hit">
+              ‹
+              </button>
+              <button
+              className="px-2 py-0 rounded-md text-gray-700 bg-gray-300 hover:bg-gray-400 disabled:opacity-50 text-lg" 
+              onClick={() => {
+                if (!searchRanges.length) return;
+                const next = (searchActiveIdx + 1) % searchRanges.length;
+                setSearchActiveIdx(next);
+                centerColumn(searchRanges[next].start);
+                setPanelData(prev => ({ ...prev, [id]: { ...prev[id], searchHighlight: searchRanges[next] }}));
+              }} 
+              disabled={searchRanges.length < 2} 
+              title="Next hit">
+                ›
+              </button> 
+              {searchRanges.length > 0 && (
+                <span className="text-sm text-gray-600 w-12 text-center tabular-nums">{searchActiveIdx + 1}/{searchRanges.length}</span>
+              )} <button className="px-2 py-1 text-gray-600 rounded-md bg-gray-200 hover:bg-red-300" 
+              onClick={closeSearch} 
+              title="Close search">✕</button> </div> )}
+              {isSelectionMode && (
+                <div className="absolute right-3 top-10 z-[1100] bg-white border rounded-xl shadow p-2 flex items-center gap-2"> 
+                <input type="text" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }} 
+                autoFocus 
+                onKeyDown={(e) => { if (e.key === 'Enter') handleGoClick(); if (e.key === 'Escape') handleCancelSelection(); }} 
+                tabIndex={-1} 
+                /> 
+                <span className="text-sm text-gray-700 px-2">
+                  Click sequence labels to select.<br /><strong>{selectedSequences.size}/{msaData.length} selected</strong>
+                </span>
+                <button className="px-2 py-1 rounded-md bg-gray-200 text-gray-700 hover:bg-red-300" 
+                onClick={handleCancelSelection}>
+                  Cancel
+                </button> 
+                <button className="px-2 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50" 
+                onClick={handleGoClick} 
+                disabled={selectedSequences.size === 0}>
+                  Go
+                  </button> 
+                  </div> )}
+        
+        {/* --- Unified Tooltip Logic --- */}
+        {(() => {
+          if (isUiElementHovered || hoveredRow != null && hoveredCol == null) return null;
+          const isLocalHover = tooltipSite != null && hoveredPanelId === id;
+          const isExternalHighlight = (finalHighlightedSite != null && Number.isInteger(finalHighlightedSite) && finalHighlightedSite >= 0);
+          if (!isVisible || (!isLocalHover && !isExternalHighlight)) return null;
+          const siteToDisplay = isLocalHover ? tooltipSite : finalHighlightedSite;
+          const siteLabel = codonMode ? `Codon ${siteToDisplay + 1}` : `Site ${siteToDisplay + 1}`;
+          const panelBoundary = scrollContainerRef.current?.getBoundingClientRect();
+          return (
+            <MSATooltip x={tooltipPos.x} y={tooltipPos.y} boundary={panelBoundary}>
+              <div className="flex flex-col items-center">
+                <span className="font-bold">{siteLabel}</span>
+                {isLocalHover && hoveredRow != null && msaData[hoveredRow] && (
+                  <span className="text-gray-700 font-mono text-sm">{msaData[hoveredRow].id}</span>
+                )}
               </div>
-            </div>
-          </div>
-        )}
-                {showSearch && (
-          <div className="absolute right-2 top-14 z-[1100] bg-white border rounded-xl shadow p-2 flex items-center gap-2"
-          onMouseEnter={() => setIsUiElementHovered(true)}
-          onMouseLeave={() => setIsUiElementHovered(false)}
-          >
-            <input
-            ref={searchInputRef}
-            autoFocus
-              className="border rounded-md px-2 py-1 w-48"
-              placeholder="e.g. 128  or  ACTT"
-              value={searchQuery}
-              onChange={e => setSearchQuery(e.target.value)}
-              onMouseEnter={handleGridMouseLeave}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') runSearch();
-                if (e.key === 'Escape') closeSearch();
-              }}
-            />
-            <button
-              className="px-2 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700"
-              onClick={runSearch}
-            >
-              Go
-            </button>
-               {/* Prev / Next for motif hits */}
-    <button
-      className="px-2 py-0 rounded-md text-gray-700 bg-gray-300 hover:bg-gray-400 disabled:opacity-50 text-lg"
-      onClick={() => {
- if (!searchRanges.length) return;
-        const next = (searchActiveIdx - 1 + searchRanges.length) % searchRanges.length;
-        setSearchActiveIdx(next);
-        const r = searchRanges[next];
-        scrollToColumn(r.start);
-        setPanelData(prev => ({ ...prev, [id]: { ...prev[id], searchHighlight: r }}));
-      }}
-      disabled={searchRanges.length < 2}
-      title="Previous hit"
-    >
-      ‹
-    </button>
-    <button
-      className="px-2 py-0 rounded-md text-gray-700 bg-gray-300 hover:bg-gray-400 disabled:opacity-50 text-lg"
-      onClick={() => {
-        if (!searchRanges.length) return;
-        const next = (searchActiveIdx + 1) % searchRanges.length;
-        setSearchActiveIdx(next);
-        const r = searchRanges[next];
-        scrollToColumn(r.start);
-        setPanelData(prev => ({ ...prev, [id]: { ...prev[id], searchHighlight: r }}));
-      }}
-      disabled={searchRanges.length < 2}
-      title="Next hit"
-    >
-      ›
-    </button>
-    {searchRanges.length > 0 && (
-      <span className="text-sm text-gray-600 w-12 text-center tabular-nums">
-        {searchActiveIdx + 1}/{searchRanges.length}
-      </span>
-    )}
-            <button
-              className="px-2 py-1 text-gray-600 rounded-md bg-gray-200 hover:bg-red-300"
-              onClick={closeSearch}
-              title="Close search"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-        {isSelectionMode && (
-          <div className="absolute right-2 top-14 z-[1100] bg-white border rounded-xl shadow p-2 flex items-center gap-2"
-            onMouseEnter={handleGridMouseLeave}
-          >
-            <input
-          type="text"
-          style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 0, height: 0 }}
-          autoFocus
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') handleGoClick();
-            if (e.key === 'Escape') handleCancelSelection();
-          }}
-          tabIndex={0}
-        />
-            <span className="text-sm text-gray-700 px-2">
-              Click on the label of a sequence to select it  <br /> <strong>{selectedSequences.size}/{msaData.length} sequences selected</strong>
-            </span>
-            <div className="flex-grow"></div>
-            <button
-              className="px-2 py-1 rounded-md bg-gray-200 text-gray-700 hover:bg-red-300"
-              onClick={handleCancelSelection}
-            >
-              Cancel
-            </button>
-            <button
-              className="px-2 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
-              onClick={handleGoClick}
-              disabled={selectedSequences.size === 0}
-            >
-              Go
-            </button>
-          </div>
-        )}
-
-{/* --- Unified Tooltip Logic --- */}
-{(() => {
-  // If mouse is over header or search/select bars, hide all tooltips.
-  if (isUiElementHovered) {
-    return null;
-  }
-  // Determine if a tooltip should be shown at all
-  const isLocalHover = tooltipSite != null && hoveredPanelId === id;
-  const isExternalHighlight = (
-    finalHighlightedSite != null && Number.isInteger(finalHighlightedSite) && finalHighlightedSite >= 0
-  );
-
-  if (!isLocalHover && !isExternalHighlight) {
-    return null;
-  }
-
-  if (!isVisible || (!isLocalHover && !isExternalHighlight)) {
-            return null;
-          }
-
-  // Prioritize displaying the local hover site, but fall back to the external one
-  const siteToDisplay = isLocalHover ? tooltipSite : finalHighlightedSite;
-  const siteLabel = codonMode ? `Codon ${siteToDisplay + 1}` : `Site ${siteToDisplay + 1}`;
-
-  // Get the panel's current boundary rectangle from the ref.
-  const panelBoundary = outerRef.current?.getBoundingClientRect();
-
-  return (
-    <MSATooltip x={tooltipPos.x} y={tooltipPos.y} boundary={panelBoundary}>
-      <div className="flex flex-col items-center">
-        <span className="font-bold">{siteLabel}</span>
-        {isLocalHover && hoveredRow != null && msaData[hoveredRow] && (
-          <span className="text-gray-700 font-mono text-sm">{msaData[hoveredRow].id}</span>
-        )}
-      </div>
-    </MSATooltip>
-  );
-})()}
-
-        <div
-          ref={gridContainerRef}
-          className="flex-1 flex overflow-hidden font-mono text-sm"
-          // event delegation lives on the same wrapper that contains the Grid
-          onMouseMove={handleGridMouseMove}
-          onClick={handleGridClick}
-          onPointerLeave={handleGridMouseLeave}
-        >
-          {/* Left labels */}
-          <div
-            style={{
-              width: labelWidth,
-              height: dims.height,
-              overflow: 'hidden',
-              position: 'relative'
-            }}
-            onMouseEnter={handleGridMouseLeave}
-          >
-            <div
-              style={{
-                transform: `translateY(-${scrollTop || 0}px)`,
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0
-              }}
-            >
-              {sequenceLabels.map(({ index, rawId, id: seqId }) => {
-                const isrowhovered = msaData[hoveredRow]?.id === seqId ? hoveredRow : false;
-                const linkedNames = data?.linkedHighlights || [];
-                const isNameHighlight =
-                  isrowhovered ||
-                  (highlightedSequenceId === seqId && Array.isArray(linkedTo) && linkedTo.includes(hoveredPanelId)) ||
-                  linkedNames.includes(seqId);
-
-                  // Dynamic truncation logic
-                  // Estimate max chars that fit in labelWidth (monospace: ~8px per char)
-                  const charWidth = 8; // px per char
-                  const maxChars = Math.floor((labelWidth - 8) / charWidth); // 8px padding
-                  let displayId = rawId;
-                  if (rawId.length > maxChars) {
-                    displayId = rawId.slice(0, Math.max(0, maxChars - 2)) + '..';
-                  }
-                  const isSelected = selectedSequences.has(index);
-                return (
-                  <div
-                    key={index}
-                    style={{ height: CELL_SIZE, lineHeight: `${CELL_SIZE}px` }}
-                    className={`flex items-center pr-2 pl-2 text-right font-bold truncate ${
-                      isNameHighlight ? 'bg-yellow-100' : ''
-                    } ${isSelectionMode ? 'cursor-pointer hover:bg-gray-100' : ''} ${isSelected ? '!bg-blue-200' : ''}`}
-                    title={rawId}
-                    onClick={() => handleLabelClick(index)}
-                    onMouseEnter={() => {
-                      if (Array.isArray(linkedTo) && linkedTo.length > 0) setHighlightedSequenceId(seqId);
-                      isNameHighlight || setHoveredRow(index);
-                    }}
-                    onPointerLeave={() => {
-                      if (Array.isArray(linkedTo) && linkedTo.length > 0) setHighlightedSequenceId(null);
-                      isNameHighlight || setHoveredRow(null);
-                    }}
-                  >
-                    {displayId}
+            </MSATooltip>
+          );
+        })()}
+        
+        {/* --- Main Alignment Grid --- */}
+        <div ref={viewportRef} className="flex-1 flex flex-col overflow-hidden font-mono text-sm">
+            <div ref={scrollContainerRef} className="w-full h-full overflow-auto" onScroll={onScroll}>
+                <div
+                  className="relative"
+                  style={{ width: totalGridWidth + labelWidth, height: totalGridHeight + RULER_HEIGHT }}
+                  onMouseMove={handleGridMouseMove}
+                  onClick={handleGridClick}
+                  onPointerLeave={handleGridMouseLeave}
+                >
+                 {/* Top Row: Sticky Corner + Sticky Ruler */}
+                 <div style={{ display: 'flex', position: 'sticky', top: 0, zIndex: 6 }}>
+                   <div style={{ left: 0, width: labelWidth, height: RULER_HEIGHT, background: 'white', zIndex: 6, }}>
+                     <div className="w-full h-full "/>
+                   </div>
+                   <div style={{ left: 0, width: totalGridWidth, height: RULER_HEIGHT, background: 'white', zIndex: 3, display: 'flex', position: 'relative',marginTop:-1 }}>
+                  <div className="relative w-full h-full">
+                    {useMemo(() => 
+                      colIndices.map((columnIndex) => {
+                        const p = columnIndex + 1;
+                        const showNum = p % 10 === 0 || p === 1 || p === colCount;
+                        const showTick = p % 5 === 0 && !showNum;
+                        if (!showNum && !showTick) return null;
+                        
+                        return (
+                          <div key={columnIndex}
+                              className="absolute flex items-center justify-center text-xs text-gray-600"
+                              style={{ left: columnIndex * CELL_SIZE, width: CELL_SIZE, height: RULER_HEIGHT }}>
+                            {showNum ? p : '·'}
+                          </div>
+                        );
+                      }), 
+                      [colIndices, colCount, CELL_SIZE]
+                    )}
                   </div>
-                );
-              })}
-            </div>
-            {/* Drag handle */}
-            <div
-              style={{
-                position: 'absolute',
-                top: 0,
-                right: 0,
-                width: 8,
-                height: '100%',
-                cursor: 'col-resize',
-                zIndex: 10,
-                background: 'rgba(0,0,0,0.02)'
-              }}
-              onMouseDown={handleDragStart}
-              title="Drag to resize label column"
-            />
-          </div>
+                   </div>
+                 </div>
+                 {/* --- Unified Sticky Left Column (Labels + Drag Handle) --- */}
+                 <div style={{ position: 'sticky', top: RULER_HEIGHT, left: 0, width: labelWidth, height: totalGridHeight+4, zIndex: 5 }}>
+                    <div style={{ width: '100%', height: '100%', background: 'white', position: 'relative' }}>
+                      <div className="relative w-full h-full">
+                      {rowIndices.map((rowIndex) => {
+                          const { rawId, id: seqId } = sequenceLabels[rowIndex];
+                          
+                          // Use the pre-calculated Set for an O(1) check
+                          const isNameHighlight = (hoveredRow === rowIndex && hoveredCol == null) || 
+                                                  (highlightedSequenceId === seqId && Array.isArray(linkedTo) && linkedTo.includes(hoveredPanelId)) || 
+                                                  linkedHighlightsSet.has(seqId);
+                          const isSelected = selectedSequences.has(rowIndex);
+                          
+                          const maxChars = Math.floor((labelWidth - 12) / 8);
+                          const displayId = rawId.length > maxChars ? rawId.slice(0, maxChars - 2) + '..' : rawId;
+                          
+                          return ( 
+                              <div key={rowIndex} 
+                                // Position each label absolutely within the container
+                                style={{ position:'absolute', transform: `translateY(${rowIndex * CELL_SIZE}px) scaleY(1.01)`, left:0, width: '100%', height: CELL_SIZE, lineHeight: `${CELL_SIZE}px` }} 
+                                className={`flex items-center text-right font-bold truncate ${isNameHighlight ? 'bg-yellow-100' : ''} ${isSelectionMode ? 'cursor-pointer hover:bg-gray-100' : ''} ${isSelected ? '!bg-blue-200' : ''}`} 
+                                title={rawId} 
+                                onClick={() => handleLabelClick(rowIndex)} 
+                                onMouseEnter={() => { setHoveredRow(rowIndex); setHoveredCol(null); if (id === highlightOrigin) onHighlight(null, id); if (setHighlightedSequenceId) { setHighlightedSequenceId(seqId); } }} 
+                              >
+                                  <span className="block pl-2">{displayId}</span>
+                              </div> 
+                          );
+                      })}
+                  </div>
+                    </div>
+                    <div style={{ position: 'absolute', top: 0, right: 0, width: 8, height: '100%', cursor: 'col-resize', zIndex: 10, background: 'rgba(0, 0, 0, 0.02)' }} onMouseDown={handleDragStart} />
+                  </div>
 
-          {/* Virtualized grid */}
-          <Grid
-            ref={gridRef}
-            outerRef={outerRef}
-            columnCount={colCount}
-            columnWidth={CELL_SIZE}
-            height={dims.height}
-            rowCount={rowCount}
-            rowHeight={CELL_SIZE}
-            width={Math.max(dims.width - labelWidth, 0)}
-            onScroll={handleScroll} 
-            overscanRowCount={2}
-            overscanColumnCount={8}
-            itemData={gridItemData}
-          >
-            {Cell}
-          </Grid>
+                    {/* Optimization: Virtualized Grid of Cells using nested maps */}
+                    <div className="grid-container" style={{ position: 'absolute', top: RULER_HEIGHT, left: labelWidth, height: totalGridHeight, width: totalGridWidth, marginTop:2 }}>
+                    {useMemo(() => {
+                      const cells = [];
+                      const cellStyleBase = { height: CELL_SIZE, width: CELL_SIZE };
+                      
+                      for (let rowIndex of rowIndices) {
+                        const rowSequence = msaData[rowIndex].sequence;
+                        
+                        for (let columnIndex of colIndices) {
+                          const char = rowSequence[columnIndex];
+                          const idx = codonMode ? Math.floor(columnIndex / 3) : columnIndex;
+
+                          // O(1) Checks using pre-computed data
+                          const isPersistentHighlight = persistentHighlightSet.has(idx);
+                          const isSearchHighlight = searchHighlightPositions.has(`${rowIndex}-${columnIndex}`);
+                          const isHoverHighlight = hoveredCol === idx;
+
+                          // Optimized Link Highlight Logic
+                          let isLinkedHighlight = false;
+                          if (finalLinkedSite !== null) {
+                            const matchesSite = codonMode ? idx === finalLinkedSite : columnIndex === finalLinkedSite;
+                            if (matchesSite && (data.linkedSiteHighlight != null || isGlobalLinkActive)) {
+                              isLinkedHighlight = true;
+                            }
+                          }
+                          
+                          // Create style object once per cell
+                          const style = { 
+                            ...cellStyleBase,
+                            position: 'absolute', 
+                            top: rowIndex * CELL_SIZE, 
+                            left: columnIndex * CELL_SIZE,
+                          };
+
+                          cells.push(
+                            <MSACell 
+                              key={`${rowIndex}-${columnIndex}`} 
+                              columnIndex={columnIndex}
+                              rowIndex={rowIndex}
+                              style={style}
+                              char={char}
+                              isHoverHighlight={isHoverHighlight}
+                              isLinkedHighlight={isLinkedHighlight}
+                              isPersistentHighlight={isPersistentHighlight}
+                              isSearchHighlight={isSearchHighlight}
+                            />
+                          );
+                        }
+                      }
+                      return cells;
+                    }, [
+                      rowIndices, colIndices, msaData, codonMode, persistentHighlightSet, 
+                      searchHighlightPositions, hoveredCol, finalLinkedSite, 
+                      data.linkedSiteHighlight, isGlobalLinkActive, CELL_SIZE
+                    ])}
+                  </div>
+                </div>
+            </div>
         </div>
       </div>
     </PanelContainer>
@@ -2224,7 +1902,6 @@ const NotepadPanel = React.memo(function NotepadPanel({
   );
 });
 
-// Update the HistogramPanel component in App.jsx
 const HistogramPanel = React.memo(function HistogramPanel({ 
   id, data, onRemove, onReupload, onDuplicate,
   onLinkClick, isLinkModeActive, isEligibleLinkTarget, linkedTo, panelLinks,
