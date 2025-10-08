@@ -664,7 +664,7 @@ const PhyloTreeViewer = ({
         e.clientY > rect.bottom
       ) {
 
-        onHoverTip?.(null, null);
+        
         setHighlightedNode(null);
         setHighlightedLink(null);
         setTooltipContent('');
