@@ -608,7 +608,7 @@ const PhyloTreeViewer = ({
 
       })
       .on('mouseleave', () => {
-        onHoverTip?.(null);
+        onHoverTip?.(null, null);
         setHighlightedNode(null);
       })
       .on('click', (event, d) => {
@@ -663,6 +663,8 @@ const PhyloTreeViewer = ({
         e.clientY < rect.top ||
         e.clientY > rect.bottom
       ) {
+
+        onHoverTip?.(null, null);
         setHighlightedNode(null);
         setHighlightedLink(null);
         setTooltipContent('');
