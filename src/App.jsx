@@ -2638,6 +2638,35 @@ const colorForLink = useCallback((selfId, partnerId, active) => {
   return linkpalette[idx];
 }, [linkColors, pairKey, linkpalette]);
 
+
+// Memoized cache for alignment <-> structure chain mapping
+const alignmentStructureChainCache = useMemo(() => {
+  const cache = new Map();
+  // Iterate through all linked pairs
+  for (const sourceId in panelLinks) {
+    const targetIds = Array.isArray(panelLinks[sourceId]) ? panelLinks[sourceId] : [panelLinks[sourceId]];
+    for (const targetId of targetIds) {
+      const sourcePanel = panels.find(p => p.i === sourceId);
+      const targetPanel = panels.find(p => p.i === targetId);
+
+      // Check if it's an alignment-structure pair
+      if (sourcePanel && targetPanel && sourcePanel.type === 'alignment' && targetPanel.type === 'structure') {
+        const alnData = panelData[sourceId];
+        const structData = panelData[targetId];
+
+        if (alnData?.data && structData?.pdb) {
+          const preferredChain = chainIdFromSeqId(alnData.data[0]?.id) || null;
+          // Compute the best chain mapping once and store it
+          const mapping = pickAlignedSeqForChain(alnData, preferredChain, null);
+          const cacheKey = `${sourceId}|${targetId}`;
+          cache.set(cacheKey, mapping);
+        }
+      }
+    }
+  }
+  return cache;
+}, [panelLinks, panelData, panels]); // Recalculates only when links or data change
+
 const treeLeafNamesCache = useMemo(() => {
     const cache = new Map();
     for (const panelId in panelData) {
@@ -3804,46 +3833,38 @@ targetIds.forEach(targetId => {
 
     // Alignment -> Structure (map MSA col to residue index)
     'alignment->structure': () => {
-      const alnData = panelData[originId];
-      const structId = targetId;
-      const preferredChain =
-        chainIdFromSeqId(alnData?.data?.[0]?.id) || null;
+      const cacheKey = `${originId}|${targetId}`;
+      const mapping = alignmentStructureChainCache.get(cacheKey);
 
-      const { seq, chainId } = pickAlignedSeqForChain(alnData, preferredChain, null);
-      if (!seq) return;
+      // If no valid mapping exists, do nothing
+      if (!mapping || !mapping.seq) return;
 
-      const residIdx = msaColToResidueIndex(seq.sequence, site);
-   setPanelData(prev => {
-     const cur = prev[structId] || {};
-     const newChain = chainId || preferredChain || undefined;
-    if (cur.linkedResidueIndex === residIdx && cur.linkedChainId === newChain) return prev;
-   return { ...prev, [structId]: { ...cur, linkedResidueIndex: residIdx, linkedChainId: newChain } };
- });
+      const residIdx = msaColToResidueIndex(mapping.seq.sequence, site);
+      setPanelData(prev => {
+        const cur = prev[targetId] || {};
+        // Use the cached chainId
+        const newChain = mapping.chainId || undefined;
+        if (cur.linkedResidueIndex === residIdx && cur.linkedChainId === newChain) return prev;
+        return { ...prev, [targetId]: { ...cur, linkedResidueIndex: residIdx, linkedChainId: newChain } };
+      });
     },
 
-    // Structure -> Alignment (map residue index to MSA col)
-'structure->alignment': () => {
-      // Ensure the highlight payload from the structure is valid
-      if (typeof site !== 'object' || site === null || site.residueIndex == null || !site.chainId) {
-        return;
-      }
+    // Structure -> Alignment
+    'structure->alignment': () => {
+      if (typeof site !== 'object' || site === null || site.residueIndex == null || !site.chainId) return;
       
-      const alnData = panelData[targetId];
-      if (!alnData?.data) return;
+      // The key is always alnId|structId
+      const cacheKey = `${targetId}|${originId}`;
+      const mapping = alignmentStructureChainCache.get(cacheKey);
 
-      // Check if this specific alignment panel corresponds to the hovered chain
-      const { seq, chainId: matchedChainId } = pickAlignedSeqForChain(alnData, site.chainId, null);
-
-      // If this alignment isn't for the hovered chain, do nothing
-      if (!seq || matchedChainId !== site.chainId) {
+      // If mapping doesn't exist or is for a different chain, do nothing
+      if (!mapping || !mapping.seq || mapping.chainId !== site.chainId) {
         return;
       }
 
-      // Convert the structure's residue index to an MSA column index
-      const col = residueIndexToMsaCol(seq.sequence, site.residueIndex);
+      const col = residueIndexToMsaCol(mapping.seq.sequence, site.residueIndex);
       if (col == null) return;
 
-      // Update the alignment panel's scroll position
       const isCodon = !!panelData[targetId]?.codonMode;
       setScrollPositions(prev => {
         const v = col * (isCodon ? 3 : 1) * CELL_SIZE;
@@ -3851,22 +3872,19 @@ targetIds.forEach(targetId => {
         return { ...prev, [targetId]: v };
       });
 
-      // Set a panel-specific highlight, avoiding the global state
       setPanelData(prev => {
         const current = prev[targetId] || {};
         if (current.linkedSiteHighlight === col) return prev;
-        return {
-          ...prev,
-          [targetId]: { ...current, linkedSiteHighlight: col }
-        };
+        return { ...prev, [targetId]: { ...current, linkedSiteHighlight: col } };
       });
     },
+
   };
 
   const key = `${S}->${T}`;
   if (handlers[key]) handlers[key]();
   });
-}, [panelLinks, panels, panelData, highlightSite, highlightOrigin]);
+}, [panelLinks, panels, panelData, highlightSite, highlightOrigin, treeLeafNamesCache, alignmentStructureChainCache]);
 
  useEffect(() => {
     // This effect acts as a safeguard. If a highlight is active (highlightOrigin is set)
