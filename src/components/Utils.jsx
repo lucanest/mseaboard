@@ -1052,3 +1052,49 @@ export function base64ToUint8Array(base64) {
   }
   return bytes;
 }
+
+export function computeTreeStats(newickString) {
+  try {
+    // Parse tree and index nodes
+    const root = parseNewickToTree(newickString);
+    const { parent, depth, byName } = indexTree(root);
+    const labels = Array.from(byName.keys());
+    labels.reverse(); // match input order
+    const nodes = labels.map(n => byName.get(n));
+
+    const stats = [];
+
+    // For each leaf, compute true distance to root and average distance to others
+    labels.forEach((leafName, index) => {
+      const leafNode = byName.get(leafName);
+
+      // True distance to root: sum branch lengths up to root
+      let distToRoot = 0;
+      let node = leafNode;
+      while (parent.has(node)) {
+        distToRoot += node.length || 0;
+        node = parent.get(node);
+      }
+      // Add root's length if present (rare)
+      distToRoot += node.length || 0;
+
+      // Average distance to other leaves
+      const distances = nodes.map(other =>
+        lcaDistance(leafNode, other, parent, depth)
+      );
+      const otherDistances = distances.filter((_, i) => i !== index);
+      const avgDistanceToOthers = otherDistances.reduce((sum, dist) => sum + dist, 0) / otherDistances.length;
+
+      stats.push({
+        name: leafName,
+        distanceToRoot: distToRoot,
+        avgDistanceToOthers
+      });
+    });
+
+    return stats;
+  } catch (error) {
+    console.error('Error computing tree stats:', error);
+    throw new Error(`Failed to compute tree statistics: ${error.message}`);
+  }
+}
