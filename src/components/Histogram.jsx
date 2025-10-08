@@ -7,19 +7,25 @@ import React, {
   useMemo,
   useCallback,
 } from 'react';
-import { scaleLinear } from '@visx/scale';
+import { scaleLinear, scaleBand } from '@visx/scale';
 import { AxisLeft, AxisBottom } from '@visx/axis';
 import { GridRows } from '@visx/grid';
 import { Bar as VisxBar } from '@visx/shape';
 import { FixedSizeList as List } from 'react-window';
 import { colorPalette } from '../constants/colors.js';
 
+// Helper function to check if values are numerical
+const isNumerical = (values) => {
+  if (!values || values.length === 0) return true;
+  return values.every(v => typeof v === 'number' || !isNaN(Number(v)));
+};
+
 const isDiscrete = (values) => values.every((v) => Number.isInteger(v));
 
 const LEFT_MARGIN = 16;
 const RIGHT_MARGIN = 16;
 const TOP_MARGIN = 10;
-const BOTTOM_MARGIN_NO_LEGEND = 60;
+const BOTTOM_MARGIN_NO_LEGEND = 40;
 const BOTTOM_MARGIN_WITH_LEGEND = 80;
 
 const SCROLL_THRESHOLD = 400;
@@ -40,11 +46,18 @@ function Histogram({
   yLogActive = false,
   indexingMode = '1-based',
 }) {
+  // Check if xValues are numerical or categorical
+  const xValuesAreNumerical = useMemo(() => isNumerical(xValues), [xValues]);
+  
   const data = useMemo(() => {
     const n = values.length;
     const out = new Array(n);
     for (let i = 0; i < n; i++) {
-      out[i] = { site: xValues ? xValues[i] : i + 1, value: values[i] };
+      out[i] = { 
+        site: xValues ? xValues[i] : i + 1, 
+        value: values[i],
+        index: i 
+      };
     }
     return out;
   }, [values, xValues]);
@@ -56,8 +69,9 @@ function Histogram({
       return Math.log10(Math.abs(v));
     },
     [yLogActive]
-      );
- const [min, max] = useMemo(() => {
+  );
+
+  const [min, max] = useMemo(() => {
     if (values.length === 0) return [0, 0];
     let mn = transformY(values[0]), mx = transformY(values[0]);
     for (let i = 1; i < values.length; i++) {
@@ -67,7 +81,6 @@ function Histogram({
     }
     return [mn, mx];
   }, [values, transformY]);
-
 
   const unique = useMemo(() => Array.from(new Set(values)), [values]);
   const discrete = useMemo(
@@ -88,7 +101,7 @@ function Histogram({
     [persistentHighlights]
   );
 
-const mappedHighlightedIndices = useMemo(() => {
+  const mappedHighlightedIndices = useMemo(() => {
     // Determine if this highlight event is relevant to this panel.
     const isLinkedHighlight =
       highlightedSite != null &&
@@ -101,25 +114,43 @@ const mappedHighlightedIndices = useMemo(() => {
       return [];
     }
 
-    // The 'highlightedSite' from an MSA/SeqLogo is its 0-based index.
-    // Example: User hovers Site 14 -> highlightedSite = 13.
-    const siteFromMsa = highlightedSite;
+    // For numerical x-values: use the indexing mode logic
+    if (xValuesAreNumerical) {
+      const siteFromMsa = highlightedSite;
+      const valueToFind = indexingMode === '1-based' ? siteFromMsa + 1 : siteFromMsa;
 
-    // Based on our own indexing mode, figure out what number we're looking for.
-    // If we are 1-based, we need to find the bar for site 14 (13 + 1).
-    // If we are 0-based, we need to find the bar for site 13.
-    const valueToFind = indexingMode === '1-based' ? siteFromMsa + 1 : siteFromMsa;
-
-    // Find all array indices in our xValues that match this number.
-    const indices = [];
-    for (let i = 0; i < xValues.length; i++) {
-      // Use a tolerant Number() comparison for data that might be strings.
-      if (Number(xValues[i]) === valueToFind) {
-        indices.push(i);
+      const indices = [];
+      for (let i = 0; i < xValues.length; i++) {
+        if (Number(xValues[i]) === valueToFind) {
+          indices.push(i);
+        }
       }
+      return indices;
+    } 
+    // For categorical x-values (like leaf names): direct string comparison
+    else {
+      // highlightedSite could be a string (leaf name) or index
+      const searchValue = typeof highlightedSite === 'string' 
+        ? highlightedSite 
+        : xValues[highlightedSite]; // fallback to index lookup
+      
+      const indices = [];
+      for (let i = 0; i < xValues.length; i++) {
+        if (xValues[i] === searchValue) {
+          indices.push(i);
+        }
+      }
+      return indices;
     }
-    return indices;
-  }, [highlightedSite, highlightOrigin, linkedTo, panelId, xValues, indexingMode]);
+  }, [
+    highlightedSite, 
+    highlightOrigin, 
+    linkedTo, 
+    panelId, 
+    xValues, 
+    indexingMode, 
+    xValuesAreNumerical
+  ]);
 
   // Set for efficient lookups inside the barVisuals loop.
   const mappedHighlightedIndicesSet = useMemo(
@@ -173,8 +204,10 @@ const mappedHighlightedIndices = useMemo(() => {
     });
   }, [min, max, chartInnerHeight]);
 
+  // Use band scale for categorical data, linear for numerical
+  const xScaleType = xValuesAreNumerical ? scaleLinear : scaleBand;
   const xInterval = useMemo(() => {
-    return 19
+    return 19;
   }, [values.length]);
 
   const [isLocalTooltipActive, setIsLocalTooltipActive] = useState(false);
@@ -183,56 +216,53 @@ const mappedHighlightedIndices = useMemo(() => {
   const [scrollingToIndex, setScrollingToIndex] = useState(null);
 
   const listRef = useRef(null);
-  const chartAreaRef = useRef(null); // reference to horizontal chart area
+  const chartAreaRef = useRef(null);
 
   const itemSize = needScroll
     ? (BAR_MIN_WIDTH_PX + GAP_PX)
     : Math.max(1, innerWidth / Math.max(1, values.length));
   const barWidth = Math.max(1, itemSize - GAP_PX);
 
-
-  // Visible window info (updates on scroll/resize)
   const visibleWindow = useMemo(() => {
-  const listWidth = innerWidth;
-  const start = Math.max(0, Math.floor(scrollLeft / itemSize));
-  const count = Math.max(1, Math.ceil(listWidth / itemSize));
-  const end = Math.min(values.length - 1, start + count - 1);
-  return { start, end, listWidth };
- }, [innerWidth, scrollLeft, itemSize, values.length]);
+    const listWidth = innerWidth;
+    const start = Math.max(0, Math.floor(scrollLeft / itemSize));
+    const count = Math.max(1, Math.ceil(listWidth / itemSize));
+    const end = Math.min(values.length - 1, start + count - 1);
+    return { start, end, listWidth };
+  }, [innerWidth, scrollLeft, itemSize, values.length]);
 
   const isIndexVisible = useCallback((index) => {
-  if (index == null) return true;
-  const listWidth = innerWidth;
-  const viewStart = scrollLeft;
-  const viewEnd = scrollLeft + listWidth;
+    if (index == null) return true;
+    const listWidth = innerWidth;
+    const viewStart = scrollLeft;
+    const viewEnd = scrollLeft + listWidth;
 
-  const barStart = index * itemSize;
-  const barEnd = barStart + itemSize;
+    const barStart = index * itemSize;
+    const barEnd = barStart + itemSize;
 
-  // visible if the whole bar is within the viewport
-  return barStart < viewEnd && barEnd > viewStart;
-}, [innerWidth, scrollLeft, itemSize]);
+    return barStart < viewEnd && barEnd > viewStart;
+  }, [innerWidth, scrollLeft, itemSize]);
 
   const scrollBarIntoView = useCallback((index) => {
-  if (!needScroll || index == null || !listRef.current) return;
+    if (!needScroll || index == null || !listRef.current) return;
 
-  if (isIndexVisible(index)) {
-    setScrollingToIndex(null);
-    return;
-  }
+    if (isIndexVisible(index)) {
+      setScrollingToIndex(null);
+      return;
+    }
 
-  const listWidth = innerWidth;
-  const contentWidth = values.length * itemSize;
-  const targetCenter = index * itemSize + itemSize / 2;
-  const bias = 0.35;
-  const desiredLeft = targetCenter - listWidth * bias;
-  const maxScroll = Math.max(0, contentWidth - listWidth);
-  const nextScroll = Math.max(0, Math.min(maxScroll, desiredLeft));
+    const listWidth = innerWidth;
+    const contentWidth = values.length * itemSize;
+    const targetCenter = index * itemSize + itemSize / 2;
+    const bias = 0.35;
+    const desiredLeft = targetCenter - listWidth * bias;
+    const maxScroll = Math.max(0, contentWidth - listWidth);
+    const nextScroll = Math.max(0, Math.min(maxScroll, desiredLeft));
 
-  if (typeof listRef.current.scrollTo === 'function') {
-    setScrollingToIndex(index);
-    listRef.current.scrollTo(nextScroll);
-  }
+    if (typeof listRef.current.scrollTo === 'function') {
+      setScrollingToIndex(index);
+      listRef.current.scrollTo(nextScroll);
+    }
   }, [needScroll, isIndexVisible, innerWidth, values.length, itemSize]);
 
   useLayoutEffect(() => {
@@ -372,22 +402,32 @@ const mappedHighlightedIndices = useMemo(() => {
       const xWithScroll = scrollLeft + xIn;
       idx = Math.max(0, Math.min(values.length - 1, Math.floor(xWithScroll / itemSize)));
     } else {
-      const xScale = scaleLinear({
-        domain: [0, values.length],
-        range: [0, innerWidth],
-      });
-      const iFloat = xScale.invert(xIn);
+      const xScale = xValuesAreNumerical 
+        ? scaleLinear({ domain: [0, values.length], range: [0, innerWidth] })
+        : scaleBand({ domain: xValues, range: [0, innerWidth], padding: 0.1 });
+      
+      const iFloat = xValuesAreNumerical 
+        ? xScale.invert(xIn)
+        : Math.floor(xIn / (innerWidth / values.length));
+      
       idx = Math.max(0, Math.min(values.length - 1, Math.floor(iFloat)));
     }
 
     const rawXValue = getXLabel(idx);
-    const numericXValue = Number(rawXValue);
+    
+    // For linking: send either the index or the actual xValue
+    // For categorical data, send the actual value (leaf name)
+    // For numerical data, use the indexing mode logic
     let valueToSend = null;
-
-    if (!isNaN(numericXValue)) {
-      // If mode is 1-based, subtract 1 to get the 0-based index for linking.
-      // If mode is 0-based, the value is already the correct 0-based index.
-      valueToSend = indexingMode === '1-based' ? numericXValue - 1 : numericXValue;
+    
+    if (xValuesAreNumerical) {
+      const numericXValue = Number(rawXValue);
+      if (!isNaN(numericXValue)) {
+        valueToSend = indexingMode === '1-based' ? numericXValue - 1 : numericXValue;
+      }
+    } else {
+      // For categorical data, send the actual value (string)
+      valueToSend = rawXValue;
     }
     
     setIsLocalTooltipActive(true);
@@ -405,6 +445,9 @@ const mappedHighlightedIndices = useMemo(() => {
     containerWidth,
     getXLabel,
     indexingMode,
+    xValuesAreNumerical,
+    xValues,
+    innerWidth
   ]);
 
   const getColumnStyle = useCallback((index) => {
@@ -426,10 +469,10 @@ const mappedHighlightedIndices = useMemo(() => {
   }, [needScroll, itemSize, scrollLeft, chartInnerHeight, values.length]);
 
   const SmallSVG = () => {
-    const xScale = scaleLinear({
-      domain: [0, values.length],
-      range: [0, innerWidth],
-    });
+    const xScale = xValuesAreNumerical
+      ? scaleLinear({ domain: [0, values.length], range: [0, innerWidth] })
+      : scaleBand({ domain: xValues, range: [0, innerWidth], padding: 0.1 });
+
     const y0 = yScale(0);
 
     return (
@@ -445,8 +488,17 @@ const mappedHighlightedIndices = useMemo(() => {
             const v = d.value;
             const tv = transformY(v);
             const vis = barVisuals[i];
-            const slotLeft = xScale(i);
-            const x = slotLeft + (itemSize - barWidth) / 2;
+            
+            // Calculate x position based on scale type
+            const slotLeft = xValuesAreNumerical 
+              ? xScale(i)
+              : xScale(d.site);
+            
+            const x = xValuesAreNumerical 
+              ? slotLeft + (itemSize - barWidth) / 2
+              : slotLeft;
+            
+            const actualBarWidth = xValuesAreNumerical ? barWidth : xScale.bandwidth();
             const barTop = tv >= 0 ? yScale(tv) : y0;
             const barHeight = Math.abs(yScale(tv) - y0);
 
@@ -455,7 +507,7 @@ const mappedHighlightedIndices = useMemo(() => {
                 key={i}
                 x={x}
                 y={barTop}
-                width={barWidth}
+                width={actualBarWidth}
                 height={barHeight}
                 fill={vis.fill}
                 stroke={vis.stroke}
@@ -565,27 +617,50 @@ const mappedHighlightedIndices = useMemo(() => {
             />
             <AxisBottom
               top={chartInnerHeight}
-              scale={scaleLinear({
-                domain: needScroll
-                  ? [visibleWindow.start, Math.max(visibleWindow.start + 1, visibleWindow.end)]
-                  : [0, Math.max(0, values.length - 1)],
-                range: [0, needScroll
-                  ? visibleWindow.listWidth
-                  : Math.max(0, containerWidth - LEFT_MARGIN - RIGHT_MARGIN)],
-              })}
+              scale={xValuesAreNumerical
+                ? scaleLinear({
+                    domain: needScroll
+                      ? [visibleWindow.start, Math.max(visibleWindow.start + 1, visibleWindow.end)]
+                      : [0, Math.max(0, values.length - 1)],
+                    range: [0, needScroll
+                      ? visibleWindow.listWidth
+                      : Math.max(0, containerWidth - LEFT_MARGIN - RIGHT_MARGIN)],
+                  })
+                : scaleBand({
+                    domain: xValues,
+                    range: [0, innerWidth],
+                    padding: 0.1
+                  })
+              }
               tickValues={
-                needScroll
+                needScroll && xValuesAreNumerical
                   ? Array.from(
                       { length: visibleWindow.end - visibleWindow.start + 1 },
                       (_, k) => k + visibleWindow.start
                     ).filter((i) => i % (xInterval + 1) === 0)
-                  : Array.from({ length: values.length }, (_, i) => i).filter(
+                  : xValuesAreNumerical
+                  ? Array.from({ length: values.length }, (_, i) => i).filter(
                       (i) => i % (xInterval + 1) === 0
                     )
+                  :  // For categorical, again only show a subset to avoid clutter
+                    xValues.filter((_, i) => i % (xInterval + 1) === 0)
+                    
               }
-              tickFormat={(v) => `${getXLabel(Math.round(Number(v)))}`}
-              label="Index"
-              tickLabelProps={() => ({ fontSize: 10, dy: 6 })}
+              tickFormat={(v) => {
+                if (xValuesAreNumerical) {
+                  return `${getXLabel(Math.round(Number(v)))}`;
+                } else {
+                  // For categorical data, show the actual value
+                  return v;
+                }
+              }}
+              //label="Index"
+              tickLabelProps={() => ({ 
+                fontSize: 10, 
+                dy: 6,
+                angle: xValuesAreNumerical ? 0 : 0, // Rotate labels for categorical data
+                textAnchor: xValuesAreNumerical ? 'middle' : 'left'
+              })}
             />
           </g>
         </svg>
@@ -608,7 +683,6 @@ const mappedHighlightedIndices = useMemo(() => {
             <div style={getColumnStyle(hoverIndex)} />
           )}
 
-          {/* block that renders multiple overlays */}
           {shouldMirror && scrollingToIndex === null &&
             mappedHighlightedIndices.map((index) => (
               <div key={`overlay-${index}`} style={getColumnStyle(index)} />

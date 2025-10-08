@@ -37,6 +37,7 @@ newickToDistanceMatrix, detectFileType, toFasta, toPhylip, computeSiteStats, bui
 computeNormalizedHammingMatrix, pickAlignedSeqForChain, chainIdFromSeqId, residueIndexToMsaCol, 
 reorderHeatmapByLeafOrder, reorderMsaByLeafOrder, distanceMatrixFromAtoms, msaColToResidueIndex,
 parsePdbChains, mkDownload, baseName, msaToPhylip, computeCorrelationMatrix, uint8ArrayToBase64, base64ToUint8Array,
+computeTreeStats, 
 } from './components/Utils.jsx';
 import { residueColors, logoColors, linkpalette } from './constants/colors.js';
 import { TitleFlip, AnimatedList } from './components/Animations.jsx';
@@ -1555,10 +1556,10 @@ const handleGridMouseMove = useMemo(() =>
                  {/* Top Row: Sticky Corner + Sticky Ruler */}
                  <div style={{ display: 'flex', position: 'sticky', top: 0, zIndex: 6 }}>
                    <div style={{ left: 0, width: labelWidth, height: RULER_HEIGHT, background: 'white', zIndex: 6, }}>
-                     <div className="w-full h-full "/>
+                     <div className="w-full h-full"/>
                    </div>
                    <div style={{ left: 0, width: totalGridWidth, height: RULER_HEIGHT, background: 'white', zIndex: 3, display: 'flex', position: 'relative',marginTop:-1 }}>
-                  <div className="relative w-full h-full">
+                  <div className="relative w-full h-full ">
                     {useMemo(() => 
                       colIndices.map((columnIndex) => {
                         const p = columnIndex + 1;
@@ -1582,7 +1583,7 @@ const handleGridMouseMove = useMemo(() =>
                  {/* --- Unified Sticky Left Column (Labels + Drag Handle) --- */}
                  <div style={{ position: 'sticky', top: RULER_HEIGHT, left: 0, width: labelWidth, height: totalGridHeight+4, zIndex: 5 }}>
                     <div style={{ width: '100%', height: '100%', background: 'white', position: 'relative' }}>
-                      <div className="relative w-full h-full">
+                      <div className="relative w-full h-full ">
                       {rowIndices.map((rowIndex) => {
                           const { rawId, id: seqId } = sequenceLabels[rowIndex];
                           
@@ -1708,7 +1709,7 @@ const TreePanel = React.memo(function TreePanel({
   linkedTo, highlightOrigin,
   onLinkClick, isLinkModeActive,isEligibleLinkTarget,hoveredPanelId,
   setHoveredPanelId, setPanelData,justLinkedPanels,
-  linkBadges, onRestoreLink, colorForLink, onUnlink,
+  linkBadges, onRestoreLink, colorForLink, onUnlink, onCreateTreeStats,
 }) {
   const { filename, isNhx, RadialMode= true, drawBranchLengths=false, pruneMode = false } = data || {};
 
@@ -1794,6 +1795,15 @@ const TreePanel = React.memo(function TreePanel({
     (
       <>Prune tree <br /> <span className="text-xs text-gray-600">Remove branches and their descendants</span></>
     ) },
+    { 
+    element: <SiteStatsButton onClick={() => onCreateTreeStats(id)} />,
+    tooltip: (
+      <>
+        Compute leaf statistics<br />
+        <span className="text-xs text-gray-600">Distance to root and average distance to others</span>
+      </>
+    )
+  },
       { element: <DistanceMatrixButton   onClick={() => onGenerateDistance(id)}  />,
        tooltip: (
         <>
@@ -1912,10 +1922,24 @@ const HistogramPanel = React.memo(function HistogramPanel({
 }) {
   const { filename, indexingMode = '1-based' } = data;
   const isTabular = !Array.isArray(data.data);
+  
+  // Get all available columns
+  const availableCols = useMemo(() => {
+    if (!isTabular) return [];
+    return data.data.headers || [];
+  }, [isTabular, data.data]);
+
+  // Get numeric columns for Y-axis and correlation matrix
+  const numericCols = useMemo(() => {
+    if (!isTabular) return [];
+    return data.data.headers.filter(h =>
+      data.data.rows.every(row => typeof row[h] === 'number')
+    );
+  }, [isTabular, data]);
+
   const [selectedCol, setSelectedCol] = useState(
     isTabular
-      ? (data.selectedCol ||
-        data.data.headers.find(h => typeof data.data.rows[0][h] === 'number'))
+      ? (data.selectedCol || numericCols[0])
       : null
   );
   const [yLog, setYLog] = useState(Boolean(data?.yLog));
@@ -1928,11 +1952,9 @@ const HistogramPanel = React.memo(function HistogramPanel({
 
   const [selectedXCol, setSelectedXCol] = useState(
     isTabular
-      ? (data.selectedXCol ||
-        data.data.headers.find(h => typeof data.data.rows[0][h] === 'number'))
+      ? (data.selectedXCol || availableCols[0])
       : null
   );
-
 
   const handlePanelMouseLeave = useCallback(() => {
     setPanelData(prev => ({
@@ -1954,7 +1976,6 @@ const HistogramPanel = React.memo(function HistogramPanel({
       };
     });
   }, [id, setPanelData]);
-
 
   const handleDownload = useCallback(() => {
     const base = baseName(filename, 'data');
@@ -2003,22 +2024,13 @@ const HistogramPanel = React.memo(function HistogramPanel({
   useEffect(() => {
     if (isTabular) {
       setSelectedCol(
-        data.selectedCol ||
-        data.data.headers.find(h => typeof data.data.rows[0][h] === 'number')
+        data.selectedCol || numericCols[0]
       );
       setSelectedXCol(
-        data.selectedXCol ||
-        data.data.headers.find(h => typeof data.data.rows[0][h] === 'number')
+        data.selectedXCol || availableCols[0]
       );
     }
-  }, [isTabular, data.selectedCol, data.selectedXCol, data.data]);
-
-  const numericCols = useMemo(() => {
-    if (!isTabular) return [];
-    return data.data.headers.filter(h =>
-      data.data.rows.every(row => typeof row[h] === 'number')
-    );
-  }, [isTabular, data]);
+  }, [isTabular, data.selectedCol, data.selectedXCol, data.data, numericCols, availableCols]);
 
   const valuesToPlot = useMemo(() => {
     if (isTabular && selectedCol) {
@@ -2131,7 +2143,7 @@ const HistogramPanel = React.memo(function HistogramPanel({
                   }}
                   className="border rounded-xl p-1"
                 >
-                  {numericCols.map(col => (
+                  {availableCols.map(col => (
                     <option key={col} value={col}>{col}</option>
                   ))}
                 </select>
@@ -2330,6 +2342,7 @@ const PanelWrapper = React.memo(({
   handleCreateSequenceFromStructure,
   handleStructureToDistance,
   handleGenerateCorrelationMatrix,
+  handleCreateTreeStats,
   onCreateSubsetMsa,
   setPanelData
 }) => {
@@ -2377,7 +2390,8 @@ const PanelWrapper = React.memo(({
     ...(panel.type === 'tree' && {
       highlightedSequenceId,
       onHoverTip: setHighlightedSequenceId,
-      onGenerateDistance: handleTreeToDistance
+      onGenerateDistance: handleTreeToDistance,
+      onCreateTreeStats: handleCreateTreeStats 
     }),
     ...(panel.type === 'heatmap' && {
       onHighlight: handleHighlight,
@@ -2624,6 +2638,24 @@ const colorForLink = useCallback((selfId, partnerId, active) => {
   return linkpalette[idx];
 }, [linkColors, pairKey, linkpalette]);
 
+const treeLeafNamesCache = useMemo(() => {
+    const cache = new Map();
+    for (const panelId in panelData) {
+      const data = panelData[panelId];
+      // Check if it's a tree panel with valid data
+      if (data && panels.find(p => p.i === panelId)?.type === 'tree' && data.data) {
+        try {
+          const leafNames = getLeafOrderFromNewick(data.data);
+          // Store as a Set for O(1) lookups
+          cache.set(panelId, new Set(leafNames));
+        } catch (e) {
+          console.error(`Failed to parse newick for tree panel ${panelId}:`, e);
+        }
+      }
+    }
+    return cache;
+  }, [panelData, panels])
+
 const addPanel = useCallback((config = {}) => {
   const { type, data, layoutHint = {}, autoLinkTo = null } = config;
   const newId = `${type}-${Date.now()}`;
@@ -2697,6 +2729,8 @@ const addPanel = useCallback((config = {}) => {
     const newFooter = { ...(footer || {}), i: '__footer', x: 0, y: newMaxY, w: 12, h: 2, static: true };
     return [...nextLayout, newFooter];
   });
+
+
 
   // --- Auto-link logic ---
 if (autoLinkTo) {
@@ -3435,7 +3469,13 @@ const handleHighlight = useCallback((site, originId) => {
             return { ...prev, [targetId]: { ...cur, linkedSiteHighlight: undefined } };
         });
     }
-  
+  if (sourcePanel.type === 'histogram' && targetPanel.type === 'tree') {
+      setPanelData(prev => {
+        const cur = prev[targetId] || {};
+        if (!cur.linkedHighlights || cur.linkedHighlights.length === 0) return prev;
+        return { ...prev, [targetId]: { ...cur, linkedHighlights: [] } };
+      });
+    }
   
   if (sourcePanel.type === 'histogram' && targetPanel.type === 'seqlogo') {
     setPanelData(prev => {
@@ -3619,14 +3659,105 @@ targetIds.forEach(targetId => {
       });
     },
 
-    // Histogram -> Histogram (highlight same bar index)
-    'histogram->histogram': () => {
-      setPanelData(prev => {
-        const cur = prev[targetId] || {};
-        if (cur.highlightedSites && cur.highlightedSites.includes(site)) return prev;
-        return { ...prev, [targetId]: { ...cur, highlightedSites: [site] } };
-      });
-    },
+    // Tree -> Histogram (categorical data - leaf names)
+      'tree->histogram': () => {
+        // site is the leaf name from the tree
+        if (typeof site !== 'string') return;
+        
+        setPanelData(prev => {
+          const cur = prev[targetId] || {};
+          // Find the index in the histogram data that matches this leaf name
+          const targetData = cur;
+          if (!targetData?.data?.headers || !targetData?.data?.rows) return prev;
+          
+          // Find which column is selected as X-axis
+          const xCol = targetData.selectedXCol;
+          if (!xCol) return prev;
+          
+          // Find the row index where the X column matches the leaf name
+          const rows = targetData.data.rows;
+          const highlightedSites = [];
+          for (let i = 0; i < rows.length; i++) {
+            if (rows[i][xCol] === site) {
+              highlightedSites.push(i);
+            }
+          }
+          
+          if (cur.highlightedSites && 
+              cur.highlightedSites.length === highlightedSites.length &&
+              cur.highlightedSites.every((val, idx) => val === highlightedSites[idx])) {
+            return prev;
+          }
+          
+          return { ...prev, [targetId]: { ...cur, highlightedSites } };
+        });
+      },
+
+      // Histogram -> Tree (categorical data - leaf names)
+      'histogram->tree': () => {
+        // Get the pre-computed set of leaf names from the cache.
+        const validLeafNames = treeLeafNamesCache.get(targetId);
+
+        // If there are no cached names for this tree, we can't validate.
+        if (!validLeafNames) return;
+
+        // Check if the site is a string and exists in our cached Set.
+        if (typeof site === 'string' && validLeafNames.has(site)) {
+          setPanelData(prev => {
+            const cur = prev[targetId] || {};
+            const linkedHighlights = [site];
+
+            if (cur.linkedHighlights && cur.linkedHighlights.length === 1 && cur.linkedHighlights[0] === site) {
+              return prev;
+            }
+
+            return { ...prev, [targetId]: { ...cur, linkedHighlights } };
+          });
+        } else {
+          // If the 'site' is not a valid leaf name, clear any previous highlight.
+          setPanelData(prev => {
+            const cur = prev[targetId] || {};
+            if (!cur.linkedHighlights || cur.linkedHighlights.length === 0) return prev;
+            return { ...prev, [targetId]: { ...cur, linkedHighlights: [] } };
+          });
+        }
+      },
+
+      // Histogram -> Histogram (support both numerical and categorical)
+      'histogram->histogram': () => {
+        setPanelData(prev => {
+          const cur = prev[targetId] || {};
+          let highlightedSites = [];
+          
+          // Check if we're dealing with categorical data (string site) or numerical (index)
+          if (typeof site === 'string') {
+            // Categorical data - find matching rows in target histogram
+            const targetData = cur;
+            if (!targetData?.data?.headers || !targetData?.data?.rows) return prev;
+            
+            const xCol = targetData.selectedXCol;
+            if (!xCol) return prev;
+            
+            const rows = targetData.data.rows;
+            for (let i = 0; i < rows.length; i++) {
+              if (rows[i][xCol] === site) {
+                highlightedSites.push(i);
+              }
+            }
+          } else {
+            // Numerical data - use the index directly
+            highlightedSites = [site];
+          }
+          
+          if (cur.highlightedSites && 
+              cur.highlightedSites.length === highlightedSites.length &&
+              cur.highlightedSites.every((val, idx) => val === highlightedSites[idx])) {
+            return prev;
+          }
+          
+          return { ...prev, [targetId]: { ...cur, highlightedSites } };
+        });
+      },
 
     // Alignment -> Histogram (highlight corresponding bar)
   'alignment->histogram': () => {
@@ -3746,6 +3877,16 @@ targetIds.forEach(targetId => {
       handleHighlight(null, highlightOrigin);
     }
   }, [hoveredPanelId, highlightOrigin, handleHighlight]);
+
+    useEffect(() => {
+    const originPanel = panels.find(p => p.i === hoveredPanelId);
+
+    // If the currently hovered panel is a tree, treat its highlighted leaf
+    // as a global highlight event.
+    if (originPanel && originPanel.type === 'tree') {
+      handleHighlight(highlightedSequenceId, hoveredPanelId);
+    }
+  }, [highlightedSequenceId, hoveredPanelId]);
 
   const triggerUpload = useCallback((type, panelId = null) => {
       pendingTypeRef.current = type;
@@ -4144,6 +4285,48 @@ const buildPanelPayloadFromFile = async (file) => {
   return { type: 'unknown', payload: { filename } };
 };
 
+const handleCreateTreeStats = useCallback((treePanelId) => {
+  const treeData = panelData[treePanelId];
+  if (!treeData?.data) return;
+
+  try {
+    // Compute statistics
+    const stats = computeTreeStats(treeData.data);
+    
+    // Convert to histogram-compatible format
+    const histogramData = {
+      headers: ['leaf', 'distanceToRoot', 'avgDistanceToOthers'],
+      rows: stats.map(stat => ({
+        leaf: stat.name,
+        distanceToRoot: stat.distanceToRoot,
+        avgDistanceToOthers: stat.avgDistanceToOthers
+      }))
+    };
+    
+    const baseName = (treeData.filename || 'tree').replace(/\.[^.]+$/, '');
+    
+    // Create new histogram panel
+    addPanel({
+      type: 'histogram',
+      data: {
+        data: histogramData,
+        filename: `${baseName}_stats.csv`,
+        selectedXCol: 'leaf', // Default to leaf names for X-axis
+        selectedCol: 'distanceToRoot', // Default to show distance to root
+        indexingMode: '1-based'
+      },
+      basedOnId: treePanelId,
+      layoutHint: { w: 12, h: 8 },
+      autoLinkTo: treePanelId,
+    });
+    
+  } catch (error) {
+    alert(`Failed to compute tree statistics: ${error.message}`);
+    console.error('Tree stats computation error:', error);
+  }
+}, [panelData, addPanel]);
+
+
 const handleCreateSiteStatsHistogram = useCallback((id) => {
   const data = panelData[id];
   if (!data || !Array.isArray(data.data)) return;
@@ -4281,9 +4464,9 @@ function DelayedTooltip({ children, delay = 100,top=54, ...props }) {
 const LINK_COMPAT = {
   alignment: new Set(['alignment','seqlogo','histogram','structure','tree', 'heatmap']),
   seqlogo:   new Set(['alignment','histogram','seqlogo']),
-  histogram: new Set(['alignment','histogram','seqlogo']),
+  histogram: new Set(['alignment','histogram','seqlogo','tree']),
   heatmap:   new Set(['tree','heatmap','alignment','structure']),
-  tree:      new Set(['alignment','heatmap','tree']),
+  tree:      new Set(['alignment','heatmap','tree','histogram']),
   structure: new Set(['alignment','heatmap']),
   notepad:   new Set([]),
 };
@@ -4662,6 +4845,7 @@ const canLink = (typeA, typeB) => {
         handleFastME={handleFastME}
         handleCreateSequenceFromStructure={handleCreateSequenceFromStructure}
         handleStructureToDistance={handleStructureToDistance}
+        handleCreateTreeStats={handleCreateTreeStats}
         onCreateSubsetMsa={handleCreateSubsetMsa}
         setPanelData={setPanelData}
       />
