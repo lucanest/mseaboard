@@ -2625,14 +2625,11 @@ const colorForLink = useCallback((selfId, partnerId, active) => {
   const key = pairKey(selfId, partnerId);
   let idx = linkColors[key];
   
+  // If a color hasn't been officially assigned yet use a stable hash-based fallback
   if (idx == null) {
-    // stable fallback so history badges don't thrash before allocation
     let h = 0; 
     for (const ch of key) h = (h * 31 + ch.charCodeAt(0)) >>> 0;
     idx = h % linkpalette.length;
-    
-    // Assign this color permanently for this pair
-    setLinkColors(prev => ({ ...prev, [key]: idx }));
   }
   
   return linkpalette[idx];
