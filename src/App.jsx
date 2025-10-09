@@ -25,6 +25,8 @@ import debounce from 'lodash.debounce';
 import GridLayout from 'react-grid-layout';
 import ReactDOM from 'react-dom';
 import pako from 'pako';
+import { useDistanceMatrixWorker } from './hooks/useDistanceMatrixWorker.js';
+import { createMatrixView } from './components/MatrixView.js';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SiteStatsButton, LogYButton,
 SeqlogoButton, SequenceButton, DistanceMatrixButton, ZeroOneButton,
@@ -605,7 +607,7 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
   hoveredPanelId, setHoveredPanelId, setPanelData, onReupload, highlightedSite, panelLinks,
   highlightOrigin, onHighlight, justLinkedPanels,linkBadges, onRestoreLink, colorForLink, onUnlink, onGenerateTree
 }) {
-  const { labels, matrix, filename, diamondMode=false, threshold=null } = data || {};
+  const { labels, matrix, filename, diamondMode=false, threshold=null, minVal, maxVal } = data || {};
   const [containerRef, dims] = useElementSize({ debounceMs: 90 });
   const handleDiamondToggle = useCallback(() => {
   setPanelData(pd => ({
@@ -714,13 +716,15 @@ return (
             }
           ]}
     />
-    {/* Add padding container around the heatmap */}
+    {/* padding container around the heatmap */}
     <div ref={containerRef} className="flex-1 p-0 pb-4 pr-1 overflow-hidden">
       {labels && matrix ? (
         <PhylipHeatmap
         id={id}
         labels={labels}
         matrix={matrix}
+        minVal={minVal}
+        maxVal={maxVal}
         highlightSite={highlightedSite}
         highlightOrigin={highlightOrigin}
         onHighlight={onHighlight}
@@ -741,14 +745,29 @@ return (
 
 const StructurePanel = React.memo(function StructurePanel({
   id, data, onRemove, onDuplicate, hoveredPanelId, setHoveredPanelId, setPanelData, onReupload,
-  onCreateSequenceFromStructure, onGenerateDistance, onLinkClick, isLinkModeActive,isEligibleLinkTarget,
+  onCreateSequenceFromStructure, 
+  onGenerateDistance,
+  onLinkClick, isLinkModeActive,isEligibleLinkTarget,
   linkedTo, highlightedSite, highlightOrigin, onHighlight, linkedPanelData, justLinkedPanels,
    linkBadges, onRestoreLink, colorForLink,   onUnlink, panelLinks,
 }) {
   const { pdb, filename, surface = false } = data || {};
+  const [showChainPicker, setShowChainPicker] = useState(false);
 
-  // Local UI state: show picker when user clicks the matrix button
-  const [showChainPicker, setShowChainPicker] = React.useState(false);
+  const { calculate, isCalculatingDistances, result, error, reset } = useDistanceMatrixWorker();
+
+  useEffect(() => {
+    if (result) {
+      onGenerateDistance(id, result);
+      // Reset the state immediately after consuming it to prevent a loop
+      reset(); 
+    }
+    if (error) {
+      alert(`Failed to generate distance matrix: ${error}`);
+      // Also reset on error
+      reset();
+    }
+  }, [result, error, id, onGenerateDistance, reset]);
 
   // Parse available chains (by CA presence)
 const chainIds = React.useMemo(() => {
@@ -779,22 +798,39 @@ const chainIds = React.useMemo(() => {
     mkDownload(base, pdb, 'pdb')();
   }, [pdb, filename]);
 
-  // When the matrix button is clicked
-  const handleMatrixClick = React.useCallback(() => {
-    if (!chainIds.length) { alert('No chains detected.'); return; }
-    if (chainIds.length === 1) {
-      // directly generate for the single chain
-      onGenerateDistance(id, chainIds[0]);
-    } else {
-      // show picker with “ALL” + per-chain buttons
-      setShowChainPicker(true);
-    }
-  }, [chainIds, id, onGenerateDistance]);
+
 
 const pickChain = React.useCallback((choice) => {
-    onGenerateDistance(id, choice);
-    setShowChainPicker(false);
-  }, [id, onGenerateDistance]);
+      const s = data; // panelData[id]
+      if (!s?.pdb) return;
+
+      const chains = parsePdbChains(s.pdb);
+      let atoms = [];
+      if (choice === 'ALL') {
+          for (const { atomsCA } of chains.values()) atoms = atoms.concat(atomsCA);
+      } else {
+          atoms = chains.get(choice)?.atomsCA || [];
+      }
+
+      if (atoms.length < 2) {
+          alert('Not enough residues to build a distance map.');
+          return;
+      }
+      
+      // Trigger the worker calculation
+      calculate(atoms);
+      setShowChainPicker(false);
+  }, [data, calculate]);
+
+  const handleMatrixClick = React.useCallback(() => {
+      if (isCalculatingDistances) return;
+      if (!chainIds.length) { alert('No chains detected.'); return; }
+      if (chainIds.length === 1) {
+        pickChain(chainIds[0]);
+      } else {
+        setShowChainPicker(true);
+      }
+    }, [chainIds, id, isCalculatingDistances, pickChain]);
 
   const handleChainSelect = React.useCallback((item) => {
     if (item === 'All chains') {
@@ -838,6 +874,16 @@ const pickChain = React.useCallback((choice) => {
         ]}
       />
 
+      {/* loading overlay while calculating distances */}
+      {isCalculatingDistances && (
+        <div className="absolute inset-0 z-[1001] bg-black/50 flex items-center justify-center rounded-2xl">
+            <div className="text-white text-4xl font-semibold animate-pulse">
+                Calculating Distances...
+                <br />
+                <span className="text-2xl">Warning: very big matrices may freeze the UI</span>
+            </div>
+        </div>
+      )}
       {/* picker overlay */}
       {showChainPicker && (
         <div
@@ -1790,10 +1836,6 @@ const TreePanel = React.memo(function TreePanel({
       { element: <BranchLengthsButton onClick={handleBranchLengthsToggle} isActive={drawBranchLengths} />, tooltip: !drawBranchLengths ? "Draw using branch lengths" : "Draw ignoring branch lengths" },
       { element: <RadialToggleButton onClick={handleRadialToggle} isActive={RadialMode}  />,
        tooltip: RadialMode ? "Switch to rectangular view" : "Switch to radial view" },
-      { element: <PruneButton onClick={handlePruneToggle} isActive={pruneMode} />, tooltip: pruneMode ? "Exit prune mode" : 
-    (
-      <>Prune tree <br /> <span className="text-xs text-gray-600">Remove branches and their descendants</span></>
-    ) },
     { 
     element: <SiteStatsButton onClick={() => onCreateTreeStats(id)} />,
     tooltip: (
@@ -1811,6 +1853,10 @@ const TreePanel = React.memo(function TreePanel({
         </>
        )
       },
+      { element: <PruneButton onClick={handlePruneToggle} isActive={pruneMode} />, tooltip: pruneMode ? "Exit prune mode" : 
+    (
+      <>Prune tree <br /> <span className="text-xs text-gray-600">Remove branches and their descendants</span></>
+    ) },
       { element: <DownloadButton onClick={handleDownload} />,
        tooltip: "Download tree" }
      ]}
@@ -2339,7 +2385,7 @@ const PanelWrapper = React.memo(({
   handleHeatmapToTree,
   handleFastME,
   handleCreateSequenceFromStructure,
-  handleStructureToDistance,
+  handleStructureDistanceMatrix,
   handleGenerateCorrelationMatrix,
   handleCreateTreeStats,
   onCreateSubsetMsa,
@@ -2401,7 +2447,7 @@ const PanelWrapper = React.memo(({
 }),
     ...(panel.type === 'structure' && {
       onCreateSequenceFromStructure: handleCreateSequenceFromStructure,
-      onGenerateDistance: handleStructureToDistance,
+      onGenerateDistance: handleStructureDistanceMatrix,
       linkedPanelData: (
         Array.isArray(panelLinks[panel.i])
           ? panelLinks[panel.i]
@@ -3012,39 +3058,33 @@ const handleCreateSequenceFromStructure = useCallback((id) => {
 
 }, [panelData, layout, setPanels, setLayout, setPanelData, upsertHistory, assignPairColor]);
 
-const handleStructureToDistance = useCallback((id, forcedChoice) => {
-  const s = panelData[id];
-  if (!s?.pdb) { alert('No PDB found in this panel.'); return; }
+const handleStructureDistanceMatrix = useCallback((sourcePanelId, calculationResult) => {
+  const { labels, buffer, n, maxVal } = calculationResult;
+  const sourcePanelData = panelData[sourcePanelId];
+  if (!sourcePanelData) return;
 
-  const chains = parsePdbChains(s.pdb);
-  if (chains.size === 0) { alert('No CA atoms found to build a distance map.'); return; }
+  // UPDATE THE CALL to use the new factory function
+  const matrix = createMatrixView(buffer, n);
 
-  const first = [...chains.keys()][0];
-  const choice = forcedChoice ?? s.chainChoice ?? (chains.size > 1 ? 'ALL' : first);
-
-  let atoms = [];
-  if (choice === 'ALL') {
-    for (const { atomsCA } of chains.values()) atoms = atoms.concat(atomsCA);
-  } else {
-    const picked = chains.get(choice);
-    if (!picked || picked.atomsCA.length === 0) { alert(`No residues for chain ${choice}.`); return; }
-    atoms = picked.atomsCA;
-  }
-
-  if (atoms.length < 2) { alert('Not enough residues to build a distance map.'); return; }
-
-  const { labels, matrix } = distanceMatrixFromAtoms(atoms);
-  const base  = (s.filename ? s.filename: 'structure');
-  const suffix = choice === 'ALL' ? 'ALL' : choice;
+  // ... (the rest of the function is identical)
+  const base = baseName(sourcePanelData.filename, 'structure');
+  const suffix = sourcePanelData.chainChoice || 'dist';
 
   addPanel({
     type: 'heatmap',
-    data: { labels, matrix, filename: `${base}_${suffix}.phy` },
-    basedOnId: id,
+    data: { 
+      labels, 
+      matrix, 
+      filename: `${base}_${suffix}.phy`,
+      minVal: 0,
+      maxVal: maxVal
+    },
+    basedOnId: sourcePanelId,
     layoutHint: { w: 4, h: 20 },
-    autoLinkTo: id,
+    autoLinkTo: sourcePanelId,
   });
 }, [panelData, addPanel]);
+
 
 // --- FastME handling ---
 let __fastmeModulePromise = null;
@@ -4858,7 +4898,7 @@ const canLink = (typeA, typeB) => {
         handleHeatmapToTree={handleHeatmapToTree}
         handleFastME={handleFastME}
         handleCreateSequenceFromStructure={handleCreateSequenceFromStructure}
-        handleStructureToDistance={handleStructureToDistance}
+        handleStructureDistanceMatrix={handleStructureDistanceMatrix}
         handleCreateTreeStats={handleCreateTreeStats}
         onCreateSubsetMsa={handleCreateSubsetMsa}
         setPanelData={setPanelData}
