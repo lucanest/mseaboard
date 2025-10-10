@@ -4106,12 +4106,41 @@ const handleFileUpload = async (e) => {
     return out;
   };
 
+  const rehydrateBoardState = (board) => {
+  if (!board || !board.panelData || !board.panels) {
+    return board;
+  }
+
+  // Find all heatmap panels
+  const heatmapPanels = board.panels.filter(p => p.type === 'heatmap');
+
+  for (const panel of heatmapPanels) {
+    const panelData = board.panelData[panel.i];
+
+    // Check if the matrix is a plain object from a loaded board
+    // A real matrix is a Proxy, which is a function. A loaded one is an object.
+    if (panelData && panelData.matrix && typeof panelData.matrix === 'object' && panelData.matrix.n && panelData.matrix.data) {
+        
+        // The JSON data will be an object like { "0": val, "1": val, ... }
+        // We need to convert this back to a flat array of numbers.
+        const flatValues = Object.values(panelData.matrix.data);
+        const buffer = new Float64Array(flatValues).buffer;
+
+        // Re-create the proxy and replace the plain object with it
+        panelData.matrix = createMatrixView(buffer, panelData.matrix.n);
+    }
+  }
+
+  return board;
+};
+
   const handleLoadBoard = async (e) => {
     const file = e.target.files[0];
     if (!file) return;
     const text = await file.text();
     try {
-      const board = JSON.parse(text);
+      const parsedBoard = JSON.parse(text);
+      const board = rehydrateBoardState(parsedBoard);
        setHistory({
             past: [],
             present: {
@@ -4235,7 +4264,8 @@ const handleFileUpload = async (e) => {
             
             const compressed = base64ToUint8Array(base64);
             const jsonString = pako.inflate(compressed, { to: 'string' });
-            const board = JSON.parse(jsonString);
+            const parsedBoard = JSON.parse(jsonString);
+            const board = rehydrateBoardState(parsedBoard);
 
             if (board.panels && board.layout && board.panelData) {
                 setHistory({
