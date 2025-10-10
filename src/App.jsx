@@ -33,7 +33,7 @@ SeqlogoButton, SequenceButton, DistanceMatrixButton, ZeroOneButton,
  DownloadButton, GitHubButton, SearchButton, TreeButton,
  DiamondButton, BranchLengthsButton, PruneButton, SubMSAButton,
  TableChartButton} from './components/Buttons.jsx';
-import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon, ArrowUpOnSquareIcon } from '@heroicons/react/24/outline';
+import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon, ArrowUpOnSquareIcon, ArrowUturnLeftIcon, ArrowUturnRightIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick,
 newickToDistanceMatrix, detectFileType, toFasta, toPhylip, computeSiteStats, buildTreeFromDistanceMatrix,
 computeNormalizedHammingMatrix, pickAlignedSeqForChain, chainIdFromSeqId, residueIndexToMsaCol, 
@@ -549,6 +549,11 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
    }
  }, [data]);
 
+  const extraButtons = useMemo(() => [
+    { element: <DownloadButton onClick={handleDownloadPNG} />,
+      tooltip: "Download png" }
+  ], [handleDownloadPNG]);
+
   return (
     <PanelContainer
       id={id}
@@ -573,10 +578,7 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
         onRestoreLink={onRestoreLink}
         onUnlink={onUnlink}
         colorForLink={colorForLink}
-        extraButtons={[
-                { element: <DownloadButton onClick={handleDownloadPNG} />,
-       tooltip: "Download png" }
-        ]}
+        extraButtons={extraButtons}
       />
       <div
         ref={scrollContainerRef}
@@ -658,6 +660,26 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
     },
     [id, setPanelData]
   );
+  
+  const extraButtons = useMemo(() => [
+    { 
+      element: <TreeButton onClick={() => onGenerateTree(id)} />,
+      tooltip: (
+        <>
+        Build tree from distances<br />
+        <span className="text-xs text-gray-600">Neighbor-Joining</span>
+        </>
+      )
+    },
+    { 
+      element: diamondMode ? <DistanceMatrixButton onClick={handleDiamondToggle} /> : <DiamondButton onClick={handleDiamondToggle} />,
+      tooltip: diamondMode ? <>Switch to square view</> : <>Switch to diamond view</>
+    },
+    { 
+      element: <DownloadButton onClick={handleDownload} />,
+      tooltip: "Download distance matrix" 
+    }
+  ], [id, onGenerateTree, diamondMode, handleDiamondToggle, handleDownload]);
 
   if (!labels || !matrix) {
     return (
@@ -692,29 +714,7 @@ return (
           onUnlink={onUnlink}
           colorForLink={colorForLink}
           onRemove={onRemove}
-          extraButtons={[
-            { 
-              element: <TreeButton onClick={() => onGenerateTree(id)} />,
-              tooltip: (
-
-                <>
-                Build tree from distances<br />
-                <span className="text-xs text-gray-600">Neighbor-Joining</span>
-                </>
-              )
-              
-            },
-            { 
-              element:  diamondMode? <DistanceMatrixButton onClick={() => handleDiamondToggle(id)}/>
-              : <DiamondButton onClick={() => handleDiamondToggle(id)} />,
-              tooltip: (diamondMode? <>Switch to square view</>: <>Switch to diamond view</>)
-              
-            },
-            { 
-              element: <DownloadButton onClick={handleDownload} />,
-              tooltip: "Download distance matrix" 
-            }
-          ]}
+          extraButtons={extraButtons}
     />
     {/* padding container around the heatmap */}
     <div ref={containerRef} className="flex-1 p-0 pb-4 pr-1 overflow-hidden">
@@ -840,6 +840,16 @@ const pickChain = React.useCallback((choice) => {
       pickChain(cid);
     }
   }, [pickChain]);
+  
+  const extraButtons = useMemo(() => [
+    { element: <SequenceButton onClick={() => onCreateSequenceFromStructure(id)} />,
+      tooltip: "Extract sequences from structure" },
+    { element: <DistanceMatrixButton onClick={handleMatrixClick} title='Build distance matrix from structure' />,
+      tooltip: "Generate residue distance matrix" },
+    { element: <DownloadButton onClick={handleDownload} />,
+      tooltip: "Download PDB file" }
+  ], [id, onCreateSequenceFromStructure, handleMatrixClick, handleDownload]);
+  
   return (
     <PanelContainer
       id={id}
@@ -864,14 +874,7 @@ const pickChain = React.useCallback((choice) => {
         colorForLink={colorForLink}
         onDuplicate={onDuplicate}
         onRemove={onRemove}
-        extraButtons={[
-          { element: <SequenceButton onClick={() => onCreateSequenceFromStructure(id)} />,
-           tooltip: "Extract sequences from structure" },
-          { element: <DistanceMatrixButton onClick={handleMatrixClick} title='Build distance matrix from structure' />,
-           tooltip: "Generate residue distance matrix" },
-          { element: <DownloadButton onClick={handleDownload} />,
-           tooltip: "Download PDB file" }
-        ]}
+        extraButtons={extraButtons}
       />
 
       {/* loading overlay while calculating distances */}
@@ -1342,11 +1345,34 @@ const onScroll = useMemo(() =>
     setPanelData(d => ({ ...d, [id]: { ...d[id], codonMode: next, highlightedSites: [] } }));
     return next;
   }), [id, setPanelData]);
-
-  const handleToggleSelectionMode = () => { if (isSelectionMode) setSelectedSequences(new Set()); setIsSelectionMode(prev => !prev); };
+  
+  const handleToggleSelectionMode = useCallback(() => { if (isSelectionMode) setSelectedSequences(new Set()); setIsSelectionMode(prev => !prev); }, [isSelectionMode]);
   const handleGoClick = () => { if (selectedSequences.size === 0) return; onCreateSubsetMsa(id, Array.from(selectedSequences)); setIsSelectionMode(false); setSelectedSequences(new Set()); };
   const handleCancelSelection = () => { setIsSelectionMode(false); setSelectedSequences(new Set()); };
   const handleLabelClick = (index) => { if (!isSelectionMode) return; const sel = new Set(selectedSequences); if (sel.has(index)) sel.delete(index); else sel.add(index); setSelectedSequences(sel); };
+
+  // Memoize extraButtons to prevent re-render loops.
+  const extraButtons = useMemo(() => (
+    isNuc ? [ 
+        { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowModelPicker(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
+        { element: <TreeButton onClick={() => { setIsSelectionMode(false); setShowSearch(false); handleTreeClick(); }} />, tooltip: <>Build phylogenetic tree <br /> <span className="text-xs text-gray-600">FastME</span></> },
+        { element: <CodonToggleButton onClick={() => setCodonMode(m => !m)} isActive={codonMode} />, tooltip: "Toggle codon mode" },
+        { element: <TranslateButton onClick={() => onDuplicateTranslate(id)} />, tooltip: "Translate to amino acids" },
+        { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
+        { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, tooltip: <>Compute per-site statistics<br /><span className="text-xs text-gray-600">Conservation and gap fraction</span></> },
+        { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)}/>, tooltip: <>Build distance matrix <br /><span className="text-xs text-gray-600">Normalized Hamming</span></> },
+        { element: <SubMSAButton onClick={() => { setShowSearch(false); handleToggleSelectionMode(); }} isActive={isSelectionMode} />, tooltip : <> Extract sequences <br /> <span className="text-xs text-gray-600">Choose a subset to create a new panel </span> </> },
+        { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
+    ] : [
+        { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowModelPicker(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
+        { element: <TreeButton onClick={() => { setIsSelectionMode(false); setShowSearch(false); handleTreeClick(); }} />, tooltip: <>Build phylogenetic tree <br /> <span className="text-xs text-gray-600">FastME</span></> },
+        { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
+        { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, tooltip: <>Compute per-site statistics<br /><span className="text-xs text-gray-600">Conservation and gap fraction</span></> },
+        { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)} />, tooltip: <>Build distance matrix <br /><span className="text-xs text-gray-600">Normalized Hamming</span></> },
+        { element: <SubMSAButton onClick={() => { setShowSearch(false); handleToggleSelectionMode(); }} isActive={isSelectionMode} />, tooltip : <> Extract sequences <br /> <span className="text-xs text-gray-600">Choose a subset to create a new panel </span> </> },
+        { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
+    ]
+  ), [isNuc, id, codonMode, isSelectionMode, handleTreeClick, setCodonMode, onDuplicateTranslate, onCreateSeqLogo, onCreateSiteStatsHistogram, onGenerateDistance, handleToggleSelectionMode, handleDownload]);
 
   useEffect(() => { if (data.codonMode !== codonMode) setCodonModeState(data.codonMode || false); }, [data.codonMode, codonMode]);
   useEffect(() => {
@@ -1456,25 +1482,7 @@ const handleGridMouseMove = useMemo(() =>
             filename={filename} 
             setPanelData={setPanelData} 
             forceHideTooltip={showSearch || isSelectionMode} 
-            extraButtons={
-              isNuc ? [ 
-                { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowModelPicker(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
-                { element: <TreeButton onClick={() => { setIsSelectionMode(false); setShowSearch(false); handleTreeClick(); }} />, tooltip: <>Build phylogenetic tree <br /> <span className="text-xs text-gray-600">FastME</span></> },
-                { element: <CodonToggleButton onClick={() => setCodonMode(m => !m)} isActive={codonMode} />, tooltip: "Toggle codon mode" },
-                { element: <TranslateButton onClick={() => onDuplicateTranslate(id)} />, tooltip: "Translate to amino acids" },
-                { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
-                { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, tooltip: <>Compute per-site statistics<br /><span className="text-xs text-gray-600">Conservation and gap fraction</span></> },
-                { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)}/>, tooltip: <>Build distance matrix <br /><span className="text-xs text-gray-600">Normalized Hamming</span></> },
-                { element: <SubMSAButton onClick={() => { setShowSearch(false); handleToggleSelectionMode(); }} isActive={isSelectionMode} />, tooltip : <> Extract sequences <br /> <span className="text-xs text-gray-600">Choose a subset to create a new panel </span> </> },
-                { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
-                 ] : [
-                { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowModelPicker(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
-                { element: <TreeButton onClick={() => { setIsSelectionMode(false); setShowSearch(false); handleTreeClick(); }} />, tooltip: <>Build phylogenetic tree <br /> <span className="text-xs text-gray-600">FastME</span></> },
-                { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
-                { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, tooltip: <>Compute per-site statistics<br /><span className="text-xs text-gray-600">Conservation and gap fraction</span></> },
-                { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)} />, tooltip: <>Build distance matrix <br /><span className="text-xs text-gray-600">Normalized Hamming</span></> },
-                { element: <SubMSAButton onClick={() => { setShowSearch(false); handleToggleSelectionMode(); }} isActive={isSelectionMode} />, tooltip : <> Extract sequences <br /> <span className="text-xs text-gray-600">Choose a subset to create a new panel </span> </> },
-                { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" } ]}
+            extraButtons={extraButtons}
             onDuplicate={onDuplicate}
             onLinkClick={onLinkClick} 
             isLinkModeActive={isLinkModeActive} 
@@ -1794,6 +1802,37 @@ const TreePanel = React.memo(function TreePanel({
     const ext  = data?.isNhx ? 'nhx' : 'nwk';
     mkDownload(base, text, ext)();
   }, [data]);
+  
+  // Memoize extraButtons to prevent re-render loops.
+  const extraButtons = useMemo(() => [
+    { element: <BranchLengthsButton onClick={handleBranchLengthsToggle} isActive={drawBranchLengths} />, tooltip: !drawBranchLengths ? "Draw using branch lengths" : "Draw ignoring branch lengths" },
+    { element: <RadialToggleButton onClick={handleRadialToggle} isActive={RadialMode}  />,
+     tooltip: RadialMode ? "Switch to rectangular view" : "Switch to radial view" },
+    { 
+      element: <SiteStatsButton onClick={() => onCreateTreeStats(id)} />,
+      tooltip: (
+        <>
+          Compute leaf statistics<br />
+          <span className="text-xs text-gray-600">Distance to root and average distance to others</span>
+        </>
+      )
+    },
+    { element: <DistanceMatrixButton   onClick={() => onGenerateDistance(id)}  />,
+     tooltip: (
+      <>
+      Build distance matrix <br />
+      <span className="text-xs text-gray-600">Patristic distance</span>
+      </>
+     )
+    },
+    { element: <PruneButton onClick={handlePruneToggle} isActive={pruneMode} />, tooltip: pruneMode ? "Exit prune mode" : 
+      (
+        <>Prune tree <br /> <span className="text-xs text-gray-600">Remove branches and their descendants</span></>
+      ) 
+    },
+    { element: <DownloadButton onClick={handleDownload} />,
+     tooltip: "Download tree" }
+  ], [id, drawBranchLengths, RadialMode, pruneMode, handleBranchLengthsToggle, handleRadialToggle, onCreateTreeStats, onGenerateDistance, handlePruneToggle, handleDownload]);
 
   // Dynamic version of the panel data.
   // This lets us merge stored highlights (from clicks) with live highlights (from hovers).
@@ -1832,34 +1871,7 @@ const TreePanel = React.memo(function TreePanel({
       onLinkClick={onLinkClick}
       isEligibleLinkTarget={isEligibleLinkTarget}
       isLinkModeActive={isLinkModeActive}
-      extraButtons={[
-      { element: <BranchLengthsButton onClick={handleBranchLengthsToggle} isActive={drawBranchLengths} />, tooltip: !drawBranchLengths ? "Draw using branch lengths" : "Draw ignoring branch lengths" },
-      { element: <RadialToggleButton onClick={handleRadialToggle} isActive={RadialMode}  />,
-       tooltip: RadialMode ? "Switch to rectangular view" : "Switch to radial view" },
-    { 
-    element: <SiteStatsButton onClick={() => onCreateTreeStats(id)} />,
-    tooltip: (
-      <>
-        Compute leaf statistics<br />
-        <span className="text-xs text-gray-600">Distance to root and average distance to others</span>
-      </>
-    )
-  },
-      { element: <DistanceMatrixButton   onClick={() => onGenerateDistance(id)}  />,
-       tooltip: (
-        <>
-        Build distance matrix <br />
-        <span className="text-xs text-gray-600">Patristic distance</span>
-        </>
-       )
-      },
-      { element: <PruneButton onClick={handlePruneToggle} isActive={pruneMode} />, tooltip: pruneMode ? "Exit prune mode" : 
-    (
-      <>Prune tree <br /> <span className="text-xs text-gray-600">Remove branches and their descendants</span></>
-    ) },
-      { element: <DownloadButton onClick={handleDownload} />,
-       tooltip: "Download tree" }
-     ]}
+      extraButtons={extraButtons}
         linkBadges={linkBadges}
         onRestoreLink={onRestoreLink}
         onUnlink={onUnlink}
@@ -1907,6 +1919,11 @@ const NotepadPanel = React.memo(function NotepadPanel({
     mkDownload(base, text || '', 'txt')();
   }, [filenameInput, text]);
 
+  const extraButtons = useMemo(() => [  
+    { element: <DownloadButton onClick={handleDownload} />,
+      tooltip: "Download txt" }
+  ], [handleDownload]);
+
   useEffect(() => {
     setText(data.text || "");
     setFilenameInput(data.filename || "Notes");
@@ -1928,9 +1945,7 @@ const NotepadPanel = React.memo(function NotepadPanel({
         setPanelData={setPanelData}
         onDuplicate={onDuplicate}
         onRemove={onRemove}
-        extraButtons={[  
-        { element: <DownloadButton onClick={handleDownload} />,
-          tooltip: "Download txt" } ]}
+        extraButtons={extraButtons}
       />
       <div className="flex-1 p-2">
 <textarea
@@ -2065,6 +2080,46 @@ const HistogramPanel = React.memo(function HistogramPanel({
       alert(`Failed to compute correlation matrix: ${error.message}`);
     }
   }, [id, isTabular, onGenerateCorrelationMatrix]);
+  
+  const extraButtons = useMemo(() => [
+    ...(!tableViewMode ? [{
+        element: <LogYButton onClick={() => {
+          setPanelData(prev => ({ ...prev, [id]: { ...prev[id], yLog: !yLog } }));
+          setYLog(v => !v);
+        }} isActive={yLog} />,
+        tooltip: "Toggle log scale on the y axis"
+    }] : []),
+    {
+        element: <TableChartButton 
+          onClick={handleTableViewToggle} 
+          isActive={tableViewMode}
+        />,
+        tooltip: tableViewMode ? "Switch to barchart view" : "Switch to table view"
+    },
+    {
+        element: <ZeroOneButton onClick={handleIndexingToggle} isActive={indexingMode === '1-based'} />,
+        tooltip: (
+          <>
+            Switch indexing base for linking
+            <br />
+            <span className="text-xs text-gray-600">Current: {indexingMode === '1-based' ? '1-based (site 1 is first)' : '0-based (site 0 is first)'}</span>
+          </>
+        )
+    },
+    ...(isTabular && numericCols.length >= 2 ? [{
+        element: <DistanceMatrixButton onClick={handleCorrelationMatrix} />,
+        tooltip: (
+          <>
+            Compute correlation matrix<br />
+            <span className="text-xs text-gray-600">Pearson</span>
+          </>
+        )
+    }] : []),
+    { 
+        element: <DownloadButton onClick={handleDownload} />,
+        tooltip: "Download data" 
+    }
+  ], [tableViewMode, yLog, id, setPanelData, handleTableViewToggle, handleIndexingToggle, indexingMode, isTabular, numericCols, handleCorrelationMatrix, handleDownload]);
 
   useEffect(() => {
     if (isTabular) {
@@ -2124,48 +2179,7 @@ const HistogramPanel = React.memo(function HistogramPanel({
         colorForLink={colorForLink}
         onRemove={onRemove}
         onMouseEnter={handlePanelMouseLeave}
-        extraButtons={[
-        ...(!tableViewMode ? [{
-            element: <LogYButton onClick={() => {
-              setPanelData(prev => ({
-                ...prev,
-                [id]: { ...prev[id], yLog: !yLog }
-              }));
-              setYLog(v => !v);
-            }} isActive={yLog} />,
-            tooltip: "Toggle log scale on the y axis"
-          }] : []),
-      {
-            element: <TableChartButton 
-              onClick={handleTableViewToggle} 
-              isActive={tableViewMode}
-            />,
-            tooltip: tableViewMode ? "Switch to barchart view" : "Switch to table view"
-          },
-           {
-            element: <ZeroOneButton onClick={handleIndexingToggle} isActive={indexingMode === '1-based'} />,
-            tooltip: (
-              <>
-                Switch indexing base for linking
-                <br />
-                <span className="text-xs text-gray-600">Current: {indexingMode === '1-based' ? '1-based (site 1 is first)' : '0-based (site 0 is first)'}</span>
-              </>
-            )
-          },
-          ...(isTabular && numericCols.length >= 2 ? [{
-            element: <DistanceMatrixButton onClick={handleCorrelationMatrix} />,
-            tooltip: (
-              <>
-                Compute correlation matrix<br />
-                <span className="text-xs text-gray-600">Pearson</span>
-              </>
-            )
-          }] : []),
-          { 
-            element: <DownloadButton onClick={handleDownload} />,
-            tooltip: "Download data" 
-          }
-        ]}
+        extraButtons={extraButtons}
       />
       
       {!tableViewMode && (
@@ -2289,10 +2303,13 @@ const usePanelProps = (panelId, {
   const originId = linkMode;
   const originPanel = originId ? panels.find(p => p.i === originId) : null;
   const highlightOriginType = highlightOrigin ? (panels.find(p => p.i === highlightOrigin)?.type || null) : null;
-  const activePartners = panelLinks[panelId] || [];
-  const historyPartners = panelLinkHistory[panelId] || [];
+
+  const activePartners = useMemo(() => panelLinks[panelId] || [], [panelLinks, panelId]);
+  const historyPartners = useMemo(() => panelLinkHistory[panelId] || [], [panelLinkHistory, panelId]);
+
   const panel = panels.find(p => p.i === panelId);
   const panelType = panel?.type;
+  
   const isEligibleLinkTarget = !!(
     originPanel &&
     originPanel.i !== panelId &&                
@@ -2314,7 +2331,7 @@ const usePanelProps = (panelId, {
     onReupload: id => triggerUpload(panelType, id),
     onDuplicate: duplicatePanel,
     onLinkClick: handleLinkClick,
-    linkedTo: activePartners, // Now an array instead of single value
+    linkedTo: activePartners,
     isLinkModeActive: linkMode === panelId,
     highlightedSite: highlightSite,
     highlightOrigin: highlightOrigin,
@@ -2326,11 +2343,10 @@ const usePanelProps = (panelId, {
     justLinkedPanels,
   }), [
     panelId,
-    panelData[panelId],
+    panelData,
     historyPartners,
-    activePartners,
+    activePartners, 
     linkMode,
-    panelLinks[panelId],
     highlightSite,
     highlightOrigin,
     hoveredPanelId,
@@ -2416,6 +2432,19 @@ const PanelWrapper = React.memo(({
   const data = panelData[panel.i];
   if (!data) return null;
 
+  const linkedPanelData = useMemo(() => {
+    if (panel.type !== 'structure') {
+      return undefined;
+    }
+    const linkedIds = Array.isArray(panelLinks[panel.i])
+      ? panelLinks[panel.i]
+      : (panelLinks[panel.i] ? [panelLinks[panel.i]] : []);
+    
+    return linkedIds
+      .map(pid => panelData[pid])
+      .filter(d => d && d.type === 'alignment');
+      
+  }, [panel.type, panel.i, panelLinks, panelData]);
   // Add panel-specific props
   const additionalProps = {
     setPanelData,
@@ -2448,13 +2477,7 @@ const PanelWrapper = React.memo(({
     ...(panel.type === 'structure' && {
       onCreateSequenceFromStructure: handleCreateSequenceFromStructure,
       onGenerateDistance: handleStructureDistanceMatrix,
-      linkedPanelData: (
-        Array.isArray(panelLinks[panel.i])
-          ? panelLinks[panel.i]
-          : panelLinks[panel.i]
-            ? [panelLinks[panel.i]]
-            : []
-      ).map(pid => panelData[pid]).filter(d => d && d.type === 'alignment')
+      linkedPanelData: linkedPanelData,
     }),
     ...(panel.type === 'seqlogo' && {
       highlightedSite: highlightSite,
@@ -2504,19 +2527,78 @@ const PanelWrapper = React.memo(({
 
 
 function App() {
-  const [panels, setPanels] = useState([]);
-  const [layout, setLayout] = useState([]);
+  // Undo/Redo state management
+  const [history, setHistory] = useState(() => ({
+    past: [],
+    present: {
+      panels: [],
+      layout: [],
+      panelData: {},
+      panelLinks: {},
+      panelLinkHistory: {},
+      linkColors: {},
+    },
+    future: [],
+  }));
+
+  const { panels, layout, panelData, panelLinks, panelLinkHistory, linkColors } = history.present;
+  
+  const canUndo = history.past.length > 0;
+  const canRedo = history.future.length > 0;
+
+  // Main state updater function. Can either save to history or just update the present.
+  const setState = useCallback((updater, saveToHistory) => {
+    setHistory(currentHistory => {
+      const newPresent = typeof updater === 'function' ? updater(currentHistory.present) : updater;
+
+      if (saveToHistory) {
+        return {
+          past: [...currentHistory.past, currentHistory.present],
+          present: newPresent,
+          future: [],
+        };
+      } else {
+        return { ...currentHistory, present: newPresent };
+      }
+    });
+  }, []);
+
+  const undo = useCallback(() => {
+    setHistory(h => {
+      if (h.past.length === 0) return h;
+      const previous = h.past[h.past.length - 1];
+      const newPast = h.past.slice(0, h.past.length - 1);
+      return {
+        past: newPast,
+        present: previous,
+        future: [h.present, ...h.future],
+      };
+    });
+  }, []);
+
+  const redo = useCallback(() => {
+    setHistory(h => {
+      if (h.future.length === 0) return h;
+      const next = h.future[0];
+      const newFuture = h.future.slice(1);
+      return {
+        past: [...h.past, h.present],
+        present: next,
+        future: newFuture,
+      };
+    });
+  }, []);
+
+  // State not included in history (transient UI state)
   const [linkMode, setLinkMode] = useState(null);
-  const [panelLinks, setPanelLinks] = useState({});
-  const [panelLinkHistory, setPanelLinkHistory] = useState({});
   const [justLinkedPanels, setJustLinkedPanels] = useState([]);
   const [scrollPositions, setScrollPositions] = useState({});
   const [highlightSite, setHighlightSite] = useState(null);
   const [highlightOrigin, setHighlightOrigin] = useState(null);
   const [highlightedSequenceId, setHighlightedSequenceId] = useState(null);
-  const [panelData, setPanelData] = useState({});
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [hoveredPanelId, setHoveredPanelId] = useState(null);
+
   const fileInputRef = useRef(null);
   const fileInputRefBoard = useRef(null);
   const pendingTypeRef = useRef(null);
@@ -2529,6 +2611,49 @@ function App() {
   const [githubToken, setGithubToken] = useState(() => localStorage.getItem('github-pat') || '');
   const [showTokenModal, setShowTokenModal] = useState(false);
   const [tempToken, setTempToken] = useState('');
+
+    // This is the function passed to child components. It intelligently decides whether to save history.
+    const setPanelData = useCallback(updater => {
+        // By using the functional update form of `setHistory`, we get access to the latest
+        // `currentHistory` state without needing to list `history.present` in the dependency array.
+        // This makes the `setPanelData` callback stable across all re-renders.
+        setHistory(currentHistory => {
+            const oldPresent = currentHistory.present;
+            const newPanelData = typeof updater === 'function' ? updater(oldPresent.panelData) : updater;
+
+            // This logic now correctly detects a prune action using the guaranteed latest state.
+            let isPruneAction = false;
+            if (oldPresent && oldPresent.panelData) {
+                for (const id in newPanelData) {
+                    if (!oldPresent.panelData[id] || !oldPresent.panels) continue;
+                    const panelType = oldPresent.panels.find(p => p.i === id)?.type;
+                    if (panelType === 'tree') {
+                        if (newPanelData[id].data !== oldPresent.panelData[id].data) {
+                            isPruneAction = true;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            const newPresent = { ...oldPresent, panelData: newPanelData };
+            
+            // Now, we build the next history state based on whether the action was undoable.
+            if (isPruneAction) {
+                return {
+                    past: [...currentHistory.past, oldPresent],
+                    present: newPresent,
+                    future: [],
+                };
+            } else {
+                return {
+                    ...currentHistory,
+                    present: newPresent,
+                };
+            }
+        });
+    }, [setHistory]); // `setHistory` from useState is guaranteed to be stable.
+
 
   useEffect(() => {
     if (transientMessage) {
@@ -2610,10 +2735,8 @@ function App() {
   };
   }, []);
 
-const upsertHistory = useCallback((a, b) => {
-  setPanelLinkHistory(prev => {
-    const copy = { ...prev };
-    // Always coerce to Set before mutating
+const upsertHistory = useCallback((a, b, currentPresent) => {
+    const copy = { ...(currentPresent.panelLinkHistory) };
     const ensure = (id) => {
       let v = copy[id];
       if (Array.isArray(v)) v = new Set(v);
@@ -2623,34 +2746,28 @@ const upsertHistory = useCallback((a, b) => {
     };
     ensure(a).add(b);
     ensure(b).add(a);
-    // Return plain arrays for state/serialization
     const normalized = {};
     for (const [k, v] of Object.entries(copy)) {
       normalized[k] = v instanceof Set ? Array.from(v) : Array.isArray(v) ? v : [];
     }
     return normalized;
-  });
 }, []);
 
-const [linkColors, setLinkColors] = useState({}); // {"a|b": idx}
 const pairKey = useCallback((a,b) => [String(a), String(b)].sort().join('|'), []);
 
-const assignPairColor = useCallback((a, b) => {
-  const key = pairKey(a, b);
-  setLinkColors(prev => {
-    if (prev[key] != null) return prev; // Color already assigned, don't change
+const assignPairColor = useCallback((a, b, currentPresent) => {
+    const key = pairKey(a, b);
+    const prevLinkColors = currentPresent.linkColors;
+    if (prevLinkColors[key] != null) return prevLinkColors;
     
-    // Find all colors currently in use
-    const used = new Set(Object.values(prev));
+    const used = new Set(Object.values(prevLinkColors));
     let idx = 0;
     
-    // Pick the first unused color globally
     while (idx < linkpalette.length && used.has(idx)) idx++;
     
     if (idx >= linkpalette.length) {
-      // If all are used, pick the least-used color
       const counts = Array(linkpalette.length).fill(0);
-      for (const v of Object.values(prev)) counts[v] = (counts[v] || 0) + 1;
+      for (const v of Object.values(prevLinkColors)) counts[v] = (counts[v] || 0) + 1;
       let best = 0, bestCnt = counts[0];
       for (let i = 1; i < counts.length; i++) {
         if (counts[i] < bestCnt) { best = i; bestCnt = counts[i]; }
@@ -2658,8 +2775,7 @@ const assignPairColor = useCallback((a, b) => {
       idx = best;
     }
     
-    return { ...prev, [key]: idx };
-  });
+    return { ...prevLinkColors, [key]: idx };
 }, [linkpalette, pairKey]);
 
   
@@ -2731,21 +2847,19 @@ const addPanel = useCallback((config = {}) => {
   const { type, data, layoutHint = {}, autoLinkTo = null } = config;
   const newId = `${type}-${Date.now()}`;
 
-  setPanelData(prev => ({ ...prev, [newId]: data }));
+  setState(present => {
+    let nextPresent = { ...present };
+    
+    nextPresent.panelData = { ...nextPresent.panelData, [newId]: data };
+    
+    const withoutFooterPanels = nextPresent.panels.filter(p => p.i !== '__footer');
+    nextPresent.panels = [...withoutFooterPanels, { i: newId, type }, { i: '__footer', type: 'footer' }];
 
-  setPanels(prev => {
-    const withoutFooter = prev.filter(p => p.i !== '__footer');
-    return [...withoutFooter, { i: newId, type }, { i: '__footer', type: 'footer' }];
-  });
-
-  setLayout(prevLayout => {
-    const layoutWithoutFooter = prevLayout.filter(l => l.i !== '__footer');
-    const footer = prevLayout.find(l => l.i === '__footer');
+    const layoutWithoutFooter = nextPresent.layout.filter(l => l.i !== '__footer');
+    const footer = nextPresent.layout.find(l => l.i === '__footer');
     const GRID_W = 12;
     const defaultW = layoutHint.w || 4;
     const defaultH = layoutHint.h || 20;
-
-    // Build a 2D occupancy map
     const occupancy = {};
     layoutWithoutFooter.forEach(l => {
       for (let x = l.x; x < l.x + l.w; x++) {
@@ -2755,9 +2869,8 @@ const addPanel = useCallback((config = {}) => {
       }
     });
 
-    // Find the first position (x, y) where the new panel fits
     let found = false, newX = 0, newY = 0;
-    outer: for (let y = 0; y < 100; y++) { // Arbitrary max grid height
+    outer: for (let y = 0; y < 100; y++) {
       for (let x = 0; x <= GRID_W - defaultW; x++) {
         let fits = true;
         for (let dx = 0; dx < defaultW; dx++) {
@@ -2778,67 +2891,35 @@ const addPanel = useCallback((config = {}) => {
       }
     }
     if (!found) {
-      // Place below all panels
       const maxY = layoutWithoutFooter.reduce((max, l) => Math.max(max, l.y + l.h), 0);
       newX = 0;
       newY = maxY;
     }
 
-    const newLayoutItem = {
-      i: newId,
-      x: newX,
-      y: newY,
-      w: defaultW,
-      h: defaultH,
-      minW: 2,
-      minH: 3,
-      ...layoutHint,
-    };
-
+    const newLayoutItem = { i: newId, x: newX, y: newY, w: defaultW, h: defaultH, minW: 2, minH: 3, ...layoutHint };
     const nextLayout = [...layoutWithoutFooter, newLayoutItem];
     const newMaxY = nextLayout.reduce((max, l) => Math.max(max, l.y + l.h), 0);
     const newFooter = { ...(footer || {}), i: '__footer', x: 0, y: newMaxY, w: 12, h: 2, static: true };
-    return [...nextLayout, newFooter];
-  });
+    nextPresent.layout = [...nextLayout, newFooter];
 
+    if (autoLinkTo) {
+        let pl = { ...nextPresent.panelLinks };
+        pl[newId] = Array.isArray(pl[newId]) ? pl[newId] : (pl[newId] ? [pl[newId]] : []);
+        if (!pl[newId].includes(autoLinkTo)) pl[newId].push(autoLinkTo);
+        let arr = Array.isArray(pl[autoLinkTo]) ? pl[autoLinkTo] : (pl[autoLinkTo] ? [pl[autoLinkTo]] : []);
+        if (!arr.includes(newId)) arr.push(newId);
+        pl[autoLinkTo] = arr;
+        nextPresent.panelLinks = pl;
 
-
-  // --- Auto-link logic ---
-if (autoLinkTo) {
-  setPanelLinks(pl => {
-    const copy = { ...pl };
-    // Remove specific link only
-    if (copy[newId] && Array.isArray(copy[newId])) {
-      copy[newId] = copy[newId].filter(id => id !== autoLinkTo);
-      if (copy[newId].length === 0) delete copy[newId];
+        nextPresent.panelLinkHistory = upsertHistory(newId, autoLinkTo, nextPresent);
+        nextPresent.linkColors = assignPairColor(newId, autoLinkTo, nextPresent);
+        setJustLinkedPanels([newId, autoLinkTo]);
+        setTimeout(() => setJustLinkedPanels([]), 1000);
     }
-    if (copy[autoLinkTo] && Array.isArray(copy[autoLinkTo])) {
-      copy[autoLinkTo] = copy[autoLinkTo].filter(id => id !== newId);
-      if (copy[autoLinkTo].length === 0) delete copy[autoLinkTo];
-    }
-
-    // Add the new link
-    copy[newId] = Array.isArray(copy[newId]) ? copy[newId] : (copy[newId] ? [copy[newId]] : []);
-    if (!copy[newId].includes(autoLinkTo)) copy[newId].push(autoLinkTo);
-
-    // Always coerce to array before push
-    let arr = [];
-    if (Array.isArray(copy[autoLinkTo])) {
-      arr = copy[autoLinkTo];
-    } else if (copy[autoLinkTo]) {
-      arr = [copy[autoLinkTo]];
-    }
-    if (!arr.includes(newId)) arr.push(newId);
-    copy[autoLinkTo] = arr;
-
-    return copy;
-  });
-      upsertHistory(newId, autoLinkTo);
-      assignPairColor(newId, autoLinkTo);
-      setJustLinkedPanels([newId, autoLinkTo]);
-      setTimeout(() => setJustLinkedPanels([]), 1000);
-    }
-  }, [upsertHistory, assignPairColor]);
+    
+    return nextPresent;
+  }, true); // Save to history
+}, [setState, upsertHistory, assignPairColor]);
 
   const handleCreateSubsetMsa = useCallback((id, selectedIndices) => {
     const sourceData = panelData[id];
@@ -2921,25 +3002,22 @@ if (autoLinkTo) {
       minH: layoutItem.minH,
     },
     });
-  }, [panels, panelData, addPanel, layout]);
+  }, [panels, panelData, layout, addPanel]);
 
   const handleUnlink = useCallback((selfId, partnerId) => {
-    setPanelLinks(pl => {
-      const copy = { ...pl };
-      // Remove specific link only
-      if (copy[selfId] && Array.isArray(copy[selfId])) {
-        copy[selfId] = copy[selfId].filter(id => id !== partnerId);
-        if (copy[selfId].length === 0) delete copy[selfId];
+    setState(present => {
+      const pl = { ...present.panelLinks };
+      if (pl[selfId] && Array.isArray(pl[selfId])) {
+        pl[selfId] = pl[selfId].filter(id => id !== partnerId);
+        if (pl[selfId].length === 0) delete pl[selfId];
       }
-      
-      if (copy[partnerId] && Array.isArray(copy[partnerId])) {
-        copy[partnerId] = copy[partnerId].filter(id => id !== selfId);
-        if (copy[partnerId].length === 0) delete copy[partnerId];
+      if (pl[partnerId] && Array.isArray(pl[partnerId])) {
+        pl[partnerId] = pl[partnerId].filter(id => id !== selfId);
+        if (pl[partnerId].length === 0) delete pl[partnerId];
       }
-      
-      return copy;
-    });
-  }, []);
+      return { ...present, panelLinks: pl };
+    }, true); // This is an irreversible action so save it.
+  }, [setState]);
 
     const handleDuplicateTranslate = useCallback((id) => {
     const data = panelData[id];
@@ -2982,81 +3060,62 @@ if (autoLinkTo) {
 
 
 const handleCreateSequenceFromStructure = useCallback((id) => {
-  const data = panelData[id];
-  if (!data?.pdb) return;
+    const data = panelData[id];
+    if (!data?.pdb) return;
 
-  const chains = parsePdbChains(data.pdb);
-  if (chains.size === 0) { alert("Could not extract sequences (no CA atoms found)."); return; }
-
-  const baseNameStr = (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'structure');
-  const originalLayout = layout.find(l => l.i === id);
-  const baseY = originalLayout ? (originalLayout.y + originalLayout.h) : 0;
-
-  const newPanels = [];
-  const newLayouts = [];
-  const newPanelDataEntries = {};
-
-  [...chains.entries()].forEach(([chainId, { seq }], idx) => {
-    if (!seq) return;
-    const newId = `alignment-from-pdb-${chainId}-${Date.now()}-${idx}`;
-    newPanels.push({ i: newId, type: 'alignment' });
-    newLayouts.push({ i: newId, x: 0, y: baseY + idx * 3, h: 3, w: 12, minH: 2, minW: 2 });
-    newPanelDataEntries[newId] = {
-      data: [{ id: `${baseNameStr}_chain_${chainId}`, sequence: seq }],
-      filename: `${baseNameStr}_chain_${chainId}.fasta`,
-      codonMode: false
-    };
-  });
-
-  setPanels(prev => {
-    const withoutFooter = prev.filter(p => p.i !== '__footer');
-    return [...withoutFooter, ...newPanels, { i: '__footer', type: 'footer' }];
-  });
-
-  setLayout(prev => {
-    const withoutFooter = prev.filter(l => l.i !== '__footer');
-    const footer = prev.find(l => l.i === '__footer');
-    const next = [...withoutFooter, ...newLayouts];
-    const maxY = next.reduce((m, l) => Math.max(m, l.y + l.h), 0);
-    const fixedFooter = footer ? { ...footer, y: maxY } : { i: '__footer', x: 0, y: maxY, w: 12, h: 2, static: true };
-    return [...next, fixedFooter];
-  });
-
-  setPanelData(prev => ({ ...prev, ...newPanelDataEntries }));
-
-  // --- batch auto-link logic ---
-  setPanelLinks(prevLinks => {
-    const newLinks = { ...prevLinks };
-
-    // Ensure the structure panel's link entry is an array.
-    if (!Array.isArray(newLinks[id])) {
-      newLinks[id] = newLinks[id] ? [newLinks[id]] : [];
-    }
+    const chains = parsePdbChains(data.pdb);
+    if (chains.size === 0) { alert("Could not extract sequences (no CA atoms found)."); return; }
     
-    newPanels.forEach(p => {
-      const newId = p.i;
-      
-      // Link from the new alignment panel to the structure
-      newLinks[newId] = [id];
+    setState(present => {
+        let nextPresent = { ...present };
+        const baseNameStr = (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'structure');
+        const originalLayout = nextPresent.layout.find(l => l.i === id);
+        const baseY = originalLayout ? (originalLayout.y + originalLayout.h) : 0;
 
-      // Link from the structure to the new alignment panel
-      if (!newLinks[id].includes(newId)) {
-        newLinks[id].push(newId);
-      }
+        const newPanels = [];
+        const newLayouts = [];
+        const newPanelDataEntries = {};
 
-      // Also update history and colors inside the same loop
-      upsertHistory(newId, id);
-      assignPairColor(newId, id);
-    });
+        [...chains.entries()].forEach(([chainId, { seq }], idx) => {
+            if (!seq) return;
+            const newId = `alignment-from-pdb-${chainId}-${Date.now()}-${idx}`;
+            newPanels.push({ i: newId, type: 'alignment' });
+            newLayouts.push({ i: newId, x: 0, y: baseY + idx * 3, h: 3, w: 12, minH: 2, minW: 2 });
+            newPanelDataEntries[newId] = {
+                data: [{ id: `${baseNameStr}_chain_${chainId}`, sequence: seq }],
+                filename: `${baseNameStr}_chain_${chainId}.fasta`,
+                codonMode: false
+            };
+        });
 
-    return newLinks;
-  });
+        const withoutFooterPanels = nextPresent.panels.filter(p => p.i !== '__footer');
+        nextPresent.panels = [...withoutFooterPanels, ...newPanels, { i: '__footer', type: 'footer' }];
 
-  const allNewPanelIds = newPanels.map(p => p.i);
-  setJustLinkedPanels([...allNewPanelIds, id]);
-  setTimeout(() => setJustLinkedPanels([]), 1000);
+        const withoutFooterLayout = nextPresent.layout.filter(l => l.i !== '__footer');
+        const footer = nextPresent.layout.find(l => l.i === '__footer');
+        const nextLayout = [...withoutFooterLayout, ...newLayouts];
+        const maxY = nextLayout.reduce((m, l) => Math.max(m, l.y + l.h), 0);
+        nextPresent.layout = [...nextLayout, { ...(footer || {}), y: maxY }];
 
-}, [panelData, layout, setPanels, setLayout, setPanelData, upsertHistory, assignPairColor]);
+        nextPresent.panelData = { ...nextPresent.panelData, ...newPanelDataEntries };
+
+        let newLinks = { ...nextPresent.panelLinks };
+        if (!Array.isArray(newLinks[id])) newLinks[id] = newLinks[id] ? [newLinks[id]] : [];
+        newPanels.forEach(p => {
+            newLinks[p.i] = [id];
+            if (!newLinks[id].includes(p.i)) newLinks[id].push(p.i);
+            nextPresent.panelLinkHistory = upsertHistory(p.i, id, nextPresent);
+            nextPresent.linkColors = assignPairColor(p.i, id, nextPresent);
+        });
+        nextPresent.panelLinks = newLinks;
+
+        const allNewPanelIds = newPanels.map(p => p.i);
+        setJustLinkedPanels([...allNewPanelIds, id]);
+        setTimeout(() => setJustLinkedPanels([]), 1000);
+
+        return nextPresent;
+    }, true);
+}, [panelData, setState, upsertHistory, assignPairColor]);
 
 const handleStructureDistanceMatrix = useCallback((sourcePanelId, calculationResult) => {
   const { labels, buffer, n, maxVal } = calculationResult;
@@ -3320,26 +3379,27 @@ const handleHeatmapToTree = useCallback((id) => {
 }, [panelData, addPanel]);
 
 const handleRestoreLink = useCallback((selfId, partnerId) => {
-  const selfExists = panels.some(p => p.i === selfId);
-  const partnerExists = panels.some(p => p.i === partnerId);
-  if (!selfExists || !partnerExists) return;
+    const selfExists = panels.some(p => p.i === selfId);
+    const partnerExists = panels.some(p => p.i === partnerId);
+    if (!selfExists || !partnerExists) return;
 
-  setPanelLinks(pl => {
-    const copy = { ...pl };
-    // Add back the specific link
-    copy[selfId] = Array.isArray(copy[selfId]) ? copy[selfId] : (copy[selfId] ? [copy[selfId]] : []);
-    if (!copy[selfId].includes(partnerId)) copy[selfId].push(partnerId);
+    setState(present => {
+        let nextPresent = { ...present };
+        let pl = { ...nextPresent.panelLinks };
+        pl[selfId] = Array.isArray(pl[selfId]) ? pl[selfId] : (pl[selfId] ? [pl[selfId]] : []);
+        if (!pl[selfId].includes(partnerId)) pl[selfId].push(partnerId);
+        pl[partnerId] = Array.isArray(pl[partnerId]) ? pl[partnerId] : (pl[partnerId] ? [pl[partnerId]] : []);
+        if (!pl[partnerId].includes(selfId)) pl[partnerId].push(selfId);
+        
+        nextPresent.panelLinks = pl;
+        nextPresent.linkColors = assignPairColor(selfId, partnerId, nextPresent);
+        
+        setJustLinkedPanels([selfId, partnerId]);
+        setTimeout(() => setJustLinkedPanels([]), 1000);
 
-    copy[partnerId] = Array.isArray(copy[partnerId]) ? copy[partnerId] : (copy[partnerId] ? [copy[partnerId]] : []);
-    if (!copy[partnerId].includes(selfId)) copy[partnerId].push(selfId);
-
-    return copy;
-  });
-  
-  assignPairColor(selfId, partnerId); // Ensure color is assigned
-  setJustLinkedPanels([selfId, partnerId]);
-  setTimeout(() => setJustLinkedPanels([]), 1000);
-}, [panels, assignPairColor]);
+        return nextPresent;
+    }, true); // This is a tracked action
+}, [panels, setState, assignPairColor]);
 
 
 const handleLinkClick = useCallback((id) => {
@@ -3355,37 +3415,6 @@ const handleLinkClick = useCallback((id) => {
     }
   }
 
-  const reorderIfTreeLinked = (aId, bId) => {
-    const panelA = panels.find(p => p.i === aId);
-    const panelB = panels.find(p => p.i === bId);
-    if (!panelA || !panelB) return;
-
-    const treeId = panelA.type === 'tree' ? aId : panelB.type === 'tree' ? bId : null;
-    if (!treeId) return;
-
-    const leafOrder = getLeafOrderFromNewick(panelData[treeId]?.data || '');
-    if (!leafOrder?.length) return;
-
-    // MSA <-> Tree
-    const alnId = panelA.type === 'alignment' ? aId : (panelB.type === 'alignment' ? bId : null);
-    if (alnId) {
-      const msa = panelData[alnId];
-      if (msa?.data?.length) {
-        const reordered = reorderMsaByLeafOrder(msa.data, leafOrder);
-        setPanelData(prev => ({ ...prev, [alnId]: { ...prev[alnId], data: reordered }}));
-      }
-    }
-
-    // Heatmap <-> Tree
-    const hmId = panelA.type === 'heatmap' ? aId : (panelB.type === 'heatmap' ? bId : null);
-    if (hmId) {
-      const hm = panelData[hmId];
-      if (hm?.labels && hm?.matrix) {
-        const { labels, matrix } = reorderHeatmapByLeafOrder(hm.labels, hm.matrix, leafOrder);
-        setPanelData(prev => ({ ...prev, [hmId]: { ...prev[hmId], labels, matrix }}));
-      }
-    }
-  };
   if (!linkMode) {
     setLinkMode(id);
   } else {
@@ -3393,75 +3422,47 @@ const handleLinkClick = useCallback((id) => {
       setLinkMode(null);
     } else {
         const a = linkMode, b = id;
-        setPanelLinks(pl => {
-        const copy = { ...pl };
-        copy[a] = Array.isArray(copy[a]) ? copy[a] : (copy[a] ? [copy[a]] : []);
-        if (!copy[a].includes(b)) copy[a].push(b);
 
-        copy[b] = Array.isArray(copy[b]) ? copy[b] : (copy[b] ? [copy[b]] : []);
-        if (!copy[b].includes(a)) copy[b].push(a);
+        setState(present => {
+            let nextPresent = { ...present };
+            
+            let pl = { ...nextPresent.panelLinks };
+            pl[a] = Array.isArray(pl[a]) ? pl[a] : (pl[a] ? [pl[a]] : []);
+            if (!pl[a].includes(b)) pl[a].push(b);
+            pl[b] = Array.isArray(pl[b]) ? pl[b] : (pl[b] ? [pl[b]] : []);
+            if (!pl[b].includes(a)) pl[b].push(a);
+            nextPresent.panelLinks = pl;
 
-        return copy;
-      });
-
-        upsertHistory(a, b);
-        assignPairColor(a, b);
-        setJustLinkedPanels([linkMode, id]);
-        setTimeout(() => setJustLinkedPanels([]), 1000);
-
-      // Reorder if tree linked
-      reorderIfTreeLinked(a, b);
-
-      // ----- If we just linked an alignment with a structure, pick and persist the chain -----
-      try {
-        const panelA = panels.find(p => p.i === a);
-        const panelB = panels.find(p => p.i === b);
-        if (panelA && panelB) {
-          const isAlnStruct =
-            (panelA.type === 'alignment' && panelB.type === 'structure') ||
-            (panelA.type === 'structure' && panelB.type === 'alignment');
-
-          if (isAlnStruct) {
-            const structId = panelA.type === 'structure' ? a : b;
-            const alnId    = panelA.type === 'alignment' ? a : b;
-
-            const structData = panelData[structId];
-            const alnData    = panelData[alnId];
-
-            if (structData?.pdb && Array.isArray(alnData?.data) && alnData.data.length > 0) {
-              // Build map of structure chain lengths
-              const chains = parsePdbChains(structData.pdb);
-              const chainLengths = {};
-              for (const [cid, { seq }] of chains.entries()) {
-                chainLengths[cid] = (seq || '').length;
-              }
-
-              // Preferred chain from MSA IDs
-              const preferredFromId =
-                chainIdFromSeqId(alnData.data[0]?.id) || null;
-
-              const { chainId } = pickAlignedSeqForChain(
-                alnData,
-                preferredFromId,
-                chainLengths,
-                chains,
-              );
-
-              if (chainId) {
-                setPanelData(prev => ({
-                  ...prev,
-                  [structId]: {
-                    ...prev[structId],
-                    linkedChainId: chainId
-                  }
-                }));
-              }
+            nextPresent.panelLinkHistory = upsertHistory(a, b, nextPresent);
+            nextPresent.linkColors = assignPairColor(a, b, nextPresent);
+            
+            // Reorder if tree linked
+            const panelA = nextPresent.panels.find(p => p.i === a);
+            const panelB = nextPresent.panels.find(p => p.i === b);
+            if (panelA && panelB) {
+                const treeId = panelA.type === 'tree' ? a : panelB.type === 'tree' ? b : null;
+                if (treeId) {
+                    const leafOrder = getLeafOrderFromNewick(nextPresent.panelData[treeId]?.data || '');
+                    if (leafOrder?.length) {
+                        const alnId = panelA.type === 'alignment' ? a : (panelB.type === 'alignment' ? b : null);
+                        if (alnId && nextPresent.panelData[alnId]?.data?.length) {
+                            const reordered = reorderMsaByLeafOrder(nextPresent.panelData[alnId].data, leafOrder);
+                            nextPresent.panelData = { ...nextPresent.panelData, [alnId]: { ...nextPresent.panelData[alnId], data: reordered }};
+                        }
+                        const hmId = panelA.type === 'heatmap' ? a : (panelB.type === 'heatmap' ? b : null);
+                        if (hmId && nextPresent.panelData[hmId]?.labels && nextPresent.panelData[hmId]?.matrix) {
+                            const { labels, matrix } = reorderHeatmapByLeafOrder(nextPresent.panelData[hmId].labels, nextPresent.panelData[hmId].matrix, leafOrder);
+                            nextPresent.panelData = { ...nextPresent.panelData, [hmId]: { ...nextPresent.panelData[hmId], labels, matrix }};
+                        }
+                    }
+                }
             }
-          }
-        }
-      } catch (e) {
-        console.warn('Failed to persist linkedChainId on link:', e);
-      }
+
+            setJustLinkedPanels([linkMode, id]);
+            setTimeout(() => setJustLinkedPanels([]), 1000);
+            
+            return nextPresent;
+        }, true); // Save link action to history.
 
       setLinkMode(null);
     }
@@ -3470,7 +3471,7 @@ const handleLinkClick = useCallback((id) => {
   // clear any existing highlights
   setHighlightSite(null);
   setHighlightOrigin(null);
-}, [linkMode, panelLinks, panels, panelData]);
+}, [linkMode, panels, setState, upsertHistory, assignPairColor]);
 
 const handleHighlight = useCallback((site, originId) => {
  if (highlightSite === site && highlightOrigin === originId) return;
@@ -3920,7 +3921,7 @@ targetIds.forEach(targetId => {
   const key = `${S}->${T}`;
   if (handlers[key]) handlers[key]();
   });
-}, [panelLinks, panels, panelData, highlightSite, highlightOrigin, treeLeafNamesCache, alignmentStructureChainCache]);
+}, [panelLinks, panels, panelData, highlightSite, highlightOrigin, treeLeafNamesCache, alignmentStructureChainCache, setPanelData]);
 
  useEffect(() => {
     // This effect acts as a safeguard. If a highlight is active (highlightOrigin is set)
@@ -3946,7 +3947,7 @@ targetIds.forEach(targetId => {
       pendingTypeRef.current = type;
       pendingPanelRef.current = panelId;
       if (fileInputRef.current) fileInputRef.current.click();
-    }, [panelData, layout]);
+    }, []);
 
 const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -4033,49 +4034,51 @@ const handleFileUpload = async (e) => {
 };
 
   const removePanel = useCallback((id) => {
-    setPanels(p => p.filter(p => p.i !== id));
-    setPanelData(d => { const c={...d}; delete c[id]; return c; });
-    setLayout(l => l.filter(e => e.i !== id));
-    setPanelLinks(pl => {
-      const c = { ...pl };
-      const partners = Array.isArray(c[id]) ? c[id] : [];
-      delete c[id];
-      partners.forEach(pid => {
-        if (Array.isArray(c[pid])) {
-          c[pid] = c[pid].filter(x => x !== id);
-          if (c[pid].length === 0) delete c[pid];
+    setState(present => {
+        const newPanelData = { ...present.panelData };
+        delete newPanelData[id];
+        
+        const newPanels = present.panels.filter(p => p.i !== id);
+        const newLayout = present.layout.filter(e => e.i !== id);
+
+        const newPanelLinks = { ...present.panelLinks };
+        const partners = Array.isArray(newPanelLinks[id]) ? newPanelLinks[id] : [];
+        delete newPanelLinks[id];
+        partners.forEach(pid => {
+            if (Array.isArray(newPanelLinks[pid])) {
+                newPanelLinks[pid] = newPanelLinks[pid].filter(x => x !== id);
+                if (newPanelLinks[pid].length === 0) delete newPanelLinks[pid];
+            }
+        });
+
+        const newLinkColors = {};
+        for (const [k, v] of Object.entries(present.linkColors)) {
+            const [x,y] = k.split('|');
+            if (x !== String(id) && y !== String(id)) newLinkColors[k] = v;
         }
-      });
-      return c;
-    });
-    // purge any pair colors that referenced this id
-    setLinkColors(prev => {
-     const next = {};
-     for (const [k, v] of Object.entries(prev)) {
-       const [x,y] = k.split('|');
-       if (x !== String(id) && y !== String(id)) next[k] = v;
-     }
-     return next;
-   });
-     setPanelLinkHistory(h => {
-   const copy = { ...h };
-   delete copy[id];                         // drop the removed panel's own history
-   for (const k of Object.keys(copy)) {
-     copy[k] = (copy[k] || []).filter(pid => pid !== id); // remove badges pointing to it
-   }
-   return copy;
- });
- setLinkMode(lm => (lm === id ? null : lm)); // if user was mid-link with this panel, cancel it
-    setScrollPositions(sp => {
-      const c = { ...sp };
-      delete c[id];
-      return c;
-    });
-    if (highlightOrigin === id) {
-      setHighlightOrigin(null);
-      setHighlightSite(null);
-    }
-  }, [panelData, highlightOrigin]);
+
+        const newPanelLinkHistory = { ...present.panelLinkHistory };
+        delete newPanelLinkHistory[id];
+        for (const k of Object.keys(newPanelLinkHistory)) {
+           newPanelLinkHistory[k] = (newPanelLinkHistory[k] || []).filter(pid => pid !== id);
+        }
+
+        if (linkMode === id) setLinkMode(null);
+        if (highlightOrigin === id) {
+            setHighlightOrigin(null);
+            setHighlightSite(null);
+        }
+        
+        return {
+            panels: newPanels,
+            layout: newLayout,
+            panelData: newPanelData,
+            panelLinks: newPanelLinks,
+            panelLinkHistory: newPanelLinkHistory,
+            linkColors: newLinkColors,
+        };
+    }, true); // Save to history
+  }, [setState, linkMode, highlightOrigin]);
 
   // Build a symmetric history from either board.panelLinkHistory or, if missing,
   // derive it from board.panelLinks so badges still show up on old boards.
@@ -4109,11 +4112,18 @@ const handleFileUpload = async (e) => {
     const text = await file.text();
     try {
       const board = JSON.parse(text);
-      setPanels(board.panels || []);
-      setLayout(board.layout || []);
-      setPanelData(board.panelData || {});
-      setPanelLinks(board.panelLinks || {});
-      setPanelLinkHistory(buildHistory(board));
+       setHistory({
+            past: [],
+            present: {
+                panels: board.panels || [],
+                layout: board.layout || [],
+                panelData: board.panelData || {},
+                panelLinks: board.panelLinks || {},
+                panelLinkHistory: buildHistory(board),
+                linkColors: board.linkColors || {},
+            },
+            future: [],
+        });
     } catch (err) {
       alert('Invalid board file');
     }
@@ -4122,7 +4132,8 @@ const handleFileUpload = async (e) => {
   };
 
   const handleSaveBoard = () => {
-    const board = { panels, layout, panelData, panelLinks, panelLinkHistory };
+    // We only need to save the 'present' state.
+    const board = { ...history.present };
     mkDownload('mseaboard', JSON.stringify(board, null, 2), 'json', 'application/json')();
   };
 
@@ -4135,7 +4146,7 @@ const handleFileUpload = async (e) => {
     }
     setTransientMessage('Creating shareable link...');
     try {
-        const boardState = { panels, layout, panelData, panelLinks, panelLinkHistory };
+        const boardState = { ...history.present };
         const jsonString = JSON.stringify(boardState);
         const compressed = pako.deflate(jsonString);
         const base64 = uint8ArrayToBase64(compressed);
@@ -4189,7 +4200,7 @@ const handleFileUpload = async (e) => {
                  setShowTokenModal(true); // Re-prompt the user
                  return;
     }
-  }, [githubToken, panels, layout, panelData, panelLinks, panelLinkHistory]);
+  }, [githubToken, history.present]);
 
   // Load board from Gist on initial render
     useEffect(() => {
@@ -4227,11 +4238,18 @@ const handleFileUpload = async (e) => {
             const board = JSON.parse(jsonString);
 
             if (board.panels && board.layout && board.panelData) {
-                setPanels(board.panels);
-                setLayout(board.layout);
-                setPanelData(board.panelData);
-                setPanelLinks(board.panelLinks || {});
-                setPanelLinkHistory(buildHistory(board));
+                setHistory({
+                    past: [],
+                    present: {
+                        panels: board.panels,
+                        layout: board.layout,
+                        panelData: board.panelData,
+                        panelLinks: board.panelLinks || {},
+                        panelLinkHistory: buildHistory(board),
+                        linkColors: board.linkColors || {},
+                    },
+                    future: [],
+                });
                 setTitleFlipKey(Date.now());
             } else {
                 throw new Error("Board data is missing required fields.");
@@ -4443,11 +4461,18 @@ const handleDrop = async (e) => {
     try {
       const text = await onlyFile.text();
       const board = JSON.parse(text);
-      setPanels(board.panels || []);
-      setLayout(board.layout || []);
-      setPanelData(board.panelData || {});
-      setPanelLinks(board.panelLinks || {});
-      setPanelLinkHistory(buildHistory(board));
+       setHistory({
+            past: [],
+            present: {
+                panels: board.panels || [],
+                layout: board.layout || [],
+                panelData: board.panelData || {},
+                panelLinks: board.panelLinks || {},
+                panelLinkHistory: buildHistory(board),
+                linkColors: board.linkColors || {},
+            },
+            future: [],
+        });
       setTitleFlipKey(Date.now());
       return;
     } catch {
@@ -4617,7 +4642,39 @@ const canLink = (typeA, typeB) => {
     bg-white-100/100">
 {/*border border-gray-400 bg-gradient-to-r from-purple-400/20 via-orange-400/20 via-yellow-400/20 via-purple-400/20 via-blue-400/20 via-indigo-400/20 to-green-400/20 backdrop-blur-xl*/}
       <div className="flex flex-wrap items-center gap-0">
+{/* Undo/Redo Buttons */}
 <div className="relative group mr-2 ml-2">
+  <DelayedTooltip delay={135} top={54}
+    trigger={
+      <button
+        onClick={undo}
+        disabled={!canUndo}
+        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <ArrowUturnLeftIcon className="w-6 h-6" />
+      </button>
+    }
+  >
+    <b>Undo</b><br />Undo the last action
+  </DelayedTooltip>
+</div>
+<div className="relative group mr-2">
+  <DelayedTooltip delay={135} top={54}
+    trigger={
+      <button
+        onClick={redo}
+        disabled={!canRedo}
+        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+      >
+        <ArrowUturnRightIcon className="w-6 h-6" />
+      </button>
+    }
+  >
+    <b>Redo</b><br />Redo the last undone action
+  </DelayedTooltip>
+</div>
+{/* load/save buttons */}
+<div className="relative group mr-2">
   <DelayedTooltip  delay={135} top={54}
     trigger={
       <button
@@ -4797,11 +4854,18 @@ const canLink = (typeA, typeB) => {
         if (!resp.ok) throw new Error('Example file not found');
         const text = await resp.text();
         const board = JSON.parse(text);
-        setPanels(board.panels || []);
-        setLayout(board.layout || []);
-        setPanelData(board.panelData || {});
-        setPanelLinks(board.panelLinks || {});
-        setPanelLinkHistory(buildHistory(board));
+        setHistory({
+            past: [],
+            present: {
+                panels: board.panels || [],
+                layout: board.layout || [],
+                panelData: board.panelData || {},
+                panelLinks: board.panelLinks || {},
+                panelLinkHistory: buildHistory(board),
+                linkColors: board.linkColors || {},
+            },
+            future: [],
+        });
         setTitleFlipKey(Date.now());
       } catch (err) {
         alert('Failed to load example board.');
@@ -4851,8 +4915,17 @@ const canLink = (typeA, typeB) => {
               const footer = newLayout.find(l => l.i === '__footer');
               const others = newLayout.filter(l => l.i !== '__footer');
               const maxY = others.reduce((max, l) => Math.max(max, l.y + l.h), 0);
-              const fixedFooter = { ...footer, y: maxY };
-              setLayout([...others, fixedFooter]);
+              const fixedFooter = { ...(footer || {}), y: maxY };
+              // Do NOT save to history on general layout changes
+              setState(p => ({ ...p, layout: [...others, fixedFooter] }), false);
+            }}
+            onDragStop={(newLayout) => {
+               // But DO save to history when a user finishes dragging
+              setState(p => ({...p, layout: newLayout}), true)
+            }}
+            onResizeStop={(newLayout) => {
+              // And DO save to history when a user finishes resizing
+              setState(p => ({...p, layout: newLayout}), true)
             }}
           >
 {panels.map(panel => {
