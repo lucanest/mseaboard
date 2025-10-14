@@ -3473,455 +3473,358 @@ const handleLinkClick = useCallback((id) => {
   setHighlightOrigin(null);
 }, [linkMode, panels, setState, upsertHistory, assignPairColor]);
 
+const panelsRef = useRef(panels);
+  useEffect(() => { panelsRef.current = panels; }, [panels]);
+
+  const panelDataRef = useRef(panelData);
+  useEffect(() => { panelDataRef.current = panelData; }, [panelData]);
+
+  const treeLeafNamesCacheRef = useRef(treeLeafNamesCache);
+  useEffect(() => { treeLeafNamesCacheRef.current = treeLeafNamesCache; }, [treeLeafNamesCache]);
+
+  const alignmentStructureChainCacheRef = useRef(alignmentStructureChainCache);
+  useEffect(() => { alignmentStructureChainCacheRef.current = alignmentStructureChainCache; }, [alignmentStructureChainCache]);
+
 const handleHighlight = useCallback((site, originId) => {
- if (highlightSite === site && highlightOrigin === originId) return;
-  setHighlightSite(site);
-  setHighlightOrigin(originId);
-
-  const targetIdsRaw = panelLinks[originId] || [];
-  const targetIds = Array.isArray(targetIdsRaw) ? targetIdsRaw : (targetIdsRaw ? [targetIdsRaw] : []);
-  if (!targetIds.length) return;
-
-
-  const clearDownstream = (sourcePanel, targetPanel, targetId) => {
-    // clear heatmap -> tree/align/structure transient state on hover out
-    if (site !== null) return;
-    if (sourcePanel.type === 'heatmap' && targetPanel.type === 'tree') {
-      setPanelData(prev => {
-        const cur = prev[targetId] || {};
-        if (!cur.linkedHighlights || cur.linkedHighlights.length === 0) return prev;
-        return { ...prev, [targetId]: { ...cur, linkedHighlights: [] } };
-      });
-    }
-    if (sourcePanel.type === 'heatmap' && targetPanel.type === 'heatmap') {
-      setPanelData(prev => {
-        const cur = prev[targetId] || {};
-        if (!cur.linkedHighlightCell) return prev;
-        return { ...prev, [targetId]: { ...cur, linkedHighlightCell: undefined } };
-      });
-    }
-    if (sourcePanel.type === 'heatmap' && targetPanel.type === 'alignment') {
-       setPanelData(prev => {
-   const cur = prev[targetId] || {};
-   if (!cur.linkedHighlights || cur.linkedHighlights.length === 0) return prev;
-   return { ...prev, [targetId]: { ...cur, linkedHighlights: [] } };
- });
-    }
-    if (sourcePanel.type === 'heatmap' && targetPanel.type === 'structure') {
-       setPanelData(prev => {
-   const cur = prev[targetId] || {};
-   if (!Array.isArray(cur.linkedResiduesByKey) || cur.linkedResiduesByKey.length === 0) return prev;
-   return { ...prev, [targetId]: { ...cur, linkedResiduesByKey: [] } };
- });
-    }
-    if (sourcePanel.type === 'alignment' && targetPanel.type === 'structure') {
-       setPanelData(prev => {
-   const cur = prev[targetId] || {};
-   if (cur.linkedResidueIndex == null) return prev;
-   return { ...prev, [targetId]: { ...cur, linkedResidueIndex: undefined, linkedChainId: cur.linkedChainId } };
- });
-    }
-      if (sourcePanel.type === 'histogram' && targetPanel.type === 'histogram') {
-    setPanelData(prev => {
-      const cur = prev[targetId] || {};
-      if (!cur.highlightedSites || cur.highlightedSites.length === 0) return prev;
-      return { ...prev, [targetId]: { ...cur, highlightedSites: [] } };
-    });
-  }
-  if (sourcePanel.type === 'structure' && targetPanel.type === 'alignment') {
-        setPanelData(prev => {
-            const cur = prev[targetId] || {};
-            if (cur.linkedSiteHighlight == null) return prev;
-            return { ...prev, [targetId]: { ...cur, linkedSiteHighlight: undefined } };
-        });
-    }
-  if (sourcePanel.type === 'histogram' && targetPanel.type === 'tree') {
-      setPanelData(prev => {
-        const cur = prev[targetId] || {};
-        if (!cur.linkedHighlights || cur.linkedHighlights.length === 0) return prev;
-        return { ...prev, [targetId]: { ...cur, linkedHighlights: [] } };
-      });
-    }
-  
-  if (sourcePanel.type === 'histogram' && targetPanel.type === 'seqlogo') {
-    setPanelData(prev => {
-      const cur = prev[targetId] || {};
-      if (cur.highlightedSite == null) return prev;
-      return { ...prev, [targetId]: { ...cur, highlightedSite: null } };
-    });
-  }
-  
-  if ((sourcePanel.type === 'alignment' || sourcePanel.type === 'seqlogo') && 
-      targetPanel.type === 'histogram') {
-    setPanelData(prev => {
-      const cur = prev[targetId] || {};
-      if (!cur.highlightedSites || cur.highlightedSites.length === 0) return prev;
-      return { ...prev, [targetId]: { ...cur, highlightedSites: [] } };
-    });
-  }
-  };
-
-  // Apply highlight to all linked panels
-targetIds.forEach(targetId => {
-  const sourcePanel = panels.find(p => p.i === originId);
-  const targetPanel = panels.find(p => p.i === targetId);
-  if (!sourcePanel || !targetPanel) return; // <-- already present, keep this
-
-  if (site === null) { clearDownstream(sourcePanel, targetPanel, targetId); return; } // <-- pass the right args
-
-  const S = sourcePanel.type, T = targetPanel.type;
-
-  const handlers = {
-    // Heatmap -> Tree
-    'heatmap->tree': () => {
-      const { labels } = panelData[originId] || {};
-      if (!labels || !site?.row?.toString || !site?.col?.toString) return;
-      const leaf1 = labels[site.row], leaf2 = labels[site.col];
-       setPanelData(prev => {
-        const cur = prev[targetId] || {};
-        const next = [leaf1, leaf2];
-        const same = Array.isArray(cur.linkedHighlights)
-          && cur.linkedHighlights.length === 2
-          && cur.linkedHighlights[0] === next[0]
-          && cur.linkedHighlights[1] === next[1];
-   if (same) return prev;
-   return { ...prev, [targetId]: { ...cur, linkedHighlights: next } };
- });
-    },
-
-    // Heatmap -> Alignment (highlight 2 row labels)
-    'heatmap->alignment': () => {
-      const { labels } = panelData[originId] || {};
-      if (!labels || typeof site?.row !== 'number' || typeof site?.col !== 'number') return;
-      const leaf1 = labels[site.row], leaf2 = labels[site.col];
-      setPanelData(prev => {
-      const cur = prev[targetId] || {};
-      const next = [leaf1, leaf2];
-      const same = Array.isArray(cur.linkedHighlights)
-        && cur.linkedHighlights.length === 2
-        && cur.linkedHighlights[0] === next[0]
-        && cur.linkedHighlights[1] === next[1];
-   if (same) return prev;
-   return { ...prev, [targetId]: { ...cur, linkedHighlights: next } };
-    });
-    },
-    'heatmap->heatmap': () => {
-      const { labels } = panelData[originId] || {};
-      if (
-        !labels ||
-        typeof site?.row !== 'number' ||
-        typeof site?.col !== 'number'
-      )
-        return;
-      const rowLabel = labels[site.row];
-      const colLabel = labels[site.col];
-      setPanelData(prev => {
-        const cur = prev[targetId] || {};
-        const next = { row: rowLabel, col: colLabel };
-        const same =
-          cur.linkedHighlightCell &&
-          cur.linkedHighlightCell.row === next.row &&
-          cur.linkedHighlightCell.col === next.col;
-        if (same) return prev;
-        return { ...prev, [targetId]: { ...cur, linkedHighlightCell: next } };
-      });
-    },
-    // Heatmap -> Structure (map labels like "A:123" to residues)
-    'heatmap->structure': () => {
-      const { labels } = panelData[originId] || {};
-      if (!labels || typeof site?.row !== 'number' || typeof site?.col !== 'number') return;
-      const parseLabel = (lbl) => {
-        const m = String(lbl).trim().match(/^([A-Za-z0-9]):(\d+)([A-Za-z]?)$/);
-        if (!m) return null;
-        const [, chainId, resiStr, icode] = m;
-        return { chainId, resi: Number(resiStr), icode: icode || '' };
-      };
-      const a = parseLabel(labels[site.row]);
-      const b = parseLabel(labels[site.col]);
-      const list = [a, b].filter(Boolean);
-      setPanelData(prev => {
-        const cur = prev[targetId] || {};
-        const newChain = list[0]?.chainId || cur.linkedChainId;
-        const sameList = JSON.stringify(cur.linkedResiduesByKey) === JSON.stringify(list);
-        if (sameList && cur.linkedChainId === newChain) return prev;
-        return { ...prev, [targetId]: { ...cur, linkedResiduesByKey: list, linkedChainId: newChain } };
-      });
-    },
-
-    // SeqLogo <-> Alignment (scroll & mirror highlight)
-    'seqlogo->alignment': () => {
-      const targetData = panelData[targetId];
-      if (!targetData) return;
-      const isCodon = !!targetData.codonMode;
-      const scrollSite = isCodon ? site * 3 : site;
-      setScrollPositions(prev => {
-        const v = scrollSite * CELL_SIZE;
-        if (prev[targetId] === v) return prev;
-      return { ...prev, [targetId]: v };
-   });
-    },
-    // SeqLogo -> Histogram (highlight corresponding bar)
-  'seqlogo->histogram': () => {
-    const targetData = panelData[targetId];
-    if (!targetData) return;
-    
-    let barIndex = site;
-    
-    // If histogram has tabular data, find the bar that matches the site value
-    if (!Array.isArray(targetData.data)) {
-      const xCol = targetData.selectedXCol ||
-        targetData.data.headers.find(h => typeof targetData.data.rows[0][h] === 'number');
-      
-      if (xCol) {
-        // Find the row where xCol value matches the site + 1 (1-based)
-        const matchingRow = targetData.data.rows.findIndex(row => 
-          row[xCol] === site + 1
-        );
+    setHighlightSite(prevSite => {
+      setHighlightOrigin(prevOrigin => {
+        // If the highlight hasn't changed, bail out
+        if (prevSite === site && prevOrigin === originId) {
+          return prevOrigin;
+        }
+        // Get the latest data from the refs.
+        const currentPanels = panelsRef.current;
+        const currentPanelData = panelDataRef.current;
+        const currentTreeLeafNamesCache = treeLeafNamesCacheRef.current;
+        const currentAlignmentStructureChainCache = alignmentStructureChainCacheRef.current;
         
-        if (matchingRow !== -1) {
-          barIndex = matchingRow;
-        }
-      }
-    }
-    
-    setPanelData(prev => {
-      const cur = prev[targetId] || {};
-      if (cur.highlightedSites && cur.highlightedSites.includes(barIndex)) return prev;
-      return { ...prev, [targetId]: { ...cur, highlightedSites: [barIndex] } };
-    });
-  },
-    'alignment->seqlogo': () => {
-    },
+        const targetIdsRaw = panelLinks[originId] || [];
+        const targetIds = Array.isArray(targetIdsRaw) ? targetIdsRaw : (targetIdsRaw ? [targetIdsRaw] : []);
+        if (!targetIds.length && site === null) return prevOrigin;
 
-    // Alignment -> Histogram (match X if tabular)
-    'alignment->histogram': () => {
-      const targetData = panelData[targetId];
-      if (targetData && !Array.isArray(targetData.data)) {
-        const xCol = targetData.selectedXCol ||
-          targetData.data.headers.find(h => typeof targetData.data.rows[0][h] === 'number');
-        if (xCol) {
-          const xArr = targetData.data.rows.map(row => row[xCol]);
-          const barIdx = xArr.findIndex(x => x === site);
-          setHighlightSite(barIdx === -1 ? null : barIdx);
-          setHighlightOrigin(originId);
-        }
-      }
-    },
-
-    // Histogram -> Alignment (scroll to MSA column or mapped X)
-    'histogram->alignment': () => {
-      // The 'site' parameter is the 0-based index.
-      const targetData = panelData[targetId];
-      if (!targetData) return;
-
-      const isCodon = !!targetData.codonMode;
-      const scrollCol = site;
-      
-      // Perform the scroll
-      setScrollPositions(prev => {
-        const v = scrollCol * (isCodon ? 3 : 1) * CELL_SIZE;
-        if (prev[targetId] === v) return prev;
-        return { ...prev, [targetId]: v };
-      });
-    },
-
-    // Tree -> Histogram (categorical data - leaf names)
-      'tree->histogram': () => {
-        // site is the leaf name from the tree
-        if (typeof site !== 'string') return;
-        
-        setPanelData(prev => {
-          const cur = prev[targetId] || {};
-          // Find the index in the histogram data that matches this leaf name
-          const targetData = cur;
-          if (!targetData?.data?.headers || !targetData?.data?.rows) return prev;
-          
-          // Find which column is selected as X-axis
-          const xCol = targetData.selectedXCol;
-          if (!xCol) return prev;
-          
-          // Find the row index where the X column matches the leaf name
-          const rows = targetData.data.rows;
-          const highlightedSites = [];
-          for (let i = 0; i < rows.length; i++) {
-            if (rows[i][xCol] === site) {
-              highlightedSites.push(i);
-            }
+        const clearDownstream = (sourcePanel, targetPanel, targetId) => {
+          if (site !== null) return;
+          if (sourcePanel.type === 'heatmap' && targetPanel.type === 'tree') {
+            setPanelData(prev => {
+              const cur = prev[targetId] || {};
+              if (!cur.linkedHighlights || cur.linkedHighlights.length === 0) return prev;
+              return { ...prev, [targetId]: { ...cur, linkedHighlights: [] } };
+            });
           }
-          
-          if (cur.highlightedSites && 
-              cur.highlightedSites.length === highlightedSites.length &&
-              cur.highlightedSites.every((val, idx) => val === highlightedSites[idx])) {
-            return prev;
+          if (sourcePanel.type === 'heatmap' && targetPanel.type === 'heatmap') {
+            setPanelData(prev => {
+              const cur = prev[targetId] || {};
+              if (!cur.linkedHighlightCell) return prev;
+              return { ...prev, [targetId]: { ...cur, linkedHighlightCell: undefined } };
+            });
           }
-          
-          return { ...prev, [targetId]: { ...cur, highlightedSites } };
-        });
-      },
+          if (sourcePanel.type === 'heatmap' && targetPanel.type === 'alignment') {
+            setPanelData(prev => {
+              const cur = prev[targetId] || {};
+              if (!cur.linkedHighlights || cur.linkedHighlights.length === 0) return prev;
+              return { ...prev, [targetId]: { ...cur, linkedHighlights: [] } };
+            });
+          }
+          if (sourcePanel.type === 'heatmap' && targetPanel.type === 'structure') {
+            setPanelData(prev => {
+              const cur = prev[targetId] || {};
+              if (!Array.isArray(cur.linkedResiduesByKey) || cur.linkedResiduesByKey.length === 0) return prev;
+              return { ...prev, [targetId]: { ...cur, linkedResiduesByKey: [] } };
+            });
+          }
+          if (sourcePanel.type === 'alignment' && targetPanel.type === 'structure') {
+            setPanelData(prev => {
+              const cur = prev[targetId] || {};
+              if (cur.linkedResidueIndex == null) return prev;
+              return { ...prev, [targetId]: { ...cur, linkedResidueIndex: undefined, linkedChainId: cur.linkedChainId } };
+            });
+          }
+          if (sourcePanel.type === 'histogram' && targetPanel.type === 'histogram') {
+            setPanelData(prev => {
+              const cur = prev[targetId] || {};
+              if (!cur.highlightedSites || cur.highlightedSites.length === 0) return prev;
+              return { ...prev, [targetId]: { ...cur, highlightedSites: [] } };
+            });
+          }
+          if (sourcePanel.type === 'structure' && targetPanel.type === 'alignment') {
+            setPanelData(prev => {
+              const cur = prev[targetId] || {};
+              if (cur.linkedSiteHighlight == null) return prev;
+              return { ...prev, [targetId]: { ...cur, linkedSiteHighlight: undefined } };
+            });
+          }
+          if (sourcePanel.type === 'histogram' && targetPanel.type === 'tree') {
+            setPanelData(prev => {
+              const cur = prev[targetId] || {};
+              if (!cur.linkedHighlights || cur.linkedHighlights.length === 0) return prev;
+              return { ...prev, [targetId]: { ...cur, linkedHighlights: [] } };
+            });
+          }
+          if (sourcePanel.type === 'histogram' && targetPanel.type === 'seqlogo') {
+            setPanelData(prev => {
+              const cur = prev[targetId] || {};
+              if (cur.highlightedSite == null) return prev;
+              return { ...prev, [targetId]: { ...cur, highlightedSite: null } };
+            });
+          }
+          if ((sourcePanel.type === 'alignment' || sourcePanel.type === 'seqlogo') &&
+            targetPanel.type === 'histogram') {
+            setPanelData(prev => {
+              const cur = prev[targetId] || {};
+              if (!cur.highlightedSites || cur.highlightedSites.length === 0) return prev;
+              return { ...prev, [targetId]: { ...cur, highlightedSites: [] } };
+            });
+          }
+        };
 
-      // Histogram -> Tree (categorical data - leaf names)
-      'histogram->tree': () => {
-        // Get the pre-computed set of leaf names from the cache.
-        const validLeafNames = treeLeafNamesCache.get(targetId);
+        targetIds.forEach(targetId => {
+          const sourcePanel = currentPanels.find(p => p.i === originId);
+          const targetPanel = currentPanels.find(p => p.i === targetId);
+          if (!sourcePanel || !targetPanel) return;
 
-        // If there are no cached names for this tree, we can't validate.
-        if (!validLeafNames) return;
+          if (site === null) { clearDownstream(sourcePanel, targetPanel, targetId); return; }
 
-        // Check if the site is a string and exists in our cached Set.
-        if (typeof site === 'string' && validLeafNames.has(site)) {
-          setPanelData(prev => {
-            const cur = prev[targetId] || {};
-            const linkedHighlights = [site];
+          const S = sourcePanel.type, T = targetPanel.type;
 
-            if (cur.linkedHighlights && cur.linkedHighlights.length === 1 && cur.linkedHighlights[0] === site) {
-              return prev;
-            }
-
-            return { ...prev, [targetId]: { ...cur, linkedHighlights } };
-          });
-        } else {
-          // If the 'site' is not a valid leaf name, clear any previous highlight.
-          setPanelData(prev => {
-            const cur = prev[targetId] || {};
-            if (!cur.linkedHighlights || cur.linkedHighlights.length === 0) return prev;
-            return { ...prev, [targetId]: { ...cur, linkedHighlights: [] } };
-          });
-        }
-      },
-
-      // Histogram -> Histogram (support both numerical and categorical)
-      'histogram->histogram': () => {
-        setPanelData(prev => {
-          const cur = prev[targetId] || {};
-          let highlightedSites = [];
-          
-          // Check if we're dealing with categorical data (string site) or numerical (index)
-          if (typeof site === 'string') {
-            // Categorical data - find matching rows in target histogram
-            const targetData = cur;
-            if (!targetData?.data?.headers || !targetData?.data?.rows) return prev;
-            
-            const xCol = targetData.selectedXCol;
-            if (!xCol) return prev;
-            
-            const rows = targetData.data.rows;
-            for (let i = 0; i < rows.length; i++) {
-              if (rows[i][xCol] === site) {
-                highlightedSites.push(i);
+          const handlers = {
+            'heatmap->tree': () => {
+              const { labels } = currentPanelData[originId] || {};
+              if (!labels || !site?.row?.toString || !site?.col?.toString) return;
+              const leaf1 = labels[site.row], leaf2 = labels[site.col];
+              setPanelData(prev => {
+                const cur = prev[targetId] || {};
+                const next = [leaf1, leaf2];
+                const same = Array.isArray(cur.linkedHighlights) && cur.linkedHighlights.length === 2 && cur.linkedHighlights[0] === next[0] && cur.linkedHighlights[1] === next[1];
+                if (same) return prev;
+                return { ...prev, [targetId]: { ...cur, linkedHighlights: next } };
+              });
+            },
+            'heatmap->alignment': () => {
+              const { labels } = currentPanelData[originId] || {};
+              if (!labels || typeof site?.row !== 'number' || typeof site?.col !== 'number') return;
+              const leaf1 = labels[site.row], leaf2 = labels[site.col];
+              setPanelData(prev => {
+                const cur = prev[targetId] || {};
+                const next = [leaf1, leaf2];
+                const same = Array.isArray(cur.linkedHighlights) && cur.linkedHighlights.length === 2 && cur.linkedHighlights[0] === next[0] && cur.linkedHighlights[1] === next[1];
+                if (same) return prev;
+                return { ...prev, [targetId]: { ...cur, linkedHighlights: next } };
+              });
+            },
+            'heatmap->heatmap': () => {
+              const { labels } = currentPanelData[originId] || {};
+              if (!labels || typeof site?.row !== 'number' || typeof site?.col !== 'number') return;
+              const rowLabel = labels[site.row];
+              const colLabel = labels[site.col];
+              setPanelData(prev => {
+                const cur = prev[targetId] || {};
+                const next = { row: rowLabel, col: colLabel };
+                const same = cur.linkedHighlightCell && cur.linkedHighlightCell.row === next.row && cur.linkedHighlightCell.col === next.col;
+                if (same) return prev;
+                return { ...prev, [targetId]: { ...cur, linkedHighlightCell: next } };
+              });
+            },
+            'heatmap->structure': () => {
+              const { labels } = currentPanelData[originId] || {};
+              if (!labels || typeof site?.row !== 'number' || typeof site?.col !== 'number') return;
+              const parseLabel = (lbl) => {
+                const m = String(lbl).trim().match(/^([A-Za-z0-9]):(\d+)([A-Za-z]?)$/);
+                if (!m) return null;
+                const [, chainId, resiStr, icode] = m;
+                return { chainId, resi: Number(resiStr), icode: icode || '' };
+              };
+              const a = parseLabel(labels[site.row]);
+              const b = parseLabel(labels[site.col]);
+              const list = [a, b].filter(Boolean);
+              setPanelData(prev => {
+                const cur = prev[targetId] || {};
+                const newChain = list[0]?.chainId || cur.linkedChainId;
+                const sameList = JSON.stringify(cur.linkedResiduesByKey) === JSON.stringify(list);
+                if (sameList && cur.linkedChainId === newChain) return prev;
+                return { ...prev, [targetId]: { ...cur, linkedResiduesByKey: list, linkedChainId: newChain } };
+              });
+            },
+            'seqlogo->alignment': () => {
+              const targetData = currentPanelData[targetId];
+              if (!targetData) return;
+              const isCodon = !!targetData.codonMode;
+              const scrollSite = isCodon ? site * 3 : site;
+              setScrollPositions(prev => {
+                const v = scrollSite * CELL_SIZE;
+                if (prev[targetId] === v) return prev;
+                return { ...prev, [targetId]: v };
+              });
+            },
+            'seqlogo->histogram': () => {
+              const targetData = currentPanelData[targetId];
+              if (!targetData) return;
+              let barIndex = site;
+              if (!Array.isArray(targetData.data)) {
+                const xCol = targetData.selectedXCol || targetData.data.headers.find(h => typeof targetData.data.rows[0][h] === 'number');
+                if (xCol) {
+                  const matchingRow = targetData.data.rows.findIndex(row => row[xCol] === site + 1);
+                  if (matchingRow !== -1) { barIndex = matchingRow; }
+                }
               }
-            }
-          } else {
-            // Numerical data - use the index directly
-            highlightedSites = [site];
-          }
-          
-          if (cur.highlightedSites && 
-              cur.highlightedSites.length === highlightedSites.length &&
-              cur.highlightedSites.every((val, idx) => val === highlightedSites[idx])) {
-            return prev;
-          }
-          
-          return { ...prev, [targetId]: { ...cur, highlightedSites } };
+              setPanelData(prev => {
+                const cur = prev[targetId] || {};
+                if (cur.highlightedSites && cur.highlightedSites.includes(barIndex)) return prev;
+                return { ...prev, [targetId]: { ...cur, highlightedSites: [barIndex] } };
+              });
+            },
+            'alignment->seqlogo': () => {},
+            'alignment->histogram': () => {
+              const targetData = currentPanelData[targetId];
+              if (targetData && !Array.isArray(targetData.data)) {
+                  const xCol = targetData.selectedXCol || targetData.data.headers.find(h => typeof targetData.data.rows[0][h] === 'number');
+                  if (xCol) {
+                      const xArr = targetData.data.rows.map(row => row[xCol]);
+                      const barIdx = xArr.findIndex(x => x === site + 1); // 1-based alignment site
+                      if (barIdx !== -1) {
+                           setPanelData(prev => {
+                               const cur = prev[targetId] || {};
+                               if (cur.highlightedSites && cur.highlightedSites.includes(barIdx)) return prev;
+                               return { ...prev, [targetId]: { ...cur, highlightedSites: [barIdx] } };
+                           });
+                      }
+                  }
+              }
+            },
+            'histogram->alignment': () => {
+              const targetData = currentPanelData[targetId];
+              if (!targetData) return;
+              const isCodon = !!targetData.codonMode;
+              const scrollCol = site;
+              setScrollPositions(prev => {
+                const v = scrollCol * (isCodon ? 3 : 1) * CELL_SIZE;
+                if (prev[targetId] === v) return prev;
+                return { ...prev, [targetId]: v };
+              });
+            },
+            'tree->histogram': () => {
+              if (typeof site !== 'string') return;
+              setPanelData(prev => {
+                const cur = prev[targetId] || {};
+                const targetData = cur;
+                if (!targetData?.data?.headers || !targetData?.data?.rows) return prev;
+                const xCol = targetData.selectedXCol;
+                if (!xCol) return prev;
+                const rows = targetData.data.rows;
+                const highlightedSites = [];
+                for (let i = 0; i < rows.length; i++) {
+                  if (rows[i][xCol] === site) { highlightedSites.push(i); }
+                }
+                if (cur.highlightedSites && cur.highlightedSites.length === highlightedSites.length && cur.highlightedSites.every((val, idx) => val === highlightedSites[idx])) { return prev; }
+                return { ...prev, [targetId]: { ...cur, highlightedSites } };
+              });
+            },
+            'histogram->tree': () => {
+              const validLeafNames = currentTreeLeafNamesCache.get(targetId);
+              if (!validLeafNames) return;
+              if (typeof site === 'string' && validLeafNames.has(site)) {
+                setPanelData(prev => {
+                  const cur = prev[targetId] || {};
+                  const linkedHighlights = [site];
+                  if (cur.linkedHighlights && cur.linkedHighlights.length === 1 && cur.linkedHighlights[0] === site) { return prev; }
+                  return { ...prev, [targetId]: { ...cur, linkedHighlights } };
+                });
+              } else {
+                setPanelData(prev => {
+                  const cur = prev[targetId] || {};
+                  if (!cur.linkedHighlights || cur.linkedHighlights.length === 0) return prev;
+                  return { ...prev, [targetId]: { ...cur, linkedHighlights: [] } };
+                });
+              }
+            },
+            'histogram->histogram': () => {
+              setPanelData(prev => {
+                const cur = prev[targetId] || {};
+                let highlightedSites = [];
+                if (typeof site === 'string') {
+                  const targetData = cur;
+                  if (!targetData?.data?.headers || !targetData?.data?.rows) return prev;
+                  const xCol = targetData.selectedXCol;
+                  if (!xCol) return prev;
+                  const rows = targetData.data.rows;
+                  for (let i = 0; i < rows.length; i++) {
+                    if (rows[i][xCol] === site) { highlightedSites.push(i); }
+                  }
+                } else {
+                  highlightedSites = [site];
+                }
+                if (cur.highlightedSites && cur.highlightedSites.length === highlightedSites.length && cur.highlightedSites.every((val, idx) => val === highlightedSites[idx])) { return prev; }
+                return { ...prev, [targetId]: { ...cur, highlightedSites } };
+              });
+            },
+            'alignment->histogram': () => {
+              const targetData = currentPanelData[targetId];
+              if (!targetData) return;
+              let barIndex = site;
+              if (!Array.isArray(targetData.data)) {
+                const xCol = targetData.selectedXCol || targetData.data.headers.find(h => typeof targetData.data.rows[0][h] === 'number');
+                if (xCol) {
+                  const matchingRow = targetData.data.rows.findIndex(row => row[xCol] === site + 1);
+                  if (matchingRow !== -1) { barIndex = matchingRow; }
+                }
+              }
+              setPanelData(prev => {
+                const cur = prev[targetId] || {};
+                if (cur.highlightedSites && cur.highlightedSites.includes(barIndex)) return prev;
+                return { ...prev, [targetId]: { ...cur, highlightedSites: [barIndex] } };
+              });
+            },
+            'alignment->alignment': () => {
+              const targetData = currentPanelData[targetId];
+              if (!targetData) return;
+              const scrollSite = targetData.codonMode ? site * 3 : site;
+              setScrollPositions(prev => {
+                const v = scrollSite * CELL_SIZE;
+                if (prev[targetId] === v) return prev;
+                return { ...prev, [targetId]: v };
+              });
+            },
+            'alignment->structure': () => {
+              const cacheKey = `${originId}|${targetId}`;
+              const mapping = currentAlignmentStructureChainCache.get(cacheKey);
+              if (!mapping || !mapping.seq) return;
+              const residIdx = msaColToResidueIndex(mapping.seq.sequence, site);
+              setPanelData(prev => {
+                const cur = prev[targetId] || {};
+                const newChain = mapping.chainId || undefined;
+                if (cur.linkedResidueIndex === residIdx && cur.linkedChainId === newChain) return prev;
+                return { ...prev, [targetId]: { ...cur, linkedResidueIndex: residIdx, linkedChainId: newChain } };
+              });
+            },
+            'structure->alignment': () => {
+              if (typeof site !== 'object' || site === null || site.residueIndex == null || !site.chainId) return;
+              const cacheKey = `${targetId}|${originId}`;
+              const mapping = currentAlignmentStructureChainCache.get(cacheKey);
+              if (!mapping || !mapping.seq || mapping.chainId !== site.chainId) { return; }
+              const col = residueIndexToMsaCol(mapping.seq.sequence, site.residueIndex);
+              if (col == null) return;
+              const isCodon = !!currentPanelData[targetId]?.codonMode;
+              setScrollPositions(prev => {
+                const v = col * (isCodon ? 3 : 1) * CELL_SIZE;
+                if (prev[targetId] === v) return prev;
+                return { ...prev, [targetId]: v };
+              });
+              setPanelData(prev => {
+                const current = prev[targetId] || {};
+                if (current.linkedSiteHighlight === col) return prev;
+                return { ...prev, [targetId]: { ...current, linkedSiteHighlight: col } };
+              });
+            },
+          };
+
+          const key = `${S}->${T}`;
+          if (handlers[key]) handlers[key]();
         });
-      },
 
-    // Alignment -> Histogram (highlight corresponding bar)
-  'alignment->histogram': () => {
-    const targetData = panelData[targetId];
-    if (!targetData) return;
-    
-    let barIndex = site;
-    
-    // If histogram has tabular data, find the bar that matches the site value
-    if (!Array.isArray(targetData.data)) {
-      const xCol = targetData.selectedXCol ||
-        targetData.data.headers.find(h => typeof targetData.data.rows[0][h] === 'number');
-      
-      if (xCol) {
-        // Find the row where xCol value matches the site + 1 (1-based)
-        const matchingRow = targetData.data.rows.findIndex(row => 
-          row[xCol] === site + 1
-        );
-        
-        if (matchingRow !== -1) {
-          barIndex = matchingRow;
-        }
-      }
-    }
-    
-    setPanelData(prev => {
-      const cur = prev[targetId] || {};
-      if (cur.highlightedSites && cur.highlightedSites.includes(barIndex)) return prev;
-      return { ...prev, [targetId]: { ...cur, highlightedSites: [barIndex] } };
+        return originId;
+      });
+      return site;
     });
-  },
-
-    // Alignment -> Alignment (codon-aware scroll sync)
-    'alignment->alignment': () => {
-      const targetData = panelData[targetId];
-      if (!targetData) return;
-      const scrollSite = targetData.codonMode ? site * 3 : site;
-      setScrollPositions(prev => {
-        const v = scrollSite * CELL_SIZE;
-        if (prev[targetId] === v) return prev;
-      return { ...prev, [targetId]: v };
-   });
-    },
-
-    // Alignment -> Structure (map MSA col to residue index)
-    'alignment->structure': () => {
-      const cacheKey = `${originId}|${targetId}`;
-      const mapping = alignmentStructureChainCache.get(cacheKey);
-
-      // If no valid mapping exists, do nothing
-      if (!mapping || !mapping.seq) return;
-
-      const residIdx = msaColToResidueIndex(mapping.seq.sequence, site);
-      setPanelData(prev => {
-        const cur = prev[targetId] || {};
-        // Use the cached chainId
-        const newChain = mapping.chainId || undefined;
-        if (cur.linkedResidueIndex === residIdx && cur.linkedChainId === newChain) return prev;
-        return { ...prev, [targetId]: { ...cur, linkedResidueIndex: residIdx, linkedChainId: newChain } };
-      });
-    },
-
-    // Structure -> Alignment
-    'structure->alignment': () => {
-      if (typeof site !== 'object' || site === null || site.residueIndex == null || !site.chainId) return;
-      
-      // The key is always alnId|structId
-      const cacheKey = `${targetId}|${originId}`;
-      const mapping = alignmentStructureChainCache.get(cacheKey);
-
-      // If mapping doesn't exist or is for a different chain, do nothing
-      if (!mapping || !mapping.seq || mapping.chainId !== site.chainId) {
-        return;
-      }
-
-      const col = residueIndexToMsaCol(mapping.seq.sequence, site.residueIndex);
-      if (col == null) return;
-
-      const isCodon = !!panelData[targetId]?.codonMode;
-      setScrollPositions(prev => {
-        const v = col * (isCodon ? 3 : 1) * CELL_SIZE;
-        if (prev[targetId] === v) return prev;
-        return { ...prev, [targetId]: v };
-      });
-
-      setPanelData(prev => {
-        const current = prev[targetId] || {};
-        if (current.linkedSiteHighlight === col) return prev;
-        return { ...prev, [targetId]: { ...current, linkedSiteHighlight: col } };
-      });
-    },
-
-  };
-
-  const key = `${S}->${T}`;
-  if (handlers[key]) handlers[key]();
-  });
-}, [panelLinks, panels, panelData, highlightSite, highlightOrigin, treeLeafNamesCache, alignmentStructureChainCache, setPanelData]);
+  }, [panelLinks, setPanelData, setScrollPositions]);
 
  useEffect(() => {
     // This effect acts as a safeguard. If a highlight is active (highlightOrigin is set)
