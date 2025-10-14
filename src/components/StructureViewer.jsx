@@ -1,5 +1,5 @@
 // StructureViewer.jsx
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Stack, Slider, IconButton, Button, Tooltip, Box, Chip } from '@mui/material';
 import { Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { threeToOne, hslToHex } from './Utils.jsx';
@@ -58,11 +58,13 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
   const [isHovering, setIsHovering] = useState(false);
   const didInitOpacity = useRef(false);
   const [showControls, setShowControls] = useState(false);
-  const [colorScheme, setColorScheme] = useState('residue');
-  const [representation, setRepresentation] = useState('cartoon');
-  const [showWaters, setShowWaters] = useState(false);
-  const [showHydrogens, setShowHydrogens] = useState(false);
-  const [showLabels, setShowLabels] = useState(false);
+  
+  // Initialize state from data prop safely
+  const [colorScheme, setColorScheme] = useState(data?.colorScheme || 'residue');
+  const [representation, setRepresentation] = useState(data?.representation || 'cartoon');
+  const [showWaters, setShowWaters] = useState(data?.showWaters !== undefined ? data.showWaters : false);
+  const [showHydrogens, setShowHydrogens] = useState(data?.showHydrogens !== undefined ? data.showHydrogens : false);
+  const [showLabels, setShowLabels] = useState(data?.showLabels !== undefined ? data.showLabels : false);
   const [backgroundColor, setBackgroundColor] = useState(data?.backgroundColor || 'white');
 
 
@@ -119,14 +121,16 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
     }
   }, [panelId, data?.opacity]);
 
-  // Restore other settings from data
+  // Restore other settings from data.
   useEffect(() => {
-    if (data?.colorScheme) setColorScheme(data.colorScheme);
-    if (data?.representation) setRepresentation(data.representation);
-    if (data?.showWaters !== undefined) setShowWaters(data.showWaters);
-    if (data?.showHydrogens !== undefined) setShowHydrogens(data.showHydrogens);
-    if (data?.backgroundColor) setBackgroundColor(data.backgroundColor);
-  }, [data]);
+    if (!data) return;
+    if (data.colorScheme && data.colorScheme !== colorScheme) setColorScheme(data.colorScheme);
+    if (data.representation && data.representation !== representation) setRepresentation(data.representation);
+    if (data.showWaters !== undefined && data.showWaters !== showWaters) setShowWaters(data.showWaters);
+    if (data.showHydrogens !== undefined && data.showHydrogens !== showHydrogens) setShowHydrogens(data.showHydrogens);
+    if (data.showLabels !== undefined && data.showLabels !== showLabels) setShowLabels(data.showLabels);
+    if (data.backgroundColor && data.backgroundColor !== backgroundColor) setBackgroundColor(data.backgroundColor);
+  }, [data, colorScheme, representation, showWaters, showHydrogens, showLabels, backgroundColor]);
 
   // StructureTooltip
   const [tooltip, setStructureTooltip] = useState(null);
@@ -139,6 +143,17 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
   const lastRenderTsRef = useRef(0);
 
   const controlsRef = useRef(null);
+
+  // Helper to persist settings to parent
+  const persistSetting = useCallback((key, value) => {
+      setPanelData((prev) => ({
+          ...prev,
+          [panelId]: {
+              ...prev[panelId],
+              [key]: value
+          }
+      }));
+  }, [panelId, setPanelData]);
 
   // Close controls when clicking outside
   useEffect(() => {
@@ -383,7 +398,7 @@ const setupHoverStructureTooltip = () => {
   };
 
 
-  const saveViewState = () => {
+  const saveViewState = useCallback(() => {
     const v = viewerRef.current;
     if (!v) return;
     
@@ -398,15 +413,9 @@ const setupHoverStructureTooltip = () => {
         view,
         slab,
         center,
-        opacity,
-        colorScheme,
-        representation,
-        showWaters,
-        showHydrogens,
-        backgroundColor
       }
     }));
-  };
+  }, [panelId, setPanelData]);
 
   const _removeHoverShape = () => {
     const v = viewerRef.current;
@@ -649,18 +658,16 @@ const setupHoverStructureTooltip = () => {
     };
   }, [pdb, panelId]);
 
-  // Effect hooks
+  // Effect hooks 
   useEffect(() => {
     if (viewerRef.current) {
       applyColorScheme();
-      saveViewState();
     }
   }, [colorScheme]);
 
   useEffect(() => {
     if (viewerRef.current) {
       applyRepresentation();
-      saveViewState();
     }
   }, [representation, showWaters, showHydrogens]);
 
@@ -673,7 +680,6 @@ const setupHoverStructureTooltip = () => {
   useEffect(() => {
     if (viewerRef.current) {
       applyBackgroundColor();
-      saveViewState();
     }
   }, [backgroundColor]);
 
@@ -683,17 +689,13 @@ const setupHoverStructureTooltip = () => {
     }
   }, [surface, opacity]);
 
-  useEffect(() => {
-    setPanelData((prev) => ({
-      ...prev,
-      [panelId]: {
-        ...prev[panelId],
-        opacity,
-      },
-    }));
-  }, [opacity, panelId, setPanelData]);
+  // Persist opacity change when slider stops
+  const handleOpacityCommit = useCallback((_, v) => {
+      const newVal = Array.isArray(v) ? v[0] : v;
+      persistSetting('opacity', newVal);
+  }, [persistSetting]);
 
-  // useEffect hooks for view persistence
+  // useEffect hooks for view persistence (camera movement)
   useEffect(() => {
     const el = viewerDiv.current;
     const v = viewerRef.current;
@@ -701,26 +703,11 @@ const setupHoverStructureTooltip = () => {
 
     let wheelTimeout = null;
 
-    const saveViewAndSlab = () => {
-      const view = v.getView();
-      const slab = v.getSlab();
-      const center = v.getCenter ? v.getCenter() : undefined;
-      setPanelData((prev) => ({
-        ...prev,
-        [panelId]: {
-          ...prev[panelId],
-          view,
-          slab,
-          center
-        }
-      }));
-    };
-
-    const onMouseUp = () => saveViewAndSlab();
-    const onTouchEnd = () => saveViewAndSlab();
+    const onMouseUp = () => saveViewState();
+    const onTouchEnd = () => saveViewState();
     const onWheel = () => {
       clearTimeout(wheelTimeout);
-      wheelTimeout = setTimeout(saveViewAndSlab, 200);
+      wheelTimeout = setTimeout(saveViewState, 200);
     };
 
     el.addEventListener('mouseup', onMouseUp);
@@ -733,7 +720,7 @@ const setupHoverStructureTooltip = () => {
       el.removeEventListener('wheel', onWheel);
       clearTimeout(wheelTimeout);
     };
-  }, [panelId, setPanelData]);
+  }, [panelId, saveViewState]);
 
   useEffect(() => {
     lastSentHighlightRef.current = null;
@@ -836,7 +823,10 @@ const setupHoverStructureTooltip = () => {
                   key={scheme}
                   size="small"
                   variant={colorScheme === scheme ? "contained" : "outlined"}
-                  onClick={() => setColorScheme(scheme)}
+                  onClick={() => {
+                    setColorScheme(scheme);
+                    persistSetting('colorScheme', scheme);
+                  }}
                   sx={{ justifyContent: 'center', textTransform: 'none',
                     backgroundColor: colorScheme === scheme ? '#60a5fa' : 'inherit',
                    }}
@@ -871,7 +861,10 @@ const setupHoverStructureTooltip = () => {
                   key={style}
                   size="small"
                   variant={representation === style ? "contained" : "outlined"}
-                  onClick={() => setRepresentation(style)}
+                  onClick={() => {
+                    setRepresentation(style);
+                    persistSetting('representation', style);
+                  }}
                   sx={{ justifyContent: 'center', textTransform: 'none',
                     backgroundColor: representation === style ? '#60a5fa' : 'inherit',
                    }}
@@ -904,7 +897,11 @@ const setupHoverStructureTooltip = () => {
               <Button 
                 size="small" 
                 variant={showWaters ? "contained" : "outlined"}
-                onClick={() => setShowWaters(!showWaters)}
+                onClick={() => {
+                    const newValue = !showWaters;
+                    setShowWaters(newValue);
+                    persistSetting('showWaters', newValue);
+                }}
                 sx={{ textTransform: 'none', backgroundColor: showWaters ? '#60a5fa' : 'inherit' }}
               >
                 Waters
@@ -912,7 +909,11 @@ const setupHoverStructureTooltip = () => {
               <Button 
                 size="small" 
                 variant={showLabels ? "contained" : "outlined"}
-                onClick={() => setShowLabels(!showLabels)}
+                onClick={() => {
+                    const newValue = !showLabels;
+                    setShowLabels(newValue);
+                    persistSetting('showLabels', newValue);
+                }}
                 sx={{ textTransform: 'none', backgroundColor: showLabels ? '#60a5fa' : 'inherit' }}
               >
                 Labels
@@ -920,7 +921,11 @@ const setupHoverStructureTooltip = () => {
               <Button 
                 size="small" 
                 variant={showHydrogens ? "contained" : "outlined"}
-                onClick={() => setShowHydrogens(!showHydrogens)}
+                onClick={() => {
+                    const newValue = !showHydrogens;
+                    setShowHydrogens(newValue);
+                    persistSetting('showHydrogens', newValue);
+                }}
                 sx={{ textTransform: 'none', backgroundColor: showHydrogens ? '#60a5fa' : 'inherit' }}
               >
                 Hydrogens
@@ -947,6 +952,7 @@ const setupHoverStructureTooltip = () => {
                 <Slider
                   value={opacity}
                   onChange={(_, v) => setOpacity(Array.isArray(v) ? v[0] : v)}
+                  onChangeCommitted={handleOpacityCommit}
                   step={0.01}
                   min={0.4}
                   max={1}
@@ -1004,7 +1010,10 @@ const setupHoverStructureTooltip = () => {
             borderRadius: 1,
             margin: '2px!important'
           }}
-          onClick={() => setBackgroundColor(color)}
+          onClick={() => {
+              setBackgroundColor(color);
+              persistSetting('backgroundColor', color);
+          }}
         />
       ))}
     </Stack>
