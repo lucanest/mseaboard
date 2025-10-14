@@ -501,7 +501,7 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
   useEffect(() => {
     // scroll-into-view logic
     if (
-      highlightedSite != null &&
+      highlightedSite != null && Number(highlightedSite) >= 0 && Number.isInteger(Number(highlightedSite)) &&
       Array.isArray(linkedTo) && linkedTo.includes(highlightOrigin) &&
       highlightOrigin !== id &&
       scrollContainerRef.current
@@ -3691,6 +3691,12 @@ const handleHighlight = useCallback((site, originId) => {
               }
             },
             'histogram->alignment': () => {
+
+              const siteAsNumber = Number(site);
+              if (Number.isNaN(siteAsNumber) || siteAsNumber < 0 || !Number.isInteger(siteAsNumber)) {
+                return; // Do nothing for floats, non-numeric strings, or invalid indices
+              }
+
               const targetData = currentPanelData[targetId];
               if (!targetData) return;
               const isCodon = !!targetData.codonMode;
