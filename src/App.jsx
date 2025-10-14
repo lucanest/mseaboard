@@ -4037,10 +4037,7 @@ const handleFileUpload = async (e) => {
   return board;
 };
 
-  const handleLoadBoard = async (e) => {
-    const file = e.target.files[0];
-    if (!file) return;
-    const text = await file.text();
+  const loadBoardFromFile = (text) => {
     try {
       const parsedBoard = JSON.parse(text);
       const board = rehydrateBoardState(parsedBoard);
@@ -4056,12 +4053,23 @@ const handleFileUpload = async (e) => {
             },
             future: [],
         });
+      setTitleFlipKey(Date.now());
     } catch (err) {
-      alert('Invalid board file');
+      alert('Invalid board file (.json)');
     }
-    fileInputRefBoard.current.value = null;
-    setTitleFlipKey(Date.now());
   };
+
+
+  const handleLoadBoard = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    const text = await file.text();
+    loadBoardFromFile(text);
+    // Reset input
+    if (fileInputRefBoard.current)
+    fileInputRefBoard.current.value = null;
+  };
+
 
   const handleSaveBoard = () => {
     // We only need to save the 'present' state.
@@ -4391,27 +4399,9 @@ const handleDrop = async (e) => {
   // if exactly one JSON => treat as board load
   const onlyFile = files.length === 1 ? files[0] : null;
   if (onlyFile && onlyFile.name.toLowerCase().endsWith('.json')) {
-    try {
-      const text = await onlyFile.text();
-      const board = JSON.parse(text);
-       setHistory({
-            past: [],
-            present: {
-                panels: board.panels || [],
-                layout: board.layout || [],
-                panelData: board.panelData || {},
-                panelLinks: board.panelLinks || {},
-                panelLinkHistory: buildHistory(board),
-                linkColors: board.linkColors || {},
-            },
-            future: [],
-        });
-      setTitleFlipKey(Date.now());
-      return;
-    } catch {
-      alert('Invalid board file (.json). Opening nothing.');
-      return;
-    }
+    const text = await onlyFile.text();
+    loadBoardFromFile(text);
+    return;
   }
 
   // otherwise, open each supported file in its panel
