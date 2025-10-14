@@ -28,6 +28,8 @@ const TOP_MARGIN = 10;
 const BOTTOM_MARGIN_NO_LEGEND = 40;
 const BOTTOM_MARGIN_WITH_LEGEND = 80;
 
+const EPSILON = 1e-9; // small tolerance value
+
 const SCROLL_THRESHOLD = 400;
 const BAR_MIN_WIDTH_PX = 4;
 const GAP_PX = 2;
@@ -121,7 +123,7 @@ function Histogram({
 
       const indices = [];
       for (let i = 0; i < xValues.length; i++) {
-        if (Number(xValues[i]) === valueToFind) {
+        if (Math.abs(Number(xValues[i]) - valueToFind) < EPSILON) {
           indices.push(i);
         }
       }
