@@ -3268,7 +3268,7 @@ async function handleFastME(alignmentPanelId, evoModel) {
         sourceAlignment: alignmentPanelId,
       },
       basedOnId: alignmentPanelId,
-      layoutHint: { w: 4, h: 20 },
+      layoutHint: { w: 4, h: 18 },
       autoLinkTo: alignmentPanelId,
     });
 
@@ -3306,7 +3306,7 @@ const handleGenerateCorrelationMatrix = useCallback((id) => {
         filename: `${base}_corr.phy`,
       },
       basedOnId: id,
-      layoutHint: { w: 4, h: 20 },
+      layoutHint: { w: 4, h: 16 },
     });
   } catch (error) {
     alert(`Failed to compute correlation matrix: ${error.message}`);
@@ -3323,7 +3323,7 @@ const handleTreeToDistance = useCallback((id) => {
       type: 'heatmap',
       data: { labels, matrix, filename: `${base}.phy` },
       basedOnId: id,
-      layoutHint: { w: 4, h: 20 },
+      layoutHint: { w: 4, h: 16 },
       autoLinkTo: id,
     });
 
@@ -3347,7 +3347,7 @@ const handleAlignmentToDistance = useCallback((id) => {
     type: 'heatmap',
     data: { labels, matrix, filename: `${base}.phy` },
     basedOnId: id,
-    layoutHint: { w: 4, h: 20 },
+    layoutHint: { w: 4, h: 16 },
     autoLinkTo: id,
   });
 }, [panelData, addPanel]);
@@ -3372,7 +3372,7 @@ const handleHeatmapToTree = useCallback((id) => {
         isNhx: false
       },
       basedOnId: id,
-      layoutHint: { w: 4, h: 20 },
+      layoutHint: { w: 4, h: 18 },
       autoLinkTo: id,
     });
   } catch (e) {
