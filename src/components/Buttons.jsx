@@ -478,7 +478,7 @@ export function GitHubButton() {
         href="https://github.com/lucanest/mseaboard"
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center px-1 py-1 rounded-3xl hover:bg-gray-300"
+        className="inline-flex items-center px-1 py-1 rounded-3xl hover:bg-gray-300 transition"
         title="GitHub repository"
       >
         <svg
