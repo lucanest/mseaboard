@@ -499,11 +499,13 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
   );
 
   useEffect(() => {
+
+  
     // scroll-into-view logic
     if (
-      highlightedSite != null && Number(highlightedSite) >= 0 && Number.isInteger(Number(highlightedSite)) &&
-      Array.isArray(linkedTo) && linkedTo.includes(highlightOrigin) &&
-      highlightOrigin !== id &&
+       highlightedSite != null && Number(highlightedSite) >= 0 && Number.isInteger(Number(highlightedSite)) &&
+       Array.isArray(linkedTo) && linkedTo.includes(highlightOrigin) &&
+       highlightOrigin !== id &&
       scrollContainerRef.current
     ) {
       const colWidth = 24;
@@ -511,15 +513,15 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
       const containerWidth = container.offsetWidth;
       const currentScroll = container.scrollLeft;
       const maxScroll = container.scrollWidth - containerWidth;
-
+  
       const colLeft = highlightedSite * colWidth;
       const colRight = colLeft + colWidth;
       const padding = containerWidth / 3;
-
+  
       let targetScroll = null;
       if (colLeft < currentScroll ) targetScroll = colLeft - padding;
       else if (colRight > currentScroll + containerWidth) targetScroll = colRight - containerWidth + padding;
-
+  
       if (targetScroll != null) {
         targetScroll = Math.max(0, Math.min(maxScroll, targetScroll));
         container.scrollTo({ left: targetScroll });
@@ -2598,6 +2600,7 @@ function App() {
   const [highlightedSequenceId, setHighlightedSequenceId] = useState(null);
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [hoveredPanelId, setHoveredPanelId] = useState(null);
+  const [showRestoreButton, setShowRestoreButton] = useState(false);
 
   const fileInputRef = useRef(null);
   const fileInputRefBoard = useRef(null);
@@ -3691,21 +3694,20 @@ const handleHighlight = useCallback((site, originId) => {
               }
             },
             'histogram->alignment': () => {
+                const siteAsNumber = Number(site);
+                if (Number.isNaN(siteAsNumber) || siteAsNumber < 0 || !Number.isInteger(siteAsNumber)) {
+                  return; // Do nothing for floats, non-numeric strings, or invalid indices
+                }
 
-              const siteAsNumber = Number(site);
-              if (Number.isNaN(siteAsNumber) || siteAsNumber < 0 || !Number.isInteger(siteAsNumber)) {
-                return; // Do nothing for floats, non-numeric strings, or invalid indices
-              }
-
-              const targetData = currentPanelData[targetId];
-              if (!targetData) return;
-              const isCodon = !!targetData.codonMode;
-              const scrollCol = site;
-              setScrollPositions(prev => {
-                const v = scrollCol * (isCodon ? 3 : 1) * CELL_SIZE;
-                if (prev[targetId] === v) return prev;
-                return { ...prev, [targetId]: v };
-              });
+                const targetData = currentPanelData[targetId];
+                if (!targetData) return;
+                const isCodon = !!targetData.codonMode;
+                const scrollCol = site;
+                setScrollPositions(prev => {
+                  const v = scrollCol * (isCodon ? 3 : 1) * CELL_SIZE;
+                  if (prev[targetId] === v) return prev;
+                  return { ...prev, [targetId]: v };
+                });
             },
             'tree->histogram': () => {
               if (typeof site !== 'string') return;
@@ -4483,6 +4485,66 @@ const canLink = (typeA, typeB) => {
   return !!(LINK_COMPAT[typeA] && LINK_COMPAT[typeA].has(typeB));
 };
 
+// Auto-save and Restore Session
+
+// Debounced function to save state to localStorage
+const debouncedSaveState = useMemo(
+    () => debounce((stateToSave) => {
+        try {
+            // Do not save if the board is empty
+            if (!stateToSave || stateToSave.panels.length === 0) {
+                localStorage.removeItem('mseaboard-autosave');
+                return;
+            }
+            const jsonString = JSON.stringify(stateToSave);
+            const compressed = pako.deflate(jsonString);
+            const base64 = uint8ArrayToBase64(compressed);
+            localStorage.setItem('mseaboard-autosave', base64);
+        } catch (e) {
+            console.error("Could not save session:", e);
+        }
+    }, 1000), // Save 1 second after the last change
+    []
+);
+
+// Effect to trigger save when state changes
+useEffect(() => {
+    // Avoid saving the initial blank state on first load
+    if (history.past.length === 0 && history.present.panels.length === 0) {
+        return;
+    }
+    debouncedSaveState(history.present);
+}, [history.present, debouncedSaveState]);
+
+// Check for a saved session on initial app load
+useEffect(() => {
+    // Check only if the board is currently empty
+    if (panels.length === 0) {
+        const savedStateJSON = localStorage.getItem('mseaboard-autosave');
+        if (savedStateJSON) {
+            setShowRestoreButton(true);
+        }
+    }
+}, []); // Empty array ensures this runs only once on mount
+
+const handleRestoreSession = useCallback(() => {
+    const savedBase64 = localStorage.getItem('mseaboard-autosave');
+    if (savedBase64) {
+        try {
+            const compressed = base64ToUint8Array(savedBase64);
+            const jsonString = pako.inflate(compressed, { to: 'string' });
+            const savedState = JSON.parse(jsonString);
+            const rehydratedState = rehydrateBoardState(savedState);
+            
+            setHistory(h => ({ ...h, present: rehydratedState, past: [], future: [] }));
+            setTitleFlipKey(Date.now());
+        } catch (e) {
+            alert("Failed to restore session: " + e);
+            localStorage.removeItem('mseaboard-autosave'); // Clear corrupted data
+        }
+    }
+    setShowRestoreButton(false);
+}, []);
 
     return (
       <div
@@ -4492,6 +4554,7 @@ const canLink = (typeA, typeB) => {
   onDragLeave={handleDragLeave}
   onDrop={handleDrop}
 >
+
 {transientMessage && (
   <div className="fixed inset-0 z-[10002] flex items-center justify-center">
     <div className="bg-blue-400 text-white px-6 py-5 rounded-xl shadow-lg text-2xl font-semibold transition-all animate-fade-in-out">
@@ -4501,9 +4564,9 @@ const canLink = (typeA, typeB) => {
 )}
   {isDragging && (
   <div className="pointer-events-none fixed inset-0 z-[10000] bg-black/30 flex items-center justify-center">
-    <div className="pointer-events-none bg-white rounded-xl shadow-xl px-6 py-4 text-center">
-      <div className="text-2xl font-bold">Drop files to open</div>
-      <div className="text-sm text-gray-600 mt-1">
+    <div className="pointer-events-none bg-white rounded-xl shadow-xl px-20 py-12 text-center">
+      <div className="text-3xl text-gray-700 font-bold">Drop files to open</div>
+      <div className="text-base text-gray-600 mt-1">
         • JSON: Load board <br></br> • Other formats: Open in a panel
       </div>
     </div>
@@ -4578,7 +4641,7 @@ const canLink = (typeA, typeB) => {
       <button
         onClick={undo}
         disabled={!canUndo}
-        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition"
       >
         <ArrowUturnLeftIcon className="w-6 h-6" />
       </button>
@@ -4593,7 +4656,7 @@ const canLink = (typeA, typeB) => {
       <button
         onClick={redo}
         disabled={!canRedo}
-        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
+        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition"
       >
         <ArrowUturnRightIcon className="w-6 h-6" />
       </button>
@@ -4608,7 +4671,7 @@ const canLink = (typeA, typeB) => {
     trigger={
       <button
         onClick={handleSaveBoard}
-        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center "
+        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center transition"
       >
         <ArrowDownTrayIcon className="w-6 h-6 " />
       </button>
@@ -4624,7 +4687,7 @@ const canLink = (typeA, typeB) => {
     trigger={
       <button
         onClick={() => fileInputRefBoard.current.click()}
-        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center "
+        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center transition"
       >
         <ArrowUpTrayIcon className="w-6 h-6" />
       </button>
@@ -4641,7 +4704,7 @@ const canLink = (typeA, typeB) => {
         trigger={
             <button
                 onClick={() => handleShareBoard()}
-                className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center"
+                className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center transition"
             >
                 <ArrowUpOnSquareIcon className="w-6 h-6" />
             </button>
@@ -4663,7 +4726,7 @@ const canLink = (typeA, typeB) => {
           layoutHint: { w: 4, h: 10 }
         });
       }}
-      className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-yellow-100 text-black px-4 py-4 rounded-xl hover:bg-yellow-200 shadow-lg hover:shadow-xl leading-tight "
+      className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-yellow-100 text-black px-4 py-4 rounded-xl hover:bg-yellow-200 shadow-lg hover:shadow-xl leading-tight transition"
     >
       Notepad
     </button>
@@ -4682,7 +4745,7 @@ const canLink = (typeA, typeB) => {
     />        
   <DelayedTooltip delay={135} top={58}
     trigger={
-            <button onClick={() => triggerUpload('alignment')} className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-green-200 text-black px-4 py-4 rounded-xl hover:bg-green-300 shadow-lg hover:shadow-xl leading-tight ">
+            <button onClick={() => triggerUpload('alignment')} className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-green-200 text-black px-4 py-4 rounded-xl hover:bg-green-300 shadow-lg hover:shadow-xl leading-tight transition">
               MSA
               </button>}
   >
@@ -4692,7 +4755,7 @@ const canLink = (typeA, typeB) => {
   </DelayedTooltip>
   <DelayedTooltip delay={135} top={58}
     trigger={
-            <button onClick={() => triggerUpload('tree')} className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-blue-200 text-black px-4 py-4 rounded-xl hover:bg-blue-300 shadow-lg hover:shadow-xl leading-tight ">
+            <button onClick={() => triggerUpload('tree')} className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-blue-200 text-black px-4 py-4 rounded-xl hover:bg-blue-300 shadow-lg hover:shadow-xl leading-tight transition">
               Tree
             </button>}
   >
@@ -4702,7 +4765,7 @@ const canLink = (typeA, typeB) => {
   </DelayedTooltip>
   <DelayedTooltip delay={135} top={58}
     trigger={
-            <button onClick={() => triggerUpload('histogram')}  className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-orange-200 text-black px-4 py-4 rounded-xl hover:bg-orange-300 shadow-lg hover:shadow-xl leading-tight ">
+            <button onClick={() => triggerUpload('histogram')}  className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-orange-200 text-black px-4 py-4 rounded-xl hover:bg-orange-300 shadow-lg hover:shadow-xl leading-tight transition">
               Data
             </button>}
   >
@@ -4712,8 +4775,8 @@ const canLink = (typeA, typeB) => {
   </DelayedTooltip>
   <DelayedTooltip delay={135} top={58}
     trigger={
-  
-            <button onClick={() => triggerUpload('heatmap')}  className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-red-200 text-black px-4 py-2 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl leading-tight ">
+
+            <button onClick={() => triggerUpload('heatmap')}  className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-red-200 text-black px-4 py-2 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl leading-tight transition">
             Distance Matrix
             </button>}
   >
@@ -4723,7 +4786,7 @@ const canLink = (typeA, typeB) => {
   </DelayedTooltip>
   <DelayedTooltip delay={135} top={58}
     trigger={
-            <button onClick={() => triggerUpload('structure')} className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-purple-200 text-black px-4 py-4 rounded-xl hover:bg-purple-300 shadow-lg hover:shadow-xl leading-tight ">
+            <button onClick={() => triggerUpload('structure')} className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-purple-200 text-black px-4 py-4 rounded-xl hover:bg-purple-300 shadow-lg hover:shadow-xl leading-tight transition">
               Structure
             </button>}
   >
@@ -4770,13 +4833,13 @@ const canLink = (typeA, typeB) => {
     >
       </div>
             <div className="text-2xl font-bold mb-4 text-gray-700">
-              Drag and drop files, use the upload buttons above
+              Drag and drop files, use the upload buttons above,
             </div>
 <div className="flex items-center gap-2 mt-2">
-  
-  <span className="text-2xl font-bold text-gray-700">or</span>
+
+  <span className="text-2xl font-bold text-gray-700 mr-2 ">or</span>
   <button
-    className="bg-gray-200 hover:bg-gray-300 text-black text-2xl font-semibold px-3 py-3 rounded-xl shadow-lg transition"
+    className="bg-gray-200 hover:bg-gray-300 text-gray-700 text-2xl font-semibold px-4 py-4 rounded-xl shadow-xl transition text-center"
     onClick={async () => {
       try {
         const resp = await fetch('/mseaboard-example.json');
@@ -4804,6 +4867,16 @@ const canLink = (typeA, typeB) => {
     Load an example
   </button>
 </div>
+{/* Restore Session Button */}
+{showRestoreButton && (
+        <button className="bg-blue-100 hover:bg-blue-200 rounded-2xl shadow-xl p-4 w-full max-w-sm text-center mt-24 transition" onClick={handleRestoreSession}>
+            <h2 className="text-2xl text-gray-700 font-bold mb-2">Restore Board</h2>
+            <p className="mb-2 text-gray-700 text-base font-semibold">
+                Click to restore your last session on this browser
+            </p>
+      
+        </button>
+)}
           </div>
         )}
 
