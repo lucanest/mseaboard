@@ -464,7 +464,7 @@ const PhyloTreeViewer = ({
       const outerRadius = radius + Math.max(minMargin, Math.min(maxMargin, minLabelLength * approxCharWidth));
 
       const arc = d3.arc()
-        .innerRadius(radius - 50)
+        .innerRadius(radius - 30)
         .outerRadius(outerRadius)
         .startAngle(d => d.x - angleStep / 2)
         .endAngle(d => d.x + angleStep / 2);
