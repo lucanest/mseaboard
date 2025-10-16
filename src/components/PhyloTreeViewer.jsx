@@ -638,7 +638,8 @@ const PhyloTreeViewer = ({
         .attr('y', (_, i) => i * 20)
         .attr('width', 15)
         .attr('height', 15)
-        .attr('fill', d => d[1]);
+        .attr('fill', d => d[1])
+        .attr('rx', 4);
 
       legend.selectAll('text')
         .data(items)
