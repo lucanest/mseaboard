@@ -3,7 +3,7 @@ import { useRef, useState, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { residueColorHex } from '../constants/colors';
 
-export function TitleFlip({ text, colors, tileSize = 50 }) {
+export function TitleFlip({ text, colors, tileSize = 40 }) {
   return (
     <div className="flex items-center justify-start w-full gap-0">
       {text.split('').map((ch, i) => {

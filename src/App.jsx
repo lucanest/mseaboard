@@ -1670,7 +1670,7 @@ const handleGridMouseMove = useMemo(() =>
                   </div>
 
                     {/* Optimization: Virtualized Grid of Cells using nested maps */}
-                    <div className="grid-container" style={{ position: 'absolute', top: RULER_HEIGHT, left: labelWidth, height: totalGridHeight, width: totalGridWidth, marginTop:2 }}>
+                    <div className="grid-container" style={{ position: 'absolute', top: RULER_HEIGHT, left: labelWidth, height: totalGridHeight, width: totalGridWidth, marginTop:0 }}>
                     {useMemo(() => {
                       const cells = [];
                       const cellStyleBase = { height: CELL_SIZE, width: CELL_SIZE };
@@ -4627,7 +4627,7 @@ const handleRestoreSession = useCallback(() => {
 )}
         <div className="p-0 flex justify-between items-center fixed top-0 left-0 w-full z-50"
         style={{ pointerEvents: 'none' }}>
-          <div style={{ height: 77 }} /> {/* Spacer for fixed header */}
+          <div style={{ height: 12 }} /> {/* Spacer for fixed header */}
 <div className="flex items-center gap-2"  style={{ pointerEvents: 'auto' }}>
 <div className="p-1/2 flex justify-between items-center"></div>
   <div className="flex items-center gap-2 mt-2 mr-4 px-1 py-2 rounded-xl 
@@ -4636,7 +4636,7 @@ const handleRestoreSession = useCallback(() => {
       <div className="flex flex-wrap items-center gap-0">
 {/* Undo/Redo Buttons */}
 <div className="relative group mr-2 ml-2">
-  <DelayedTooltip delay={135} top={54}
+  <DelayedTooltip delay={135} top={48}
     trigger={
       <button
         onClick={undo}
@@ -4651,7 +4651,7 @@ const handleRestoreSession = useCallback(() => {
   </DelayedTooltip>
 </div>
 <div className="relative group mr-2">
-  <DelayedTooltip delay={135} top={54}
+  <DelayedTooltip delay={135} top={48}
     trigger={
       <button
         onClick={redo}
@@ -4667,7 +4667,7 @@ const handleRestoreSession = useCallback(() => {
 </div>
 {/* load/save buttons */}
 <div className="relative group mr-2">
-  <DelayedTooltip  delay={135} top={54}
+  <DelayedTooltip  delay={135} top={48}
     trigger={
       <button
         onClick={handleSaveBoard}
@@ -4683,7 +4683,7 @@ const handleRestoreSession = useCallback(() => {
   </DelayedTooltip>
 </div>
 <div className="relative group mr-0">
-  <DelayedTooltip delay={135} top={54}
+  <DelayedTooltip delay={135} top={48}
     trigger={
       <button
         onClick={() => fileInputRefBoard.current.click()}
@@ -4700,7 +4700,7 @@ const handleRestoreSession = useCallback(() => {
 </div>
 {/* share button (gist) */}
 <div className="relative group ml-2">
-    <DelayedTooltip delay={135} top={54}
+    <DelayedTooltip delay={135} top={48}
         trigger={
             <button
                 onClick={() => handleShareBoard()}
@@ -4716,7 +4716,7 @@ const handleRestoreSession = useCallback(() => {
     </DelayedTooltip>
 </div>
 </div>
-  <DelayedTooltip delay={135} top={58}
+  <DelayedTooltip delay={135} top={52}
   trigger={
     <button
       onClick={() => {
@@ -4743,7 +4743,7 @@ const handleRestoreSession = useCallback(() => {
       onChange={handleLoadBoard}
       style={{ display: 'none' }}
     />        
-  <DelayedTooltip delay={135} top={58}
+  <DelayedTooltip delay={135} top={52}
     trigger={
             <button onClick={() => triggerUpload('alignment')} className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-green-200 text-black px-4 py-4 rounded-xl hover:bg-green-300 shadow-lg hover:shadow-xl leading-tight transition">
               MSA
@@ -4753,7 +4753,7 @@ const handleRestoreSession = useCallback(() => {
     <br />
     Upload a sequence or multiple sequence <br /> alignment in FASTA format (.fasta/.fas)
   </DelayedTooltip>
-  <DelayedTooltip delay={135} top={58}
+  <DelayedTooltip delay={135} top={52}
     trigger={
             <button onClick={() => triggerUpload('tree')} className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-blue-200 text-black px-4 py-4 rounded-xl hover:bg-blue-300 shadow-lg hover:shadow-xl leading-tight transition">
               Tree
@@ -4763,7 +4763,7 @@ const handleRestoreSession = useCallback(() => {
     <br />
     Upload a phylogenetic tree <br /> in Newick format (.nwk/.nhx)
   </DelayedTooltip>
-  <DelayedTooltip delay={135} top={58}
+  <DelayedTooltip delay={135} top={52}
     trigger={
             <button onClick={() => triggerUpload('histogram')}  className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-orange-200 text-black px-4 py-4 rounded-xl hover:bg-orange-300 shadow-lg hover:shadow-xl leading-tight transition">
               Data
@@ -4773,7 +4773,7 @@ const handleRestoreSession = useCallback(() => {
     <br />
     Upload tabular data (.tsv/.csv) <br /> or a list of numbers (.txt)
   </DelayedTooltip>
-  <DelayedTooltip delay={135} top={58}
+  <DelayedTooltip delay={135} top={52}
     trigger={
 
             <button onClick={() => triggerUpload('heatmap')}  className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-red-200 text-black px-4 py-2 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl leading-tight transition">
@@ -4784,7 +4784,7 @@ const handleRestoreSession = useCallback(() => {
     <br />
     Upload a distance matrix <br /> in PHYLIP format (.phy/.phylip/.dist)
   </DelayedTooltip>
-  <DelayedTooltip delay={135} top={58}
+  <DelayedTooltip delay={135} top={52}
     trigger={
             <button onClick={() => triggerUpload('structure')} className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-purple-200 text-black px-4 py-4 rounded-xl hover:bg-purple-300 shadow-lg hover:shadow-xl leading-tight transition">
               Structure
@@ -4801,10 +4801,10 @@ const handleRestoreSession = useCallback(() => {
         </div>
          {/* instructions and example */}
 {panels.length === 0 && (
-  <div className="flex flex-col items-center justify-center px-3 w-full" style={{ marginTop: 5 }}>
+  <div className="flex flex-col items-center justify-center px-3 w-full" style={{ marginTop: 1 }}>
     <div
       style={{
-        height: 74,
+        height: 62,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'flex-start',
@@ -4884,7 +4884,7 @@ const handleRestoreSession = useCallback(() => {
         <div className="flex-grow overflow-auto pb-20">
  <div
       style={{
-        height: 74,
+        height: 62,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'flex-start',
@@ -4896,7 +4896,7 @@ const handleRestoreSession = useCallback(() => {
         marginRight: 0,
       }}
     >
-      <div className="flex flex-col items-center justify-center px-3 w-full" style={{ marginTop: 10 }}>
+      <div className="flex flex-col items-center justify-center px-3 w-full" style={{ marginTop: 2 }}>
       <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors}/>
       </div>
     </div>
@@ -4918,15 +4918,15 @@ const handleRestoreSession = useCallback(() => {
               const others = newLayout.filter(l => l.i !== '__footer');
               const maxY = others.reduce((max, l) => Math.max(max, l.y + l.h), 0);
               const fixedFooter = { ...(footer || {}), y: maxY };
-              // Do NOT save to history on general layout changes
+              // Do not save to history on general layout changes
               setState(p => ({ ...p, layout: [...others, fixedFooter] }), false);
             }}
             onDragStop={(newLayout) => {
-               // But DO save to history when a user finishes dragging
+               // But do save to history when a user finishes dragging
               setState(p => ({...p, layout: newLayout}), true)
             }}
             onResizeStop={(newLayout) => {
-              // And DO save to history when a user finishes resizing
+              // And do save to history when a user finishes resizing
               setState(p => ({...p, layout: newLayout}), true)
             }}
           >
