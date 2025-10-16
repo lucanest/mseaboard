@@ -4801,10 +4801,10 @@ const handleRestoreSession = useCallback(() => {
         </div>
          {/* instructions and example */}
 {panels.length === 0 && (
-  <div className="flex flex-col items-center justify-center px-3 w-full" style={{ marginTop: 1 }}>
+  <div className="flex flex-col items-center justify-center px-3 w-full" style={{ marginTop: 3 }}>
     <div
       style={{
-        height: 62,
+        height: 58,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'flex-start',
@@ -4884,7 +4884,7 @@ const handleRestoreSession = useCallback(() => {
         <div className="flex-grow overflow-auto pb-20">
  <div
       style={{
-        height: 62,
+        height: 58,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'flex-start',
@@ -4896,7 +4896,7 @@ const handleRestoreSession = useCallback(() => {
         marginRight: 0,
       }}
     >
-      <div className="flex flex-col items-center justify-center px-3 w-full" style={{ marginTop: 2 }}>
+      <div className="flex flex-col items-center justify-center px-3 w-full" style={{ marginTop: 6 }}>
       <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors}/>
       </div>
     </div>
