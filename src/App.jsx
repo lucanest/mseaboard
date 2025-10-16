@@ -1114,7 +1114,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
 
   const pickerItems = React.useMemo(() => {
     const items = [];
-    if (isNuc) items.push('p-distance', 'RY symmetric', 'RY', 'JC69', 'K2P', 'F81', 'F84', 'TN93', 'LogDet');
+    if (isNuc) items.push('p-distance', 'RY-symmetric', 'RY', 'JC69', 'K2P', 'F81', 'F84', 'TN93', 'LogDet');
     if (!isNuc) items.push('p-distance', 'F81', 'LG', 'WAG', 'JTT', 'Dayhoff', 'DCMut', 'CpRev', 'MtREV', 'RtREV', 'HIVb', 'HIVw', 'FLU');
     return items;
   }, [isNuc]);
