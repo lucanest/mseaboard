@@ -14,7 +14,6 @@ import { Bar as VisxBar } from '@visx/shape';
 import { FixedSizeList as List } from 'react-window';
 import { colorPalette } from '../constants/colors.js';
 
-// Helper function to check if values are numerical
 const isNumerical = (values) => {
   if (!values || values.length === 0) return true;
   return values.every(v => typeof v === 'number' || !isNaN(Number(v)));
@@ -22,9 +21,9 @@ const isNumerical = (values) => {
 
 const isDiscrete = (values) => values.every((v) => Number.isInteger(v));
 
-const LEFT_MARGIN = 16;
-const RIGHT_MARGIN = 16;
-const TOP_MARGIN = 10;
+const LEFT_MARGIN = 40;
+const RIGHT_MARGIN = 6;
+const TOP_MARGIN = 6;
 const BOTTOM_MARGIN_NO_LEGEND = 40;
 const BOTTOM_MARGIN_WITH_LEGEND = 80;
 
@@ -48,7 +47,7 @@ function Histogram({
   yLogActive = false,
   indexingMode = '1-based',
 }) {
-  // Check if xValues are numerical or categorical
+  
   const xValuesAreNumerical = useMemo(() => isNumerical(xValues), [xValues]);
   
   const data = useMemo(() => {
@@ -206,8 +205,6 @@ function Histogram({
     });
   }, [min, max, chartInnerHeight]);
 
-  // Use band scale for categorical data, linear for numerical
-  const xScaleType = xValuesAreNumerical ? scaleLinear : scaleBand;
   const xInterval = useMemo(() => {
     return 19;
   }, [values.length]);
@@ -366,15 +363,15 @@ function Histogram({
       top,
       transform: `translate(${translateX}, ${translateY})`,
     };
-  }, [containerWidth, height, itemSize, barWidth, needScroll, scrollLeft, yScale, data]);
+  }, [containerWidth, height, itemSize, barWidth, needScroll, scrollLeft, yScale, data, LEFT_MARGIN]);
 
   const localTooltipPos = getTooltipPos(hoverIndex);
 
   const formatTooltip = useCallback((v) => {
-    if (!yLogActive) return `${v}`;
+    if (!yLogActive) return v.toLocaleString(undefined, { maximumFractionDigits: 5 });
     if (yLogActive && v === 0) return 'NaN';
     const tv = transformY(v);
-    return `${tv.toFixed(4)}`;
+    return tv.toLocaleString(undefined, { maximumFractionDigits: 5 });
   }, [yLogActive, transformY]);
 
   const shouldMirror =
@@ -449,7 +446,8 @@ function Histogram({
     indexingMode,
     xValuesAreNumerical,
     xValues,
-    innerWidth
+    innerWidth,
+    TOP_MARGIN
   ]);
 
   const getColumnStyle = useCallback((index) => {
@@ -468,7 +466,7 @@ function Histogram({
       pointerEvents: 'none',
       zIndex: 10,
     };
-  }, [needScroll, itemSize, scrollLeft, chartInnerHeight, values.length]);
+  }, [needScroll, itemSize, scrollLeft, chartInnerHeight, values.length, TOP_MARGIN]);
 
   const SmallSVG = () => {
     const xScale = xValuesAreNumerical
@@ -604,153 +602,189 @@ function Histogram({
         ref={outerRef}
         style={{ position: 'relative', height, overflow: 'visible' }}
         onMouseLeave={handleMouseLeaveChart}
+        className="flex"
       >
-        <svg
-          width={containerWidth}
-          height={height}
-          style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }}
-        >
-          <g transform={`translate(${LEFT_MARGIN},${TOP_MARGIN})`}>
-            <GridRows
-              scale={yScale}
-              width={innerWidth}
-              stroke="#e5e7eb"
-              numTicks={5}
-            />
-            <AxisBottom
-              top={chartInnerHeight}
-              scale={xValuesAreNumerical
-                ? scaleLinear({
-                    domain: needScroll
-                      ? [visibleWindow.start, Math.max(visibleWindow.start + 1, visibleWindow.end)]
-                      : [0, Math.max(0, values.length - 1)],
-                    range: [0, needScroll
-                      ? visibleWindow.listWidth
-                      : Math.max(0, containerWidth - LEFT_MARGIN - RIGHT_MARGIN)],
-                  })
-                : scaleBand({
-                    domain: xValues,
-                    range: [0, innerWidth],
-                    padding: 0.1
-                  })
-              }
-              tickValues={
-                needScroll && xValuesAreNumerical
-                  ? Array.from(
-                      { length: visibleWindow.end - visibleWindow.start + 1 },
-                      (_, k) => k + visibleWindow.start
-                    ).filter((i) => i % (xInterval + 1) === 0)
-                  : xValuesAreNumerical
-                  ? Array.from({ length: values.length }, (_, i) => i).filter(
-                      (i) => i % (xInterval + 1) === 0
-                    )
-                  :  // For categorical, again only show a subset to avoid clutter
-                    xValues.filter((_, i) => i % (xInterval + 1) === 0)
-                    
-              }
-              tickFormat={(v) => {
-                if (xValuesAreNumerical) {
-                  return `${getXLabel(Math.round(Number(v)))}`;
-                } else {
-                  // For categorical data, show the actual value
-                  return v;
-                }
-              }}
-              //label="Index"
-              tickLabelProps={() => ({ 
-                fontSize: 10, 
-                dy: 6,
-                angle: xValuesAreNumerical ? 0 : 0, // Rotate labels for categorical data
-                textAnchor: xValuesAreNumerical ? 'middle' : 'left'
-              })}
-            />
-          </g>
-        </svg>
-
+        {/* Sticky Y-Axis */}
         <div
-          ref={chartAreaRef}
           style={{
-            position: 'absolute',
-            left: LEFT_MARGIN,
-            right: RIGHT_MARGIN,
-            top: 0,
-            bottom: 0,
-            overflowX: needScroll ? 'auto' : 'hidden',
-            overflowY: 'hidden',
+            position: 'sticky',
+            left: 0,
+            zIndex: 10,
+            background: 'transparent',
           }}
-          onMouseMove={handleAreaMouseMove}
-          onPointerLeave={handleMouseLeaveChart}
         >
-          {isLocalTooltipActive && hoverIndex != null && (
-            <div style={getColumnStyle(hoverIndex)} />
-          )}
-
-          {shouldMirror && scrollingToIndex === null &&
-            mappedHighlightedIndices.map((index) => (
-              <div key={`overlay-${index}`} style={getColumnStyle(index)} />
-          ))}
-          
-          {needScroll ? (
-            <List
-              ref={listRef}
-              layout="horizontal"
-              height={height}
-              width={innerWidth}
-              itemCount={values.length}
-              itemSize={itemSize}
-              overscanCount={64}
-              onScroll={onListScroll}
-            >
-              {Item}
-            </List>
-          ) : (
-            <SmallSVG />
-          )}
+          <svg width={LEFT_MARGIN} height={height}>
+            <g transform={`translate(0, ${TOP_MARGIN})`}>
+              <AxisLeft
+                scale={yScale}
+                left={LEFT_MARGIN} // Position axis line
+                tickLabelProps={() => ({
+                  dx: '-0.25em',
+                  dy: '0.25em',
+                  fontSize: 10,
+                  textAnchor: 'end',
+                })}
+                numTicks={5}
+              />
+            </g>
+          </svg>
         </div>
 
-        {localTooltipPos && hoverIndex !== null && hoverIndex >= 0 && hoverIndex < data.length && (
+        {/* Main Chart Area */}
+        <div style={{ flex: 1, position: 'relative' }}>
+          <svg
+            width={containerWidth} // This SVG is for elements that span the full width
+            height={height}
+            style={{ position: 'absolute', left: 0, top: 0, pointerEvents: 'none' }}
+          >
+            <g transform={`translate(0,${TOP_MARGIN})`}>
+              <GridRows
+                scale={yScale}
+                width={innerWidth}
+                stroke="#e5e7eb"
+                numTicks={5}
+              />
+              <AxisBottom
+                top={chartInnerHeight}
+                scale={xValuesAreNumerical
+                  ? scaleLinear({
+                      domain: needScroll
+                        ? [visibleWindow.start, Math.max(visibleWindow.start + 1, visibleWindow.end)]
+                        : [0, Math.max(0, values.length - 1)],
+                      range: [0, needScroll
+                        ? visibleWindow.listWidth
+                        : Math.max(0, containerWidth - LEFT_MARGIN - RIGHT_MARGIN)],
+                    })
+                  : scaleBand({
+                      domain: xValues,
+                      range: [0, innerWidth],
+                      padding: 0.1
+                    })
+                }
+                tickValues={
+                  needScroll && xValuesAreNumerical
+                    ? Array.from(
+                        { length: visibleWindow.end - visibleWindow.start + 1 },
+                        (_, k) => k + visibleWindow.start
+                      ).filter((i) => i % (xInterval + 1) === 0)
+                    : xValuesAreNumerical
+                    ? Array.from({ length: values.length }, (_, i) => i).filter(
+                        (i) => i % (xInterval + 1) === 0
+                      )
+                    :  // For categorical, again only show a subset to avoid clutter
+                      xValues.filter((_, i) => i % (xInterval + 1) === 0)
+                      
+                }
+                tickFormat={(v) => {
+                  if (xValuesAreNumerical) {
+                    return `${getXLabel(Math.round(Number(v)))}`;
+                  } else {
+                    // For categorical data, show the actual value
+                    return v;
+                  }
+                }}
+                //label="Index"
+                tickLabelProps={(value, index, ticks) => ({ 
+                                fontSize: 10, 
+                                dy: 6,
+                                angle: 0,
+                                textAnchor: xValuesAreNumerical
+                                  ? index === 0
+                                    ? 'start'
+                                    : index === ticks.length - 1
+                                    ? 'end'
+                                    : 'middle'
+                                  : 'left',
+                              })}
+              />
+            </g>
+          </svg>
+
           <div
+            ref={chartAreaRef}
             style={{
               position: 'absolute',
-              left: localTooltipPos.left,
-              top: localTooltipPos.top,
-              transform: localTooltipPos.transform,
-              pointerEvents: 'none',
-              zIndex: 99999999,
+              left: 0,
+              right: RIGHT_MARGIN,
+              top: 0,
+              bottom: 0,
+              overflowX: needScroll ? 'auto' : 'hidden',
+              overflowY: 'hidden',
             }}
-            className="bg-white p-2 border border-gray-300 rounded-xl shadow-md text-sm"
+            onMouseMove={handleAreaMouseMove}
+            onPointerLeave={handleMouseLeaveChart}
           >
-            <p className="font-medium">{`${getXLabel(hoverIndex)}`}</p>
-            <p className="text-blue-600">
-              {`Value${yLogActive ? ' (log)' : ''}: ${formatTooltip(data[hoverIndex].value)}`}
-            </p>
+            {isLocalTooltipActive && hoverIndex != null && (
+              <div style={getColumnStyle(hoverIndex)} />
+            )}
+
+            {shouldMirror && scrollingToIndex === null &&
+              mappedHighlightedIndices.map((index) => (
+                <div key={`overlay-${index}`} style={getColumnStyle(index)} />
+            ))}
+            
+            {needScroll ? (
+              <List
+                ref={listRef}
+                layout="horizontal"
+                height={height}
+                width={innerWidth}
+                itemCount={values.length}
+                itemSize={itemSize}
+                overscanCount={64}
+                onScroll={onListScroll}
+              >
+                {Item}
+              </List>
+            ) : (
+              <SmallSVG />
+            )}
           </div>
-        )}
 
-        {shouldMirror && scrollingToIndex === null && mappedHighlightedIndices.length > 0 && (() => {
-          const firstMirroredIndex = mappedHighlightedIndices[0];
-          const mirroredTooltipPos = getTooltipPos(firstMirroredIndex);
-
-          if (!mirroredTooltipPos) return null;
-          return (
+          {localTooltipPos && hoverIndex !== null && hoverIndex >= 0 && hoverIndex < data.length && (
             <div
               style={{
                 position: 'absolute',
-                left: mirroredTooltipPos.left,
-                top: mirroredTooltipPos.top,
-                transform: mirroredTooltipPos.transform,
+                left: localTooltipPos.left - LEFT_MARGIN,
+                top: localTooltipPos.top,
+                transform: localTooltipPos.transform,
                 pointerEvents: 'none',
                 zIndex: 99999999,
               }}
               className="bg-white p-2 border border-gray-300 rounded-xl shadow-md text-sm"
             >
-              <p className="font-medium">{`${getXLabel(firstMirroredIndex)}`}</p>
+              <p className="font-medium">{`${getXLabel(hoverIndex)}`}</p>
               <p className="text-blue-600">
-                {`Value${yLogActive ? ' (log)' : ''}: ${formatTooltip(data[firstMirroredIndex].value)}`}
+                {`Value${yLogActive ? ' (log)' : ''}: ${formatTooltip(data[hoverIndex].value)}`}
               </p>
             </div>
-          );
-        })()}
+          )}
+
+          {shouldMirror && scrollingToIndex === null && mappedHighlightedIndices.length > 0 && (() => {
+            const firstMirroredIndex = mappedHighlightedIndices[0];
+            const mirroredTooltipPos = getTooltipPos(firstMirroredIndex);
+
+            if (!mirroredTooltipPos) return null;
+            return (
+              <div
+                style={{
+                  position: 'absolute',
+                  left: mirroredTooltipPos.left - LEFT_MARGIN,
+                  top: mirroredTooltipPos.top,
+                  transform: mirroredTooltipPos.transform,
+                  pointerEvents: 'none',
+                  zIndex: 99999999,
+                }}
+                className="bg-white p-2 border border-gray-300 rounded-xl shadow-md text-sm"
+              >
+                <p className="font-medium">{`${getXLabel(firstMirroredIndex)}`}</p>
+                <p className="text-blue-600">
+                  {`Value${yLogActive ? ' (log)' : ''}: ${formatTooltip(data[firstMirroredIndex].value)}`}
+                </p>
+              </div>
+            );
+          })()}
+        </div>
       </div>
     </>
   );
