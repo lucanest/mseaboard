@@ -156,6 +156,7 @@ const PhyloTreeViewer = ({
     let root = d3.hierarchy(data);
     const leavesCount = root.leaves().length;
     const fontScale = 2.7 * scaleFactor / Math.sqrt(leavesCount / 10 + 1);
+    const minLabelLength = d3.min(root.leaves(), d => (d.data.name || '').length);
     const maxLabelLength = d3.max(root.leaves(), d => (d.data.name || '').length);
     const approxCharWidth = 4;
     const minMargin = 10;
@@ -460,7 +461,7 @@ const PhyloTreeViewer = ({
     if (radial) {
       const leaves = root.leaves();
       const angleStep = (2 * Math.PI) / leaves.length;
-      const outerRadius = radius + margin;
+      const outerRadius = radius + Math.max(minMargin, Math.min(maxMargin, minLabelLength * approxCharWidth));
 
       const arc = d3.arc()
         .innerRadius(radius - 50)
