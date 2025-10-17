@@ -205,6 +205,14 @@ const PhyloTreeViewer = ({
         : [0, 0, size.width, size.height])
       .style('font', '10px sans-serif');
 
+    // Clear highlight whenever the mouse leaves the SVG area
+    svg.on('mousemove', function() {
+        if (d3.event.target === this) {
+            setHighlightedNode(null);
+            onHoverTip?.(null, null);
+        }
+      });
+
     // Legend in upper left
     const legend = svg.append('g')
       .attr('transform', 'translate(20, 20)');
