@@ -1,22 +1,43 @@
-// Heatmap.jsx
 import React, { useRef, useEffect, useState, useMemo } from "react";
 
-function valueToColor(val, min, max, threshold = null) {
+function hexToRgb(hex) {
+  if (!hex) return null;
+  const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+  return result
+    ? [ parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16) ]
+    : null;
+}
+
+function valueToColor(val, min, max, threshold = null, lowColorStr, highColorStr) {
   // Handle NaN or non-finite values by returning black
   if (!Number.isFinite(val)) return "#000000";
 
-  if (max === min) return "#eee";
+  const lowColor = lowColorStr || '#FFFF00';  // Default: Yellow
+  const highColor = highColorStr || '#3C00A0'; // Default: Purple
+
+  if (max === min) return lowColor;
+  
   if (threshold !== null) {
-    // Below threshold: yellow, above: purple
-    return val < threshold ? "rgb(255,255,0)" : "rgb(60,0,160)";
+    return val < threshold ? lowColor : highColor;
   }
+  
   const t = (val - min) / (max - min);
-  // Yellow -> Purple
-  const r = Math.round(255 - 195 * t); // 255 to 60
-  const g = Math.round(255 - 255 * t); // 255 to 0
-  const b = Math.round(0 + 160 * t);   // 0 to 160
+  
+  const c1 = hexToRgb(lowColor);
+  const c2 = hexToRgb(highColor);
+
+  // Fallback to default if hex parsing fails
+  if (!c1 || !c2) {
+    const r_def = Math.round(255 - 195 * t); const g_def = Math.round(255 - 255 * t); const b_def = Math.round(0 + 160 * t);
+    return `rgb(${r_def},${g_def},${b_def})`;
+  }
+
+  const r = Math.round(c1[0] + (c2[0] - c1[0]) * t);
+  const g = Math.round(c1[1] + (c2[1] - c1[1]) * t);
+  const b = Math.round(c1[2] + (c2[2] - c1[2]) * t);
   return `rgb(${r},${g},${b})`;
 }
+
 
 /* ---------- diamond helpers ---------- */
 function drawDiamond(ctx, cx, cy, d) {
@@ -76,6 +97,8 @@ function Heatmap({
   onThresholdChange,
   minVal,
   maxVal,
+  highColor,
+  lowColor,
 }) {
   const containerRef = useRef();
   const canvasRef = useRef();
@@ -338,7 +361,7 @@ const handleColorbarMouseMove = (e) => {
     if (!isDiamondView) {
       for (let i = 0; i < nRows; i++) {
         for (let j = 0; j < nCols; j++) {
-          ctx.fillStyle = valueToColor(matrix[i][j], min, max, threshold);
+          ctx.fillStyle = valueToColor(matrix[i][j], min, max, threshold, lowColor, highColor);
           ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
         }
       }
@@ -359,7 +382,7 @@ const handleColorbarMouseMove = (e) => {
         for (let j = 0; j < i; j++) {
           const val = matrix[i][j];
           const { cx, cy } = dCenterFromIJ(i, j, d, gridWidth);
-          ctx.fillStyle = valueToColor(val, min, max, threshold);
+          ctx.fillStyle = valueToColor(val, min, max, threshold, lowColor, highColor);
           drawDiamond(ctx, cx, cy, d);
           ctx.fill();
         }
@@ -416,7 +439,7 @@ const handleColorbarMouseMove = (e) => {
 
     if (hoverCell && showHoverHighlight)  strokeSel(hoverCell.row, hoverCell.col, "rgb(13,245,241)");
   }, [isDiamondView, matrix, gridWidth, gridHeight, cellSize, nRows, nCols, min, max,
-     hoverCell, highlightedCells, linkedHighlightCellIdx, showGridLines,threshold,showHoverHighlight]);
+     hoverCell, highlightedCells, linkedHighlightCellIdx, showGridLines,threshold,showHoverHighlight, lowColor, highColor]);
 
   let linkedTooltip = null;
   if (
@@ -466,13 +489,13 @@ const handleColorbarMouseMove = (e) => {
   const getColorbarGradient = () => {
     if (threshold === null) {
       return isDiamondView
-        ? `linear-gradient(to top, ${Array.from({ length: 20 }, (_, i) => valueToColor(min + ((max - min) * i) / 19, min, max)).reverse().join(",")})`
-        : `linear-gradient(to right, ${Array.from({ length: 20 }, (_, i) => valueToColor(min + ((max - min) * i) / 19, min, max)).join(",")})`;
+        ? `linear-gradient(to top, ${Array.from({ length: 20 }, (_, i) => valueToColor(min + ((max - min) * i) / 19, min, max, null, lowColor, highColor)).reverse().join(",")})`
+        : `linear-gradient(to right, ${Array.from({ length: 20 }, (_, i) => valueToColor(min + ((max - min) * i) / 19, min, max, null, lowColor, highColor)).join(",")})`;
     } else {
       const steps = 40;
       return isDiamondView
-        ? `linear-gradient(to top, ${Array.from({ length: steps }, (_, i) => { const v = min + ((max - min) * i) / (steps - 1); return valueToColor(v, min, max, threshold); }).reverse().join(",")})`
-        : `linear-gradient(to right, ${Array.from({ length: steps }, (_, i) => { const v = min + ((max - min) * i) / (steps - 1); return valueToColor(v, min, max, threshold); }).join(",")})`;
+        ? `linear-gradient(to top, ${Array.from({ length: steps }, (_, i) => { const v = min + ((max - min) * i) / (steps - 1); return valueToColor(v, min, max, threshold, lowColor, highColor); }).reverse().join(",")})`
+        : `linear-gradient(to right, ${Array.from({ length: steps }, (_, i) => { const v = min + ((max - min) * i) / (steps - 1); return valueToColor(v, min, max, threshold, lowColor, highColor); }).join(",")})`;
     }
   };
 

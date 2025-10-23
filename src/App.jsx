@@ -30,7 +30,7 @@ import { createMatrixView } from './components/MatrixView.js';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SiteStatsButton, LogYButton,
 SeqlogoButton, SequenceButton, DistanceMatrixButton, ZeroOneButton,
- DownloadButton, GitHubButton, SearchButton, TreeButton,
+ DownloadButton, GitHubButton, SearchButton, TreeButton, ColorButton,
  DiamondButton, BranchLengthsButton, PruneButton, SubMSAButton,
  TableChartButton} from './components/Buttons.jsx';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon, ArrowUpOnSquareIcon, ArrowUturnLeftIcon, ArrowUturnRightIcon } from '@heroicons/react/24/outline';
@@ -612,12 +612,35 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
   highlightOrigin, onHighlight, justLinkedPanels,linkBadges, onRestoreLink, colorForLink, onUnlink, onGenerateTree
 }) {
   const { labels, rowLabels, colLabels, matrix, filename, threshold=null, minVal, maxVal } = data || {};
+  const [showColorModal, setShowColorModal] = useState(false);
+  const colorModalRef = useRef(null);
+
   
   // Robustly determine if the matrix is square, supporting old board formats.
   const isSquare = data.isSquare === true || (labels && !rowLabels);
   
   // Default to square view (diamondMode=false) if the property doesn't exist on old boards.
   const diamondMode = data.diamondMode === true;
+
+    useEffect(() => {
+    if (!showColorModal) return;
+    const closeOnEsc = (e) => {
+      if (e.key === 'Escape') setShowColorModal(false);
+    };
+    const closeOnClickOutside = (e) => {
+      if (colorModalRef.current && !colorModalRef.current.contains(e.target)) {
+        setShowColorModal(false);
+      }
+    };
+    document.addEventListener('keydown', closeOnEsc);
+    document.addEventListener('mousedown', closeOnClickOutside);
+    return () => {
+      document.removeEventListener('keydown', closeOnEsc);
+      document.removeEventListener('mousedown', closeOnClickOutside);
+    };
+  }, [showColorModal]);
+
+
   const [containerRef, dims] = useElementSize({ debounceMs: 90 });
   const handleDiamondToggle = useCallback(() => {
   setPanelData(pd => ({
@@ -699,6 +722,10 @@ const handleDownload = useCallback(() => {
   
   const extraButtons = useMemo(() => {
     const buttons = [];
+    buttons.push({
+      element: <ColorButton onClick={() => setShowColorModal(s => !s)} />,
+      tooltip: "Change colors"
+    });
     if (isSquare) {
       buttons.push({ 
         element: <TreeButton onClick={() => onGenerateTree(id)} />,
@@ -719,7 +746,7 @@ const handleDownload = useCallback(() => {
       tooltip: "Download matrix"
     });
     return buttons;
-  }, [id, onGenerateTree, diamondMode, handleDiamondToggle, handleDownload, isSquare]);
+  }, [id, onGenerateTree, diamondMode, handleDiamondToggle, handleDownload, isSquare, setShowColorModal]);
 
   if (!matrix) {
     return (
@@ -754,8 +781,45 @@ return (
           onUnlink={onUnlink}
           colorForLink={colorForLink}
           onRemove={onRemove}
+          forceHideTooltip={showColorModal}
           extraButtons={extraButtons}
     />
+         {showColorModal && (
+       <div ref={colorModalRef} className="absolute top-11 right-3 z-50 bg-white border border-gray-300 rounded-xl shadow px-2 py-2 flex items-center space-x-2">
+         <div className="flex flex-col items-center">
+           <span className="text-xs font-semibold text-gray-600 py-1">High</span>
+           <label className="w-6 h-6 rounded-lg border border-gray-300 cursor-pointer" style={{ backgroundColor: data.highColor || '#3C00A0' }}>
+             <input type="color" className="opacity-0 w-0 h-0" value={data.highColor || '#3C00A0'}
+                    onChange={(e) => setPanelData(p => ({...p, [id]: {...p[id], highColor: e.target.value}}))} />
+           </label>
+         </div>
+         <div className="flex flex-col items-center">
+           <span className="text-xs font-semibold text-gray-600 py-1">Low</span>
+           <label className="w-6 h-6 rounded-lg border border-gray-300 cursor-pointer" style={{ backgroundColor: data.lowColor || '#FFFF00' }}>
+             <input type="color" className="opacity-0 w-0 h-0" value={data.lowColor || '#FFFF00'}
+                    onChange={(e) => setPanelData(p => ({...p, [id]: {...p[id], lowColor: e.target.value}}))} />
+           </label>
+         </div>
+         <div className="flex flex-col items-center">
+           <span className="text-xs font-semibold text-gray-600 py-1">Invert</span>
+           <button
+             onClick={() => {
+              const currentHigh = data.highColor || '#3C00A0';
+              const currentLow = data.lowColor || '#FFFF00';
+              setPanelData(p => ({...p, [id]: {...p[id], highColor: currentLow, lowColor: currentHigh}}));
+            }}
+             className="w-6 h-6 rounded-lg border border-gray-300 bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-300"
+             title="Switch high and low colors"
+           >
+             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+               <path d="M8 7l4-4 4 4"/>
+               <path d="M16 17l-4 4-4-4"/>
+             </svg>
+           </button>
+         </div>
+         
+       </div>
+     )}
     <div ref={containerRef} className="flex-1 p-0 pb-4 pr-1 overflow-hidden">
       {(rowLabels || labels) && matrix ? (
         <Heatmap
@@ -775,6 +839,8 @@ return (
           linkedHighlightCell={data.linkedHighlightCell}
           threshold={threshold}                      
           onThresholdChange={handleThresholdChange}
+          highColor={data.highColor}
+          lowColor={data.lowColor}
         />
       ) : (
         <div className="flex-1 flex items-center justify-center text-gray-400">No data</div>
