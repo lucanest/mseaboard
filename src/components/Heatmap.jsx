@@ -156,20 +156,20 @@ function Heatmap({
   const showGridLines = cellSize > 10;
   const showHoverHighlight = cellSize > 6;
 
-  const { min, max } = useMemo(() => {
+const { min, max } = useMemo(() => {
     // If minVal/maxVal are passed as props, use them directly.
-    // This is the path for the Web Worker data.
     if (typeof minVal === 'number' && typeof maxVal === 'number') {
       return { min: minVal, max: maxVal };
     }
     // Fallback for any case where the props aren't provided
-    // (e.g., loading a pre-worker board). This will fail for MatrixView
-    // but ensures old functionality isn't broken.
     if (matrix && typeof matrix.flat === 'function') {
-        const values = matrix.flat();
+        // Filter out non-finite values (like NaN) before getting min/max
+        const values = matrix.flat().filter(v => Number.isFinite(v));
+        // If there are no valid numbers, return a default range
+        if (values.length === 0) return { min: 0, max: 1 };
         return { min: Math.min(...values), max: Math.max(...values) };
     }
-    // Default values if matrix is invalid or not a real array
+    // Default values if matrix is invalid
     return { min: 0, max: 1 };
   }, [matrix, minVal, maxVal]);
 
