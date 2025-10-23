@@ -2,6 +2,9 @@
 import React, { useRef, useEffect, useState, useMemo } from "react";
 
 function valueToColor(val, min, max, threshold = null) {
+  // Handle NaN or non-finite values by returning black
+  if (!Number.isFinite(val)) return "#000000";
+
   if (max === min) return "#eee";
   if (threshold !== null) {
     // Below threshold: yellow, above: purple
@@ -57,8 +60,10 @@ function topXForIndex(k, gridWidth, n) {
   return k * stepX; // 0 .. gridWidth
 }
 
-function PhylipHeatmap({
-  labels,
+function Heatmap({
+  labels: legacyLabels,
+  rowLabels: rowLabelsProp,
+  colLabels: colLabelsProp,
   matrix,
   onHighlight,
   id,
@@ -77,10 +82,10 @@ function PhylipHeatmap({
   const rafIdRef = useRef(null);
   const lastHoverRef = useRef({ row: null, col: null });
   const [colorbarTooltip, setColorbarTooltip] = useState({
-  visible: false,
-  x: 0,
-  y: 0,
-  value: null,
+    visible: false,
+    x: 0,
+    y: 0,
+    value: null,
   });
 
   const [dims, setDims] = useState({ width: 500, height: 500 });
@@ -91,6 +96,10 @@ function PhylipHeatmap({
     y: 0,
     content: null,
   });
+
+  // Handle both new and legacy label props for backward compatibility
+  const rowLabels = rowLabelsProp || legacyLabels;
+  const colLabels = colLabelsProp || legacyLabels;
 
   // Observe container size
   useEffect(() => {
@@ -107,18 +116,23 @@ function PhylipHeatmap({
     return () => obs.disconnect();
   }, []);
 
-  if (!labels || !matrix) return null;
+  if (!rowLabels || !colLabels || !matrix) return null;
+  
+  const nRows = rowLabels.length;
+  const nCols = colLabels.length;
+  const isSquare = nRows === nCols;
+  
+  // Diamond view only available for square matrices.
+  const isDiamondView = isSquare && diamondView;
 
-  const n = labels.length;
 
   /* ----- responsive label sizing ----- */
   const base = Math.max(0, Math.min(dims.width, dims.height));
   const labelFontSize = Math.max(10, base / 60);
   const hideLabelThreshold = 10.5;
 
-  // In diamond view we render our own top labels; suppress the row/col ones.
-  const hideLabels = diamondView || labelFontSize < hideLabelThreshold || n > 80;
-  const labelSpace = hideLabels ? 4 : Math.ceil(labelFontSize * 2.3);
+  const hideLabels = isDiamondView || labelFontSize < hideLabelThreshold || nRows > 80 || nCols > 80;
+  const labelSpace = hideLabels ? 4 : Math.ceil(labelFontSize * 4.5);
 
   /* ----- grid sizing ----- */
   const availableWidth  = Math.max(dims.width  - labelSpace, 40);
@@ -128,12 +142,12 @@ function PhylipHeatmap({
   let gridWidth;
   let gridHeight;
 
-  if (!diamondView) {
-    cellSize   = Math.min(availableWidth / n, availableHeight / n);
-    gridWidth  = cellSize * n;
-    gridHeight = cellSize * n;
+  if (!isDiamondView) {
+    cellSize   = Math.min(availableWidth / nCols, availableHeight / nRows);
+    gridWidth  = cellSize * nCols;
+    gridHeight = cellSize * nRows;
   } else {
-    const steps = Math.max(n - 1, 1);
+    const steps = Math.max(nRows - 1, 1);
     cellSize    = Math.min(availableWidth, availableHeight) / steps; // diamond diameter
     gridWidth   = cellSize * steps;
     gridHeight  = cellSize * steps; // diamond bounding square height
@@ -148,7 +162,6 @@ function PhylipHeatmap({
     if (typeof minVal === 'number' && typeof maxVal === 'number') {
       return { min: minVal, max: maxVal };
     }
-
     // Fallback for any case where the props aren't provided
     // (e.g., loading a pre-worker board). This will fail for MatrixView
     // but ensures old functionality isn't broken.
@@ -156,7 +169,6 @@ function PhylipHeatmap({
         const values = matrix.flat();
         return { min: Math.min(...values), max: Math.max(...values) };
     }
-
     // Default values if matrix is invalid or not a real array
     return { min: 0, max: 1 };
   }, [matrix, minVal, maxVal]);
@@ -170,13 +182,13 @@ function PhylipHeatmap({
     const y = event.clientY - rect.top;
     if (x < 0 || y < 0 || x >= rect.width || y >= rect.height) return null;
 
-    if (!diamondView) {
+    if (!isDiamondView) {
       const col = Math.floor(x / cellSize);
       const row = Math.floor(y / cellSize);
-      if (row < 0 || col < 0 || row >= n || col >= n) return null;
+      if (row < 0 || col < 0 || row >= nRows || col >= nCols) return null;
       return { row, col, x, y };
     } else {
-      const ij = ijFromXY_D(x, y, cellSize, gridWidth, n);
+      const ij = ijFromXY_D(x, y, cellSize, gridWidth, nRows);
       if (!ij) return null;
       return { row: ij.i, col: ij.j, x, y };
     }
@@ -203,8 +215,8 @@ function PhylipHeatmap({
         x: eventForTooltip.clientX - rect.left + 10,
         y: eventForTooltip.clientY - rect.top - 10,
         content: {
-          rowLabel: labels[row],
-          colLabel: labels[col],
+          rowLabel: rowLabels[row],
+          colLabel: colLabels[col],
           value: val,
         },
       });
@@ -247,7 +259,7 @@ function PhylipHeatmap({
     const bar = e.currentTarget;
     const rect = bar.getBoundingClientRect();
     let value;
-    if (diamondView) {
+    if (isDiamondView) {
       const relY = e.clientY - rect.top;
       value = min + ((relY / rect.height) * (max - min));
       value = Math.max(min, Math.min(max, value));
@@ -268,8 +280,8 @@ function PhylipHeatmap({
     typeof linkedHighlightCell.row === "string" &&
     typeof linkedHighlightCell.col === "string"
   ) {
-    const rowIdx = labels.indexOf(linkedHighlightCell.row);
-    const colIdx = labels.indexOf(linkedHighlightCell.col);
+    const rowIdx = rowLabels.indexOf(linkedHighlightCell.row);
+    const colIdx = colLabels.indexOf(linkedHighlightCell.col);
     if (rowIdx !== -1 && colIdx !== -1) {
       linkedHighlightCellIdx = { row: rowIdx, col: colIdx };
     }
@@ -281,15 +293,13 @@ const handleColorbarMouseMove = (e) => {
   const rect = bar.getBoundingClientRect();
   let value, x, y;
 
-  if (diamondView) {
-    // Vertical colorbar (right side)
+  if (isDiamondView) {
     const relY = e.clientY - rect.top;
     value = min + ((relY / rect.height) * (max - min));
     value = Math.max(min, Math.min(max, value));
     x = rect.left + rect.width + 0 - containerRef.current.getBoundingClientRect().left;
     y = relY + rect.top - containerRef.current.getBoundingClientRect().top;
   } else {
-    // Horizontal colorbar (bottom)
     const relX = e.clientX - rect.left;
     value = min + ((relX / rect.width) * (max - min));
     value = Math.max(min, Math.min(max, value));
@@ -325,9 +335,9 @@ const handleColorbarMouseMove = (e) => {
     }
     ctx.clearRect(0, 0, gridWidth, gridHeight);
 
-    if (!diamondView) {
-      for (let i = 0; i < n; i++) {
-        for (let j = 0; j < n; j++) {
+    if (!isDiamondView) {
+      for (let i = 0; i < nRows; i++) {
+        for (let j = 0; j < nCols; j++) {
           ctx.fillStyle = valueToColor(matrix[i][j], min, max, threshold);
           ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
         }
@@ -335,15 +345,17 @@ const handleColorbarMouseMove = (e) => {
       if (showGridLines) {
         ctx.strokeStyle = "rgba(220,220,220,0.5)";
         ctx.lineWidth = 1 / dpr;
-        for (let i = 1; i < n; i++) {
-          ctx.beginPath(); ctx.moveTo(i * cellSize, 0); ctx.lineTo(i * cellSize, gridHeight); ctx.stroke();
+        for (let i = 1; i < nRows; i++) {
           ctx.beginPath(); ctx.moveTo(0, i * cellSize); ctx.lineTo(gridWidth, i * cellSize); ctx.stroke();
+        }
+        for (let j = 1; j < nCols; j++) {
+            ctx.beginPath(); ctx.moveTo(j * cellSize, 0); ctx.lineTo(j * cellSize, gridHeight); ctx.stroke();
         }
       }
     } else {
       // diamond (lower triangle)
       const d = cellSize;
-      for (let i = 1; i < n; i++) {
+      for (let i = 1; i < nRows; i++) {
         for (let j = 0; j < i; j++) {
           const val = matrix[i][j];
           const { cx, cy } = dCenterFromIJ(i, j, d, gridWidth);
@@ -352,11 +364,10 @@ const handleColorbarMouseMove = (e) => {
           ctx.fill();
         }
       }
-      // thin outlines for legibility
       if (showGridLines) {
       ctx.strokeStyle = "rgba(220,220,220,0.6)";
       ctx.lineWidth = 1 / dpr;
-      for (let i = 1; i < n; i++) {
+      for (let i = 1; i < nRows; i++) {
         for (let j = 0; j < i; j++) {
           const { cx, cy } = dCenterFromIJ(i, j, cellSize, gridWidth);
           drawDiamond(ctx, cx, cy, cellSize);
@@ -370,7 +381,7 @@ const handleColorbarMouseMove = (e) => {
       if (row == null || col == null) return;
       ctx.save();
       ctx.strokeStyle = color; ctx.lineWidth = 2;
-      if (!diamondView) {
+      if (!isDiamondView) {
         ctx.strokeRect(col * cellSize, row * cellSize, cellSize, cellSize);
       } else if (row > col) {
         const { cx, cy } = dCenterFromIJ(row, col, cellSize, gridWidth);
@@ -382,13 +393,31 @@ const handleColorbarMouseMove = (e) => {
       ctx.restore();
     };
 
+    // Highlight for a full column
+    const strokeCol = (col, color) => {
+        if (col == null) return;
+        ctx.save();
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.strokeRect(col * cellSize, 0, cellSize, gridHeight);
+        ctx.restore();
+    }
+
     highlightedCells.forEach(({ row, col }) => strokeSel(row, col, "#cc0066"));
-    if (linkedHighlightCellIdx) strokeSel(linkedHighlightCellIdx.row, linkedHighlightCellIdx.col, "rgb(13,245,241)");
+    
+    // Handle both cell and column highlighting from linked panels
+    if (linkedHighlightCellIdx) {
+        if (linkedHighlightCellIdx.row !== undefined && linkedHighlightCellIdx.col !== undefined) {
+            strokeSel(linkedHighlightCellIdx.row, linkedHighlightCellIdx.col, "rgb(13,245,241)");
+        } else if (linkedHighlightCellIdx.col !== undefined) {
+            strokeCol(linkedHighlightCellIdx.col, "rgb(13,245,241)");
+        }
+    }
+
     if (hoverCell && showHoverHighlight)  strokeSel(hoverCell.row, hoverCell.col, "rgb(13,245,241)");
-  }, [diamondView, matrix, gridWidth, gridHeight, cellSize, n, min, max,
+  }, [isDiamondView, matrix, gridWidth, gridHeight, cellSize, nRows, nCols, min, max,
      hoverCell, highlightedCells, linkedHighlightCellIdx, showGridLines,threshold,showHoverHighlight]);
 
-  /* ----- linked tooltip when not hovered ----- */
   let linkedTooltip = null;
   if (
     linkedHighlightCellIdx &&
@@ -415,7 +444,7 @@ const handleColorbarMouseMove = (e) => {
       >
         <div>
           <strong>
-            {labels[linkedHighlightCellIdx.row]}:{labels[linkedHighlightCellIdx.col]}
+            {rowLabels[linkedHighlightCellIdx.row]}:{colLabels[linkedHighlightCellIdx.col]}
           </strong>
         </div>
         <div>
@@ -427,51 +456,23 @@ const handleColorbarMouseMove = (e) => {
     );
   }
 
-  /* ----- diamond label thinning (for top labels) ----- */
-  const stepX = diamondView && n > 1 ? gridWidth / (n - 1) : 0;
+  const stepX = isDiamondView && nRows > 1 ? gridWidth / (nRows - 1) : 0;
   const minLabelSpacing = Math.max(10, labelFontSize * 1.1); // px between labels
-  const showEvery = diamondView ? Math.max(1, Math.ceil(minLabelSpacing / stepX)) : 1;
-  const diamondHeight = diamondView ? cellSize * (n/2) : 0;
-    const needToHideLegend =
-  diamondView && (labelSpace + gridWidth + 10 + 46 /* legend width */ > dims.width);
+  const showEvery = isDiamondView ? Math.max(1, Math.ceil(minLabelSpacing / stepX)) : 1;
+  const diamondHeight = isDiamondView ? cellSize * (nRows/2) : 0;
+  const needToHideLegend = isDiamondView && (labelSpace + gridWidth + 10 + 46 > dims.width);
   const showLegend = showlegend && !needToHideLegend;
 
-
-    // Colorbar gradient for threshold
   const getColorbarGradient = () => {
     if (threshold === null) {
-      // Normal gradient
-      return diamondView
-        ? `linear-gradient(to top, ${Array.from(
-            { length: 20 },
-            (_, i) => valueToColor(min + ((max - min) * i) / 19, min, max)
-          )
-            .reverse()
-            .join(",")})`
-        : `linear-gradient(to right, ${Array.from(
-            { length: 20 },
-            (_, i) => valueToColor(min + ((max - min) * i) / 19, min, max)
-          ).join(",")})`;
+      return isDiamondView
+        ? `linear-gradient(to top, ${Array.from({ length: 20 }, (_, i) => valueToColor(min + ((max - min) * i) / 19, min, max)).reverse().join(",")})`
+        : `linear-gradient(to right, ${Array.from({ length: 20 }, (_, i) => valueToColor(min + ((max - min) * i) / 19, min, max)).join(",")})`;
     } else {
-      // Thresholded gradient
       const steps = 40;
-      return diamondView
-        ? `linear-gradient(to top, ${Array.from(
-            { length: steps },
-            (_, i) => {
-              const v = min + ((max - min) * i) / (steps - 1);
-              return valueToColor(v, min, max, threshold);
-            }
-          )
-            .reverse()
-            .join(",")})`
-        : `linear-gradient(to right, ${Array.from(
-            { length: steps },
-            (_, i) => {
-              const v = min + ((max - min) * i) / (steps - 1);
-              return valueToColor(v, min, max, threshold);
-            }
-          ).join(",")})`;
+      return isDiamondView
+        ? `linear-gradient(to top, ${Array.from({ length: steps }, (_, i) => { const v = min + ((max - min) * i) / (steps - 1); return valueToColor(v, min, max, threshold); }).reverse().join(",")})`
+        : `linear-gradient(to right, ${Array.from({ length: steps }, (_, i) => { const v = min + ((max - min) * i) / (steps - 1); return valueToColor(v, min, max, threshold); }).join(",")})`;
     }
   };
 
@@ -481,7 +482,6 @@ const handleColorbarMouseMove = (e) => {
     className="flex-1 relative overflow-visible w-full h-full"
     style={{ display: "flex", flexDirection: "column" }}
   >
-    {/* Row wrapper so the legend can live OUTSIDE the grid+labels block */}
     <div
       style={{
         display: "flex",
@@ -491,18 +491,16 @@ const handleColorbarMouseMove = (e) => {
         position: "relative",
       }}
     >
-      {/* ---- Heatmap block (grid + its own labels) ---- */}
       <div
         className="relative"
         style={{
           width: gridWidth + labelSpace,
           height: gridHeight + labelSpace,
           fontFamily: "monospace",
-          marginTop: diamondView ? 30 : 0,
+          marginTop: isDiamondView ? 30 : 0,
         }}
       >
-        {/* Column/Row labels for square view only */}
-        {!diamondView && !hideLabels && (
+        {!isDiamondView && !hideLabels && (
           <div
             style={{
               position: "absolute",
@@ -516,7 +514,7 @@ const handleColorbarMouseMove = (e) => {
             }}
             aria-hidden={hideLabels}
           >
-            {labels.map((label, col) => (
+            {colLabels.map((label, col) => (
               <div
                 key={col}
                 className="text-xs font-bold text-center"
@@ -531,6 +529,8 @@ const handleColorbarMouseMove = (e) => {
                   backgroundColor:
                     hoverCell?.col === col ? "rgba(255,255,0,0.6)" : "transparent",
                   transition: "background-color 0.2s",
+                  writingMode: 'vertical-rl',
+                  transform: 'rotate(180deg)'
                 }}
                 title={label}
               >
@@ -540,7 +540,7 @@ const handleColorbarMouseMove = (e) => {
           </div>
         )}
 
-        {!diamondView && !hideLabels && (
+        {!isDiamondView && !hideLabels && (
           <div
             style={{
               position: "absolute",
@@ -554,7 +554,7 @@ const handleColorbarMouseMove = (e) => {
             }}
             aria-hidden={hideLabels}
           >
-            {labels.map((label, row) => (
+            {rowLabels.map((label, row) => (
               <div
                 key={row}
                 className="text-xs font-bold text-right"
@@ -578,7 +578,6 @@ const handleColorbarMouseMove = (e) => {
           </div>
         )}
 
-        {/* Heatmap grid - canvas */}
         <div
           onMouseMove={handleGridMouseMove}
           onPointerLeave={handleGridMouseLeave}
@@ -594,24 +593,22 @@ const handleColorbarMouseMove = (e) => {
           <canvas ref={canvasRef} />
         </div>
 
-        {/* --- diamond top ticks + labels --- */}
-        {diamondView && (
+        {isDiamondView && (
           <>
-            {/* ticks */}
             <svg
               style={{
                 position: "absolute",
                 left: labelSpace,
-                top: labelSpace + diamondHeight, // sit right below the diamond
+                top: labelSpace + diamondHeight,
                 width: gridWidth,
                 height: 12,
                 overflow: "visible",
                 pointerEvents: "none",
               }}
             >
-              {labels.map((lab, k) => {
+              {rowLabels.map((lab, k) => {
                 if (k % showEvery !== 0) return null;
-                const x = topXForIndex(k, gridWidth, n);
+                const x = topXForIndex(k, gridWidth, nRows);
                 return (
                   <line
                     key={`tick-${k}`}
@@ -626,7 +623,6 @@ const handleColorbarMouseMove = (e) => {
               })}
             </svg>
 
-            {/* text labels */}
             <div
               style={{
                 position: "absolute",
@@ -640,9 +636,9 @@ const handleColorbarMouseMove = (e) => {
                 pointerEvents: "none",
               }}
             >
-              {labels.map((lab, k) => {
+              {rowLabels.map((lab, k) => {
                 if (k % showEvery !== 0) return null;
-                const x = topXForIndex(k, gridWidth, n);
+                const x = topXForIndex(k, gridWidth, nRows);
                 return (
                   <div
                     key={`lab-${k}`}
@@ -668,8 +664,7 @@ const handleColorbarMouseMove = (e) => {
         )}
       </div>
 
-      {/* ---- Colorbar outside the grid+labels area (right side) ---- */}
- {showLegend && diamondView && (
+ {showLegend && isDiamondView && (
       <div
         style={{
           marginLeft: 0,
@@ -698,7 +693,6 @@ const handleColorbarMouseMove = (e) => {
           onMouseLeave={handleColorbarMouseLeave}
           onClick={handleColorbarClick}
         />
-          {/* Tick labels to the right of the bar */}
           <div
             style={{
               position: "absolute",
@@ -728,7 +722,6 @@ const handleColorbarMouseMove = (e) => {
       )}
     </div>
 
-    {/* Tooltip for hover */}
     {tooltip.visible && tooltip.content && (
       <div
         className="absolute pointer-events-none z-50 bg-black text-white text-sm px-2 py-1 rounded-lg shadow-lg"
@@ -746,18 +739,14 @@ const handleColorbarMouseMove = (e) => {
           </strong>
         </div>
         <div>
-          <strong>{tooltip.content.value.toFixed(4)}</strong>{" "}
+          <strong>{Number.isFinite(tooltip.content.value) ? tooltip.content.value.toFixed(4) : 'N/A'}</strong>
         </div>
       </div>
     )}
 
-    {/* Tooltip for linked highlight cell */}
     {linkedTooltip}
 
-
-    {/* Bottom color legend for square view */}
- {/* Bottom color legend for square view */}
-    {showlegend && !diamondView && (
+    {showlegend && !isDiamondView && (
       <div
         style={{
           width: gridWidth,
@@ -804,8 +793,6 @@ const handleColorbarMouseMove = (e) => {
       </div>
     )}
 
-    {/* Tooltip for colorbar */}
-
     {colorbarTooltip.visible && (
   <div
     className="absolute pointer-events-none z-50 bg-white text-black text-xs px-2 py-1 rounded"
@@ -823,4 +810,4 @@ const handleColorbarMouseMove = (e) => {
 );
     }
 
-export default React.memo(PhylipHeatmap);
+export default React.memo(Heatmap);

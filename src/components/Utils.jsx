@@ -1098,3 +1098,66 @@ export function computeTreeStats(newickString) {
     throw new Error(`Failed to compute tree statistics: ${error.message}`);
   }
 }
+/**
+ * Parses a TSV or CSV formatted string into a matrix and its labels.
+ * It robustly detects and filters out non-numeric columns by checking that
+ * all non-empty values in a column are numeric. Cells that are empty or
+ * non-numeric within an otherwise numeric column are converted to NaN.
+ *
+ * @param {string} text The raw text content of the file.
+ * @returns {{rowLabels: string[], colLabels: string[], matrix: number[][], isSquare: boolean, isDistanceMatrix: boolean}}
+ */
+export function parseTsvMatrix(text) {
+  const lines = text.trim().split(/\r?\n/).filter(line => line.trim() !== '');
+  if (lines.length < 2) {
+    throw new Error("Matrix file must have at least a header row and one data row.");
+  }
+
+  const delimiter = lines[0].includes('\t') ? '\t' : ',';
+  const headerCols = lines[0].split(delimiter).slice(1).map(label => label.trim());
+  const dataRowsAsCols = lines.slice(1).map(line => line.split(delimiter).slice(1));
+
+  const numericColumnIndices = [];
+  // Iterate through each original column index
+  for (let i = 0; i < headerCols.length; i++) {
+    // Assume a column is numeric until proven otherwise
+    let isColumnNumeric = true;
+    // Check every row for this column
+    for (let j = 0; j < dataRowsAsCols.length; j++) {
+      const val = dataRowsAsCols[j][i];
+      // If the value is not empty and is not a number, the column is disqualified.
+      if (val && val.trim() !== '' && isNaN(parseFloat(val.trim()))) {
+        isColumnNumeric = false;
+        break; // No need to check other rows for this column
+      }
+    }
+    if (isColumnNumeric) {
+      numericColumnIndices.push(i);
+    }
+  }
+
+  if (numericColumnIndices.length === 0) {
+    throw new Error("No numeric data columns were found in the file. Cannot create a heatmap.");
+  }
+
+  const colLabels = headerCols.filter((_, index) => numericColumnIndices.includes(index));
+  const rowLabels = lines.slice(1).map(line => line.split(delimiter)[0].trim());
+  
+  const matrix = dataRowsAsCols.map(row => {
+    return numericColumnIndices.map(index => {
+      const val = row[index];
+      // FINAL LOGIC: Parse valid numbers, but convert any empty,
+      // undefined, or non-numeric cell to NaN.
+      const parsed = parseFloat(val);
+      return isNaN(parsed) ? NaN : parsed;
+    });
+  });
+  
+  return {
+    rowLabels,
+    colLabels,
+    matrix,
+    isSquare: rowLabels.length === colLabels.length,
+    isDistanceMatrix: false,
+  };
+}

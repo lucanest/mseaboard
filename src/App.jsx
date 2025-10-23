@@ -39,12 +39,12 @@ newickToDistanceMatrix, detectFileType, toFasta, toPhylip, computeSiteStats, bui
 computeNormalizedHammingMatrix, pickAlignedSeqForChain, chainIdFromSeqId, residueIndexToMsaCol, 
 reorderHeatmapByLeafOrder, reorderMsaByLeafOrder, distanceMatrixFromAtoms, msaColToResidueIndex,
 parsePdbChains, mkDownload, baseName, msaToPhylip, computeCorrelationMatrix, uint8ArrayToBase64, base64ToUint8Array,
-computeTreeStats, 
+computeTreeStats, parseTsvMatrix
 } from './components/Utils.jsx';
 import { residueColors, logoColors, linkpalette } from './constants/colors.js';
 import { TitleFlip, AnimatedList } from './components/Animations.jsx';
 import PhyloTreeViewer from './components/PhyloTreeViewer.jsx';
-import PhylipHeatmap from "./components/Heatmap";
+import Heatmap from "./components/Heatmap.jsx";
 import Histogram from './components/Histogram.jsx';
 import TableViewer from './components/TableViewer.jsx';
 import SequenceLogoCanvas from './components/Seqlogo.jsx';
@@ -611,7 +611,13 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
   hoveredPanelId, setHoveredPanelId, setPanelData, onReupload, highlightedSite, panelLinks,
   highlightOrigin, onHighlight, justLinkedPanels,linkBadges, onRestoreLink, colorForLink, onUnlink, onGenerateTree
 }) {
-  const { labels, matrix, filename, diamondMode=false, threshold=null, minVal, maxVal } = data || {};
+  const { labels, rowLabels, colLabels, matrix, filename, threshold=null, minVal, maxVal } = data || {};
+  
+  // Robustly determine if the matrix is square, supporting old board formats.
+  const isSquare = data.isSquare === true || (labels && !rowLabels);
+  
+  // Default to square view (diamondMode=false) if the property doesn't exist on old boards.
+  const diamondMode = data.diamondMode === true;
   const [containerRef, dims] = useElementSize({ debounceMs: 90 });
   const handleDiamondToggle = useCallback(() => {
   setPanelData(pd => ({
@@ -622,11 +628,39 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
     }
   }));
 }, [id, setPanelData, diamondMode]);
-  const handleDownload = useCallback(() => {
-    const base = baseName(filename, 'distmatrix');
-    const content = toPhylip(labels, matrix);
-    mkDownload(base, content, 'phy')();
-  }, [filename, labels, matrix]);
+const handleDownload = useCallback(() => {
+    const base = baseName(filename, 'matrix_data');
+    
+    // CONVERSION STEP: If the matrix is a proxy (its rows aren't arrays),
+    // convert it to a standard 2D JavaScript array before proceeding.
+    let matrixForDownload = matrix;
+    if (matrix && matrix.length > 0 && !Array.isArray(matrix[0])) {
+      const n = matrix.length;
+      matrixForDownload = Array.from({ length: n }, (_, i) =>
+        Array.from({ length: n }, (_, j) => matrix[i][j])
+      );
+    }
+    
+    if (isSquare) {
+      // Handle square matrices (distance matrices) -> PHYLIP format
+      const downloadLabels = rowLabels || labels;
+      if (!downloadLabels) return; 
+      const content = toPhylip(downloadLabels, matrixForDownload); // Use the converted matrix
+      mkDownload(base, content, 'phy')();
+    } else {
+      // Handle non-square matrices -> TSV format
+      if (!rowLabels || !colLabels) return;
+      
+      const header = ['', ...colLabels].join('\t');
+      const dataRows = matrixForDownload.map((row, i) => { // Use the converted matrix
+        return [rowLabels[i], ...row.map(val => val.toFixed(4))].join('\t');
+      });
+      
+      const content = [header, ...dataRows].join('\n');
+      mkDownload(base, content, 'tsv')();
+    }
+  }, [filename, isSquare, rowLabels, colLabels, labels, matrix]);
+
   const handleCellClick = (cell, id) => {
     setPanelData(prev => {
       const current = prev[id] || {};
@@ -663,27 +697,31 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
     [id, setPanelData]
   );
   
-  const extraButtons = useMemo(() => [
-    { 
-      element: <TreeButton onClick={() => onGenerateTree(id)} />,
-      tooltip: (
-        <>
-        Build tree from distances<br />
-        <span className="text-xs text-gray-600">Neighbor-Joining</span>
-        </>
-      )
-    },
-    { 
-      element: diamondMode ? <DistanceMatrixButton onClick={handleDiamondToggle} /> : <DiamondButton onClick={handleDiamondToggle} />,
-      tooltip: diamondMode ? <>Switch to square view</> : <>Switch to diamond view</>
-    },
-    { 
-      element: <DownloadButton onClick={handleDownload} />,
-      tooltip: "Download distance matrix" 
+  const extraButtons = useMemo(() => {
+    const buttons = [];
+    if (isSquare) {
+      buttons.push({ 
+        element: <TreeButton onClick={() => onGenerateTree(id)} />,
+        tooltip: (
+          <>
+          Build tree from distances<br />
+          <span className="text-xs text-gray-600">Neighbor-Joining</span>
+          </>
+        )
+      });
+      buttons.push({ 
+        element: diamondMode ? <DistanceMatrixButton onClick={handleDiamondToggle} /> : <DiamondButton onClick={handleDiamondToggle} />,
+        tooltip: diamondMode ? <>Switch to square view</> : <>Switch to diamond view</>
+      });
     }
-  ], [id, onGenerateTree, diamondMode, handleDiamondToggle, handleDownload]);
+    buttons.push({ 
+      element: <DownloadButton onClick={handleDownload} />,
+      tooltip: "Download matrix"
+    });
+    return buttons;
+  }, [id, onGenerateTree, diamondMode, handleDiamondToggle, handleDownload, isSquare]);
 
-  if (!labels || !matrix) {
+  if (!matrix) {
     return (
       <PanelContainer id={id} hoveredPanelId={hoveredPanelId} setHoveredPanelId={setHoveredPanelId}>
         <PanelHeader {...{id, filename, setPanelData, onDuplicate, onLinkClick, isLinkModeActive, onRemove,}}/>
@@ -718,24 +756,25 @@ return (
           onRemove={onRemove}
           extraButtons={extraButtons}
     />
-    {/* padding container around the heatmap */}
     <div ref={containerRef} className="flex-1 p-0 pb-4 pr-1 overflow-hidden">
-      {labels && matrix ? (
-        <PhylipHeatmap
-        id={id}
-        labels={labels}
-        matrix={matrix}
-        minVal={minVal}
-        maxVal={maxVal}
-        highlightSite={highlightedSite}
-        highlightOrigin={highlightOrigin}
-        onHighlight={onHighlight}
-        onCellClick={handleCellClick}
-        diamondView={diamondMode}
-        highlightedCells={data.highlightedCells || []}
-        linkedHighlightCell={data.linkedHighlightCell}
-        threshold={threshold}                      
-        onThresholdChange={handleThresholdChange}
+      {(rowLabels || labels) && matrix ? (
+        <Heatmap
+          id={id}
+          labels={labels}
+          rowLabels={rowLabels}
+          colLabels={colLabels}
+          matrix={matrix}
+          minVal={minVal}
+          maxVal={maxVal}
+          highlightSite={highlightedSite}
+          highlightOrigin={highlightOrigin}
+          onHighlight={onHighlight}
+          onCellClick={handleCellClick}
+          diamondView={isSquare && diamondMode}
+          highlightedCells={data.highlightedCells || []}
+          linkedHighlightCell={data.linkedHighlightCell}
+          threshold={threshold}                      
+          onThresholdChange={handleThresholdChange}
         />
       ) : (
         <div className="flex-1 flex items-center justify-center text-gray-400">No data</div>
@@ -3125,17 +3164,16 @@ const handleStructureDistanceMatrix = useCallback((sourcePanelId, calculationRes
   const sourcePanelData = panelData[sourcePanelId];
   if (!sourcePanelData) return;
 
-  // UPDATE THE CALL to use the new factory function
   const matrix = createMatrixView(buffer, n);
-
-  // ... (the rest of the function is identical)
   const base = baseName(sourcePanelData.filename, 'structure');
   const suffix = sourcePanelData.chainChoice || 'dist';
 
   addPanel({
     type: 'heatmap',
     data: { 
-      labels, 
+      rowLabels: labels,
+      colLabels: labels,
+      isSquare: true,
       matrix, 
       filename: `${base}_${suffix}.phy`,
       minVal: 0,
@@ -3301,7 +3339,9 @@ const handleGenerateCorrelationMatrix = useCallback((id) => {
     addPanel({
       type: 'heatmap',
       data: { 
-        labels,
+        rowLabels: labels,
+        colLabels: labels,
+        isSquare: true,
         matrix,
         filename: `${base}_corr.phy`,
       },
@@ -3321,7 +3361,7 @@ const handleTreeToDistance = useCallback((id) => {
     const base = (treeData.filename ? treeData.filename : 'tree');
     addPanel({
       type: 'heatmap',
-      data: { labels, matrix, filename: `${base}.phy` },
+      data: { rowLabels: labels, colLabels: labels, isSquare: true, matrix, filename: `${base}.phy` },
       basedOnId: id,
       layoutHint: { w: 4, h: 16 },
       autoLinkTo: id,
@@ -3345,7 +3385,7 @@ const handleAlignmentToDistance = useCallback((id) => {
   const base = (a.filename ? a.filename : 'alignment');
   addPanel({
     type: 'heatmap',
-    data: { labels, matrix, filename: `${base}.phy` },
+    data: { rowLabels: labels, colLabels: labels, isSquare: true, matrix, filename: `${base}.phy` },
     basedOnId: id,
     layoutHint: { w: 4, h: 16 },
     autoLinkTo: id,
@@ -3354,13 +3394,13 @@ const handleAlignmentToDistance = useCallback((id) => {
 
 const handleHeatmapToTree = useCallback((id) => {
   const heatmapData = panelData[id];
-  if (!heatmapData?.labels || !heatmapData?.matrix) {
+  if (!heatmapData?.rowLabels || !heatmapData?.matrix || !heatmapData?.isSquare) {
     alert('No valid distance matrix data found.');
     return;
   }
 
   try {
-    const newickString = buildTreeFromDistanceMatrix(heatmapData.labels, heatmapData.matrix);
+    const newickString = buildTreeFromDistanceMatrix(heatmapData.rowLabels, heatmapData.matrix);
     
     const baseName = (heatmapData.filename || 'distance_matrix').replace(/\.[^.]+$/, '');
     
@@ -3453,9 +3493,10 @@ const handleLinkClick = useCallback((id) => {
                             nextPresent.panelData = { ...nextPresent.panelData, [alnId]: { ...nextPresent.panelData[alnId], data: reordered }};
                         }
                         const hmId = panelA.type === 'heatmap' ? a : (panelB.type === 'heatmap' ? b : null);
-                        if (hmId && nextPresent.panelData[hmId]?.labels && nextPresent.panelData[hmId]?.matrix) {
-                            const { labels, matrix } = reorderHeatmapByLeafOrder(nextPresent.panelData[hmId].labels, nextPresent.panelData[hmId].matrix, leafOrder);
-                            nextPresent.panelData = { ...nextPresent.panelData, [hmId]: { ...nextPresent.panelData[hmId], labels, matrix }};
+                        if (hmId && nextPresent.panelData[hmId]?.rowLabels && nextPresent.panelData[hmId]?.matrix) {
+                            const { labels, matrix } = reorderHeatmapByLeafOrder(nextPresent.panelData[hmId].rowLabels, nextPresent.panelData[hmId].matrix, leafOrder);
+                            const updatedData = { ...nextPresent.panelData[hmId], rowLabels: labels, colLabels: labels, matrix };
+                            nextPresent.panelData = { ...nextPresent.panelData, [hmId]: updatedData};
                         }
                     }
                 }
@@ -3487,6 +3528,61 @@ const panelsRef = useRef(panels);
 
   const alignmentStructureChainCacheRef = useRef(alignmentStructureChainCache);
   useEffect(() => { alignmentStructureChainCacheRef.current = alignmentStructureChainCache; }, [alignmentStructureChainCache]);
+
+  const dataSignature = useMemo(() => {
+    // This creates a stable string representing the data we care about for linking.
+    // It will not change when transient highlights are added to panelData.
+    return panels
+      .map(p => {
+        const d = panelData[p.i];
+        if (!d) return '';
+        if (p.type === 'alignment') return d.data?.[0]?.id || ''; // Use first seq ID as proxy
+        if (p.type === 'heatmap') return (d.rowLabels || d.labels)?.[0] || ''; // Use first label as proxy
+        return '';
+      })
+      .join('|');
+  }, [panels, panelData]);
+
+const linkTypeCache = useMemo(() => {
+    const cache = {};
+    if (!panelLinks || !panelData || !panels) return cache;
+
+    Object.keys(panelLinks).forEach(sourceId => {
+      const sourcePanel = panels.find(p => p.i === sourceId);
+      if (!sourcePanel) return;
+
+      const targets = Array.isArray(panelLinks[sourceId]) ? panelLinks[sourceId] : [panelLinks[sourceId]];
+      targets.forEach(targetId => {
+        const targetPanel = panels.find(p => p.i === targetId);
+        if (!targetPanel) return;
+
+        // Specifically create cache entries for heatmap <-> alignment links
+        if ((sourcePanel.type === 'heatmap' && targetPanel.type === 'alignment')) {
+          const key = pairKey(sourceId, targetId);
+
+          const heatmapData = panelData[sourceId];
+          const msaData = panelData[targetId];
+
+          if (!heatmapData || !msaData?.data) {
+            cache[key] = 'columnar'; // Default if data is missing
+            return;
+          }
+          const heatmapLabels = heatmapData.rowLabels || heatmapData.labels;
+          if (!heatmapLabels) {
+            cache[key] = 'columnar';
+            return;
+          }
+          
+          const msaSeqIds = new Set(msaData.data.map(seq => seq.id));
+          const isPairwise = heatmapLabels.some(label => msaSeqIds.has(label));
+          
+          cache[key] = isPairwise ? 'pairwise' : 'columnar';
+        }
+      });
+    });
+    //console.log("Recomputed Link Type Cache:", cache);
+    return cache;
+  }, [panelLinks, dataSignature, panels, pairKey]);
 
 const handleHighlight = useCallback((site, originId) => {
     setHighlightSite(prevSite => {
@@ -3524,8 +3620,12 @@ const handleHighlight = useCallback((site, originId) => {
           if (sourcePanel.type === 'heatmap' && targetPanel.type === 'alignment') {
             setPanelData(prev => {
               const cur = prev[targetId] || {};
-              if (!cur.linkedHighlights || cur.linkedHighlights.length === 0) return prev;
-              return { ...prev, [targetId]: { ...cur, linkedHighlights: [] } };
+              // Return early if there's nothing to clear
+              if ((!cur.linkedHighlights || cur.linkedHighlights.length === 0) && cur.linkedSiteHighlight == null) {
+                return prev;
+              }
+              // Clear both sequence highlights and the site highlight
+              return { ...prev, [targetId]: { ...cur, linkedHighlights: [], linkedSiteHighlight: undefined } };
             });
           }
           if (sourcePanel.type === 'heatmap' && targetPanel.type === 'structure') {
@@ -3591,9 +3691,9 @@ const handleHighlight = useCallback((site, originId) => {
 
           const handlers = {
             'heatmap->tree': () => {
-              const { labels } = currentPanelData[originId] || {};
-              if (!labels || !site?.row?.toString || !site?.col?.toString) return;
-              const leaf1 = labels[site.row], leaf2 = labels[site.col];
+              const { rowLabels } = currentPanelData[originId] || {};
+              if (!rowLabels || !site?.row?.toString || !site?.col?.toString) return;
+              const leaf1 = rowLabels[site.row], leaf2 = rowLabels[site.col];
               setPanelData(prev => {
                 const cur = prev[targetId] || {};
                 const next = [leaf1, leaf2];
@@ -3602,23 +3702,58 @@ const handleHighlight = useCallback((site, originId) => {
                 return { ...prev, [targetId]: { ...cur, linkedHighlights: next } };
               });
             },
-            'heatmap->alignment': () => {
-              const { labels } = currentPanelData[originId] || {};
-              if (!labels || typeof site?.row !== 'number' || typeof site?.col !== 'number') return;
-              const leaf1 = labels[site.row], leaf2 = labels[site.col];
-              setPanelData(prev => {
-                const cur = prev[targetId] || {};
-                const next = [leaf1, leaf2];
-                const same = Array.isArray(cur.linkedHighlights) && cur.linkedHighlights.length === 2 && cur.linkedHighlights[0] === next[0] && cur.linkedHighlights[1] === next[1];
-                if (same) return prev;
-                return { ...prev, [targetId]: { ...cur, linkedHighlights: next } };
-              });
+              'heatmap->alignment': () => {
+              const sourceData = currentPanelData[originId];
+              const targetData = currentPanelData[targetId];
+              if (!sourceData || !targetData) return;
+
+              // Perform a simple lookup instead of a dynamic check.
+              const key = pairKey(originId, targetId);
+              const linkingType = linkTypeCache[key]; // Will be 'pairwise' or 'columnar'
+
+              if (linkingType === 'pairwise') {
+                // Behavior 1: Original pairwise linking for distance matrices.
+                const heatmapLabels = sourceData.rowLabels || sourceData.labels;
+                if (!heatmapLabels || typeof site?.row !== 'number' || typeof site?.col !== 'number') return;
+                
+                const leaf1 = heatmapLabels[site.row];
+                const leaf2 = heatmapLabels[site.col];
+                setPanelData(prev => {
+                  const cur = prev[targetId] || {};
+                  const next = [leaf1, leaf2];
+                  if (JSON.stringify(cur.linkedHighlights) === JSON.stringify(next)) return prev;
+                  return { ...prev, [targetId]: { ...cur, linkedHighlights: next } };
+                });
+              } else { // 'columnar' or undefined (defaults to columnar)
+                // Behavior 2: New columnar linking for non-distance matrices.
+                const { colLabels } = sourceData;
+                if (!colLabels || typeof site?.col !== 'number') return;
+                const colLabel = colLabels[site.col];
+
+                const match = colLabel.match(/(\d+)\s*$/);
+                if (!match || !match[1]) return;
+
+                const siteNum = parseInt(match[1], 10);
+                const msaColIndex = siteNum - 1;
+                const isCodon = !!targetData.codonMode;
+                
+                setPanelData(prev => ({
+                    ...prev,
+                    [targetId]: { ...prev[targetId], linkedSiteHighlight: msaColIndex }
+                }));
+
+                setScrollPositions(prev => {
+                    const v = msaColIndex * (isCodon ? 3 : 1) * CELL_SIZE;
+                    if (prev[targetId] === v) return prev;
+                    return { ...prev, [targetId]: v };
+                });
+              }
             },
             'heatmap->heatmap': () => {
-              const { labels } = currentPanelData[originId] || {};
-              if (!labels || typeof site?.row !== 'number' || typeof site?.col !== 'number') return;
-              const rowLabel = labels[site.row];
-              const colLabel = labels[site.col];
+              const { rowLabels, colLabels } = currentPanelData[originId] || {};
+              if (!rowLabels || !colLabels || typeof site?.row !== 'number' || typeof site?.col !== 'number') return;
+              const rowLabel = rowLabels[site.row];
+              const colLabel = colLabels[site.col];
               setPanelData(prev => {
                 const cur = prev[targetId] || {};
                 const next = { row: rowLabel, col: colLabel };
@@ -3628,16 +3763,16 @@ const handleHighlight = useCallback((site, originId) => {
               });
             },
             'heatmap->structure': () => {
-              const { labels } = currentPanelData[originId] || {};
-              if (!labels || typeof site?.row !== 'number' || typeof site?.col !== 'number') return;
+              const { rowLabels } = currentPanelData[originId] || {};
+              if (!rowLabels || typeof site?.row !== 'number' || typeof site?.col !== 'number') return;
               const parseLabel = (lbl) => {
                 const m = String(lbl).trim().match(/^([A-Za-z0-9]):(\d+)([A-Za-z]?)$/);
                 if (!m) return null;
                 const [, chainId, resiStr, icode] = m;
                 return { chainId, resi: Number(resiStr), icode: icode || '' };
               };
-              const a = parseLabel(labels[site.row]);
-              const b = parseLabel(labels[site.col]);
+              const a = parseLabel(rowLabels[site.row]);
+              const b = parseLabel(rowLabels[site.col]);
               const list = [a, b].filter(Boolean);
               setPanelData(prev => {
                 const cur = prev[targetId] || {};
@@ -3832,7 +3967,7 @@ const handleHighlight = useCallback((site, originId) => {
       });
       return site;
     });
-  }, [panelLinks, setPanelData, setScrollPositions]);
+  }, [panelLinks, setPanelData, setScrollPositions, linkTypeCache, pairKey]);
 
  useEffect(() => {
     // This effect acts as a safeguard. If a highlight is active (highlightOrigin is set)
@@ -3920,8 +4055,13 @@ const handleFileUpload = async (e) => {
         }
     } else if (type === 'heatmap') {
         const text = await file.text();
-        const parsed = parsePhylipDistanceMatrix(text);
-        panelPayload = { ...parsed, filename };
+        const lower = filename.toLowerCase();
+        if (lower.endsWith('.tsv') || lower.endsWith('.csv')) {
+            panelPayload = { ...parseTsvMatrix(text), filename };
+        } else {
+            const parsed = parsePhylipDistanceMatrix(text);
+            panelPayload = { ...parsed, filename, isSquare: true, rowLabels: parsed.labels, colLabels: parsed.labels };
+        }
     } else if (type === 'structure') {
         const text = await file.text();
         panelPayload = { pdb: text, filename };
@@ -4017,28 +4157,30 @@ const handleFileUpload = async (e) => {
     return out;
   };
 
-  const rehydrateBoardState = (board) => {
+const rehydrateBoardState = (board) => {
   if (!board || !board.panelData || !board.panels) {
     return board;
   }
 
-  // Find all heatmap panels
   const heatmapPanels = board.panels.filter(p => p.type === 'heatmap');
 
   for (const panel of heatmapPanels) {
     const panelData = board.panelData[panel.i];
+    if (!panelData) continue;
 
-    // Check if the matrix is a plain object from a loaded board
-    // A real matrix is a Proxy, which is a function. A loaded one is an object.
-    if (panelData && panelData.matrix && typeof panelData.matrix === 'object' && panelData.matrix.n && panelData.matrix.data) {
-        
-        // The JSON data will be an object like { "0": val, "1": val, ... }
-        // We need to convert this back to a flat array of numbers.
+    // Re-create matrix proxy if it's a plain object
+    if (panelData.matrix && typeof panelData.matrix === 'object' && panelData.matrix.n && panelData.matrix.data) {
         const flatValues = Object.values(panelData.matrix.data);
         const buffer = new Float64Array(flatValues).buffer;
-
-        // Re-create the proxy and replace the plain object with it
         panelData.matrix = createMatrixView(buffer, panelData.matrix.n);
+    }
+
+    // Normalize old heatmap data format to new format upon loading
+    // This ensures linking and other functions work correctly.
+    if (panelData.labels && !panelData.rowLabels) {
+        panelData.rowLabels = panelData.labels;
+        panelData.colLabels = panelData.labels;
+        panelData.isSquare = true;
     }
   }
 
@@ -4271,7 +4413,6 @@ const buildPanelPayloadFromFile = async (file) => {
         return obj;
       });
       
-      // Determine the default X column and use it for detection.
       const defaultXCol = headers.find(h => typeof rows[0]?.[h] === 'number') || headers[0];
       const xValues = rows.map(r => r[defaultXCol]);
       const indexingMode = detectIndexingMode(xValues);
@@ -4292,8 +4433,12 @@ const buildPanelPayloadFromFile = async (file) => {
     }
   if (kind === 'heatmap') {
     try {
+        const lower = filename.toLowerCase();
+        if (lower.endsWith('.tsv') || lower.endsWith('.csv')) {
+            return { type: 'heatmap', payload: { ...parseTsvMatrix(text), filename } };
+        }
       const parsed = parsePhylipDistanceMatrix(text);
-      return { type: 'heatmap', payload: { ...parsed, filename } };
+      return { type: 'heatmap', payload: { ...parsed, filename, isSquare: true, rowLabels: parsed.labels, colLabels: parsed.labels } };
     } catch {
       // fall back to unknown
     }
@@ -4776,13 +4921,13 @@ const handleRestoreSession = useCallback(() => {
   <DelayedTooltip delay={135} top={52}
     trigger={
 
-            <button onClick={() => triggerUpload('heatmap')}  className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-red-200 text-black px-4 py-2 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl leading-tight transition">
-            Distance Matrix
+            <button onClick={() => triggerUpload('heatmap')}  className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-red-200 text-black px-4 py-4 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl leading-tight transition">
+            Matrix
             </button>}
   >
-    <b>Upload Distance Matrix</b>
+    <b>Upload Matrix</b>
     <br />
-    Upload a distance matrix <br /> in PHYLIP format (.phy/.phylip/.dist)
+    Upload a distance matrix in PHYLIP format  <br />  (.phy/.phylip/.dist) <br /> or an arbitrary matrix in tabular format (.tsv/.csv)
   </DelayedTooltip>
   <DelayedTooltip delay={135} top={52}
     trigger={
