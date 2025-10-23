@@ -1098,14 +1098,39 @@ export function computeTreeStats(newickString) {
     throw new Error(`Failed to compute tree statistics: ${error.message}`);
   }
 }
+
+/**
+ * Sorts variant strings (e.g., "C82", "A83") based on their numeric residue index.
+ * The leading letter is ignored for primary sorting.
+ */
+function sortByResidueIndex(a, b) {
+  // Extract the numerical part from each string
+  const numA = parseInt(a.match(/\d+/)?.[0], 10);
+  const numB = parseInt(b.match(/\d+/)?.[0], 10);
+
+  // Handle rare cases where a string might not contain a number
+  if (isNaN(numA) || isNaN(numB)) {
+    return a.localeCompare(b);
+  }
+
+  // If the numbers are different, sort by number
+  if (numA !== numB) {
+    return numA - numB;
+  }
+  
+  // If numbers are identical, use the full string as a tie-breaker
+  return a.localeCompare(b);
+}
+
 /**
  * Parses a TSV or CSV formatted string into a matrix and its labels.
- * It robustly detects and filters out non-numeric columns by checking that
- * all non-empty values in a column are numeric. Cells that are empty or
- * non-numeric within an otherwise numeric column are converted to NaN.
+ * It robustly detects and handles two formats:
+ * 1. A standard matrix where the first column is row labels and subsequent columns are numeric.
+ *    It correctly handles "NaN" strings as valid data points in numeric columns.
+ * 2. A "long" format for variant data (e.g., 'M1A'), which it pivots into a wide matrix.
  *
  * @param {string} text The raw text content of the file.
- * @returns {{rowLabels: string[], colLabels: string[], matrix: number[][], isSquare: boolean, isDistanceMatrix: boolean}}
+ * @returns {{rowLabels: string[], colLabels: string[], matrix: number[][], isSquare: boolean}}
  */
 export function parseTsvMatrix(text) {
   const lines = text.trim().split(/\r?\n/).filter(line => line.trim() !== '');
@@ -1114,21 +1139,101 @@ export function parseTsvMatrix(text) {
   }
 
   const delimiter = lines[0].includes('\t') ? '\t' : ',';
-  const headerCols = lines[0].split(delimiter).slice(1).map(label => label.trim());
+  const header = lines[0].split(delimiter).map(h => h.trim());
+  const rows = lines.slice(1).map(line => {
+      const values = line.split(delimiter);
+      const rowObj = {};
+      header.forEach((h, i) => {
+          rowObj[h] = values[i]?.trim() || '';
+      });
+      return rowObj;
+  });
+
+  // --- Generalized Detection Logic for "long" variant format ---
+  let variantColumnHeader = null;
+  let valueColumnHeader = null;
+  const variantRegex = /^[A-Z]\d+[A-Z]$/i;
+  const detectionThreshold = 0.8; 
+
+  for (const h of header) {
+    const nonEmptyRows = rows.filter(row => row[h] !== '');
+    if (nonEmptyRows.length === 0) continue;
+    const matchCount = nonEmptyRows.filter(row => variantRegex.test(row[h])).length;
+    if (matchCount / nonEmptyRows.length >= detectionThreshold) {
+      variantColumnHeader = h;
+      break; 
+    }
+  }
+
+  if (variantColumnHeader) {
+    for (const h of header) {
+      if (h === variantColumnHeader) continue; 
+      const nonEmptyRows = rows.filter(row => row[h] !== '');
+      if (nonEmptyRows.length === 0) continue; 
+      const numericCount = nonEmptyRows.filter(row => !isNaN(parseFloat(row[h]))).length;
+      if (numericCount / nonEmptyRows.length >= detectionThreshold) {
+        valueColumnHeader = h;
+        break; 
+      }
+    }
+  }
+
+  // --- Pivot Logic (if variant format was successfully detected) ---
+  if (variantColumnHeader && valueColumnHeader) {
+      const aminoAcids = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y'];
+      const dataMap = new Map();
+      const colLabelSet = new Set();
+
+      rows.forEach(row => {
+          const variant = row[variantColumnHeader].toUpperCase();
+          const valueStr = row[valueColumnHeader];
+          if (!variantRegex.test(variant) || valueStr === '') return;
+          const value = parseFloat(valueStr);
+          if (isNaN(value)) return;
+          const mutant = variant.slice(-1);
+          const siteAndWT = variant.slice(0, -1);
+          colLabelSet.add(siteAndWT);
+          if (!dataMap.has(siteAndWT)) {
+              dataMap.set(siteAndWT, new Map());
+          }
+          dataMap.get(siteAndWT).set(mutant, value);
+      });
+
+      const colLabels = Array.from(colLabelSet).sort(sortByResidueIndex);
+      const rowLabels = aminoAcids;
+
+      const matrix = rowLabels.map(mutant =>
+          colLabels.map(site =>
+              dataMap.get(site)?.get(mutant) ?? NaN
+          )
+      );
+
+      return {
+          rowLabels,
+          colLabels,
+          matrix,
+          isSquare: false,
+      };
+  }
+
+  // --- Fallback Logic for Standard Tabular Matrices ---
+  const originalHeaderCols = lines[0].split(delimiter).slice(1).map(label => label.trim());
   const dataRowsAsCols = lines.slice(1).map(line => line.split(delimiter).slice(1));
 
   const numericColumnIndices = [];
-  // Iterate through each original column index
-  for (let i = 0; i < headerCols.length; i++) {
-    // Assume a column is numeric until proven otherwise
+  for (let i = 0; i < originalHeaderCols.length; i++) {
     let isColumnNumeric = true;
-    // Check every row for this column
     for (let j = 0; j < dataRowsAsCols.length; j++) {
-      const val = dataRowsAsCols[j][i];
-      // If the value is not empty and is not a number, the column is disqualified.
-      if (val && val.trim() !== '' && isNaN(parseFloat(val.trim()))) {
-        isColumnNumeric = false;
-        break; // No need to check other rows for this column
+      const val = dataRowsAsCols[j][i]?.trim();
+      if (val) { // Only check non-empty cells
+        // A cell is considered non-numeric if it cannot be parsed as a number
+        // and it is not the literal string "NaN".
+        const isParsableAsNumber = !isNaN(parseFloat(val));
+        const isNaNString = val.toLowerCase() === 'nan' || val == "N/A" || val == "NA" || val == "-";
+        if (!isParsableAsNumber && !isNaNString) {
+          isColumnNumeric = false;
+          break;
+        }
       }
     }
     if (isColumnNumeric) {
@@ -1137,27 +1242,25 @@ export function parseTsvMatrix(text) {
   }
 
   if (numericColumnIndices.length === 0) {
-    throw new Error("No numeric data columns were found in the file. Cannot create a heatmap.");
+    throw new Error("No numeric data columns were found in the file.");
   }
 
-  const colLabels = headerCols.filter((_, index) => numericColumnIndices.includes(index));
-  const rowLabels = lines.slice(1).map(line => line.split(delimiter)[0].trim());
+  const finalColLabels = originalHeaderCols.filter((_, index) => numericColumnIndices.includes(index));
+  const finalRowLabels = lines.slice(1).map(line => line.split(delimiter)[0].trim());
   
-  const matrix = dataRowsAsCols.map(row => {
+  const finalMatrix = dataRowsAsCols.map(row => {
     return numericColumnIndices.map(index => {
       const val = row[index];
-      // FINAL LOGIC: Parse valid numbers, but convert any empty,
-      // undefined, or non-numeric cell to NaN.
       const parsed = parseFloat(val);
+      // parseFloat will correctly parse "NaN" into the NaN value.
       return isNaN(parsed) ? NaN : parsed;
     });
   });
   
   return {
-    rowLabels,
-    colLabels,
-    matrix,
-    isSquare: rowLabels.length === colLabels.length,
-    isDistanceMatrix: false,
+    rowLabels: finalRowLabels,
+    colLabels: finalColLabels,
+    matrix: finalMatrix,
+    isSquare: finalRowLabels.length === finalColLabels.length,
   };
 }
