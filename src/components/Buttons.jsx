@@ -1,5 +1,19 @@
 // Buttons.jsx
-import { LinkIcon, MagnifyingGlassIcon,ScissorsIcon, ChartBarIcon , Squares2X2Icon, DocumentDuplicateIcon, XMarkIcon, Bars3Icon, EyeIcon, LanguageIcon, CodeBracketIcon, ArrowDownTrayIcon, MagnifyingGlassCircleIcon } from '@heroicons/react/24/outline';
+import { LinkIcon, MagnifyingGlassIcon,ScissorsIcon, ChartBarIcon , Squares2X2Icon, DocumentDuplicateIcon, XMarkIcon, Bars3Icon, EyeIcon, LanguageIcon, CodeBracketIcon, ArrowDownTrayIcon, SwatchIcon } from '@heroicons/react/24/outline';
+
+export function ColorButton({ onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="p-0.5"
+      //title="Duplicate panel"
+    >
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-lime-200">
+        <SwatchIcon className="w-4 h-4 text-lime-700 flex-shrink-0 -translate-y-[0px]" />
+      </span>
+    </button>
+  );
+}
 
 export function DuplicateButton({ onClick }) {
   return (
@@ -8,7 +22,7 @@ export function DuplicateButton({ onClick }) {
       className="p-0.5"
       //title="Duplicate panel"
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-blue-300">
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-blue-200">
         <DocumentDuplicateIcon className="w-4 h-4 text-blue-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
@@ -469,6 +483,7 @@ export function BranchLengthsButton({ onClick, isActive }) {
     </button>
   );
 }
+
 
 
 export function GitHubButton() {
