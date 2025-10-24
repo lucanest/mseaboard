@@ -651,11 +651,12 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
     }
   }));
 }, [id, setPanelData, diamondMode]);
+
 const handleDownload = useCallback(() => {
     const base = baseName(filename, 'matrix_data');
     
-    // CONVERSION STEP: If the matrix is a proxy (its rows aren't arrays),
-    // convert it to a standard 2D JavaScript array before proceeding.
+   // CONVERSION STEP: If the matrix is a proxy (its rows aren't arrays),
+   // convert it to a standard 2D JavaScript array before proceeding.
     let matrixForDownload = matrix;
     if (matrix && matrix.length > 0 && !Array.isArray(matrix[0])) {
       const n = matrix.length;
@@ -664,25 +665,30 @@ const handleDownload = useCallback(() => {
       );
     }
     
-    if (isSquare) {
+    if (isSquare && !data.isMsaColorMatrix) {
       // Handle square matrices (distance matrices) -> PHYLIP format
       const downloadLabels = rowLabels || labels;
       if (!downloadLabels) return; 
-      const content = toPhylip(downloadLabels, matrixForDownload); // Use the converted matrix
+      const content = toPhylip(downloadLabels, matrixForDownload);
       mkDownload(base, content, 'phy')();
     } else {
-      // Handle non-square matrices -> TSV format
+      // Handle non-square matrices (and MSA color matrices) -> tsv format
       if (!rowLabels || !colLabels) return;
       
       const header = ['', ...colLabels].join('\t');
-      const dataRows = matrixForDownload.map((row, i) => { // Use the converted matrix
-        return [rowLabels[i], ...row.map(val => val.toFixed(4))].join('\t');
+      const dataRows = matrixForDownload.map((row, i) => {
+        // If it's an MSA color matrix, the values are characters (strings), so don't use toFixed.
+        if (data.isMsaColorMatrix) {
+          return [rowLabels[i], ...row].join('\t');
+        }
+        // Otherwise, it's a numeric matrix, so format the numbers.
+        return [rowLabels[i], ...row.map(val => Number.isFinite(val) ? val.toFixed(4) : String(val))].join('\t');
       });
       
       const content = [header, ...dataRows].join('\n');
       mkDownload(base, content, 'tsv')();
     }
-  }, [filename, isSquare, rowLabels, colLabels, labels, matrix]);
+  }, [filename, isSquare, rowLabels, colLabels, labels, matrix, data.isMsaColorMatrix]);
 
   const handleCellClick = (cell, id) => {
     setPanelData(prev => {
@@ -721,32 +727,38 @@ const handleDownload = useCallback(() => {
   );
   
   const extraButtons = useMemo(() => {
+    if (data.isMsaColorMatrix) {
+        return [{ 
+        element: <DownloadButton onClick={handleDownload} />,
+        tooltip: "Download matrix"
+        }];
+    }
     const buttons = [];
     buttons.push({
-      element: <ColorButton onClick={() => setShowColorModal(s => !s)} />,
-      tooltip: "Change colors"
+    element: <ColorButton onClick={() => setShowColorModal(s => !s)} />,
+    tooltip: "Change colors"
     });
     if (isSquare) {
-      buttons.push({ 
+    buttons.push({ 
         element: <TreeButton onClick={() => onGenerateTree(id)} />,
         tooltip: (
-          <>
-          Build tree from distances<br />
-          <span className="text-xs text-gray-600">Neighbor-Joining</span>
-          </>
+        <>
+        Build tree from distances<br />
+        <span className="text-xs text-gray-600">Neighbor-Joining</span>
+        </>
         )
-      });
-      buttons.push({ 
+    });
+    buttons.push({ 
         element: diamondMode ? <DistanceMatrixButton onClick={handleDiamondToggle} /> : <DiamondButton onClick={handleDiamondToggle} />,
         tooltip: diamondMode ? <>Switch to square view</> : <>Switch to diamond view</>
-      });
+    });
     }
     buttons.push({ 
-      element: <DownloadButton onClick={handleDownload} />,
-      tooltip: "Download matrix"
+    element: <DownloadButton onClick={handleDownload} />,
+    tooltip: "Download matrix"
     });
     return buttons;
-  }, [id, onGenerateTree, diamondMode, handleDiamondToggle, handleDownload, isSquare, setShowColorModal]);
+}, [id, onGenerateTree, diamondMode, handleDiamondToggle, handleDownload, isSquare, setShowColorModal, data.isMsaColorMatrix]);
 
   if (!matrix) {
     return (
@@ -841,6 +853,7 @@ return (
           onThresholdChange={handleThresholdChange}
           highColor={data.highColor}
           lowColor={data.lowColor}
+          isMsaColorMatrix={data.isMsaColorMatrix}
         />
       ) : (
         <div className="flex-1 flex items-center justify-center text-gray-400">No data</div>
@@ -1118,7 +1131,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   onSyncScroll, externalScrollLeft, onFastME, panelLinks,
   highlightedSequenceId, setHighlightedSequenceId,
   hoveredPanelId, setHoveredPanelId, setPanelData, justLinkedPanels,
-  linkBadges, onRestoreLink, colorForLink, onUnlink, onCreateSubsetMsa,
+  linkBadges, onRestoreLink, colorForLink, onUnlink, onCreateSubsetMsa,onCreateColorMatrix,
 }) {
   const msaData = useMemo(() => data.data, [data.data]);
   const filename = data.filename;
@@ -1468,6 +1481,7 @@ const onScroll = useMemo(() =>
         { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
         { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, tooltip: <>Compute {codonMode ? "per-codon" : "per-site"} statistics<br /><span className="text-xs text-gray-600">Conservation and gap fraction</span></> },
         { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)}/>, tooltip: <>Build distance matrix <br /><span className="text-xs text-gray-600">Normalized Hamming</span></> },
+        { element: <RadialToggleButton onClick={() => onCreateColorMatrix(id)} />, tooltip: "Create alignment color matrix"},
         { element: <SubMSAButton onClick={() => { setShowSearch(false); handleToggleSelectionMode(); }} isActive={isSelectionMode} />, tooltip : <> Extract sequences <br /> <span className="text-xs text-gray-600">Choose a subset to create a new panel </span> </> },
         { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
     ] : [
@@ -1476,10 +1490,11 @@ const onScroll = useMemo(() =>
         { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
         { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, tooltip: <>Compute {codonMode ? "per-codon" : "per-site"} statistics<br /><span className="text-xs text-gray-600">Conservation and gap fraction</span></> },
         { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)} />, tooltip: <>Build distance matrix <br /><span className="text-xs text-gray-600">Normalized Hamming</span></> },
+        { element: <RadialToggleButton onClick={() => onCreateColorMatrix(id)} />, tooltip: "Create alignment color matrix"},
         { element: <SubMSAButton onClick={() => { setShowSearch(false); handleToggleSelectionMode(); }} isActive={isSelectionMode} />, tooltip : <> Extract sequences <br /> <span className="text-xs text-gray-600">Choose a subset to create a new panel </span> </> },
         { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
     ]
-  ), [isNuc, id, codonMode, isSelectionMode, handleTreeClick, setCodonMode, onDuplicateTranslate, onCreateSeqLogo, onCreateSiteStatsHistogram, onGenerateDistance, handleToggleSelectionMode, handleDownload]);
+  ), [isNuc, id, codonMode, isSelectionMode, handleTreeClick, setCodonMode, onDuplicateTranslate, onCreateSeqLogo, onCreateSiteStatsHistogram, onGenerateDistance, handleToggleSelectionMode, handleDownload, onCreateColorMatrix]);
 
   useEffect(() => { if (data.codonMode !== codonMode) setCodonModeState(data.codonMode || false); }, [data.codonMode, codonMode]);
   useEffect(() => {
@@ -2512,6 +2527,7 @@ const PanelWrapper = React.memo(({
   handleGenerateCorrelationMatrix,
   handleCreateTreeStats,
   onCreateSubsetMsa,
+  onCreateColorMatrix,
   setPanelData
 }) => {
   const commonProps = usePanelProps(panel.i, {
@@ -2566,6 +2582,7 @@ const PanelWrapper = React.memo(({
       onCreateSiteStatsHistogram: handleCreateSiteStatsHistogram,
       onGenerateDistance: handleAlignmentToDistance,
       onFastME: handleFastME,
+      onCreateColorMatrix: onCreateColorMatrix,
       onCreateSubsetMsa: onCreateSubsetMsa
     }),
     ...(panel.type === 'tree' && {
@@ -3439,6 +3456,7 @@ const handleTreeToDistance = useCallback((id) => {
   }
 }, [panelData, addPanel]);
 
+
 const handleAlignmentToDistance = useCallback((id) => {
   const a = panelData[id];
   if (!a || !Array.isArray(a.data) || a.data.length < 2) {
@@ -3768,19 +3786,18 @@ const handleHighlight = useCallback((site, originId) => {
                 return { ...prev, [targetId]: { ...cur, linkedHighlights: next } };
               });
             },
-              'heatmap->alignment': () => {
+            'heatmap->alignment': () => {
               const sourceData = currentPanelData[originId];
               const targetData = currentPanelData[targetId];
-              if (!sourceData || !targetData) return;
+              if (!sourceData || !targetData || typeof site?.col !== 'number') return;
 
-              // Perform a simple lookup instead of a dynamic check.
               const key = pairKey(originId, targetId);
-              const linkingType = linkTypeCache[key]; // Will be 'pairwise' or 'columnar'
+              const linkingType = linkTypeCache[key];
 
-              if (linkingType === 'pairwise') {
-                // Behavior 1: Original pairwise linking for distance matrices.
+              // Case 1: Pairwise linking (for distance matrices)
+              if (linkingType === 'pairwise' && !sourceData.isMsaColorMatrix) {
                 const heatmapLabels = sourceData.rowLabels || sourceData.labels;
-                if (!heatmapLabels || typeof site?.row !== 'number' || typeof site?.col !== 'number') return;
+                if (!heatmapLabels || typeof site?.row !== 'number') return;
                 
                 const leaf1 = heatmapLabels[site.row];
                 const leaf2 = heatmapLabels[site.col];
@@ -3788,30 +3805,48 @@ const handleHighlight = useCallback((site, originId) => {
                   const cur = prev[targetId] || {};
                   const next = [leaf1, leaf2];
                   if (JSON.stringify(cur.linkedHighlights) === JSON.stringify(next)) return prev;
-                  return { ...prev, [targetId]: { ...cur, linkedHighlights: next } };
+                  // Set row highlights and explicitly clear any column highlight
+                  return { ...prev, [targetId]: { ...cur, linkedHighlights: next, linkedSiteHighlight: undefined } };
                 });
-              } else { // 'columnar' or undefined (defaults to columnar)
-                // Behavior 2: New columnar linking for non-distance matrices.
-                const { colLabels } = sourceData;
-                if (!colLabels || typeof site?.col !== 'number') return;
-                const colLabel = colLabels[site.col];
+              } else {
+                // This block handles both types of columnar linking
+                let msaColIndex;
 
-                const match = colLabel.match(/(\d+)\s*$/);
-                if (!match || !match[1]) return;
+                // Case 2: Columnar linking for MSA Color Matrices (direct 1:1 index)
+                if (sourceData.isMsaColorMatrix) {
+                  msaColIndex = site.col;
+                } 
+                // Case 3: Columnar linking for other matrices (requires parsing the label)
+                else {
+                  const { colLabels } = sourceData;
+                  if (!colLabels) return;
+                  const colLabel = colLabels[site.col];
+                  if (!colLabel) return;
 
-                const siteNum = parseInt(match[1], 10);
-                const msaColIndex = siteNum - 1;
+                  // Restore the original parsing logic for subset matrices
+                  const match = String(colLabel).match(/(\d+)\s*$/);
+                  if (!match || !match[1]) return; // Cannot link if label has no number
+
+                  const siteNum = parseInt(match[1], 10);
+                  msaColIndex = siteNum - 1; // Convert 1-based label to 0-based index
+                }
+
+                if (msaColIndex < 0) return;
+
                 const isCodon = !!targetData.codonMode;
                 
-                setPanelData(prev => ({
-                    ...prev,
-                    [targetId]: { ...prev[targetId], linkedSiteHighlight: msaColIndex }
-                }));
+                // Set the column highlight and clear any row highlights
+                setPanelData(prev => {
+                  const current = prev[targetId] || {};
+                  if (current.linkedSiteHighlight === msaColIndex) return prev;
+                  return { ...prev, [targetId]: { ...current, linkedSiteHighlight: msaColIndex, linkedHighlights: [] } };
+                });
 
+                // Sync the scroll position
                 setScrollPositions(prev => {
-                    const v = msaColIndex * (isCodon ? 3 : 1) * CELL_SIZE;
-                    if (prev[targetId] === v) return prev;
-                    return { ...prev, [targetId]: v };
+                  const v = msaColIndex * (isCodon ? 3 : 1) * CELL_SIZE;
+                  if (prev[targetId] === v) return prev;
+                  return { ...prev, [targetId]: v };
                 });
               }
             },
@@ -4060,6 +4095,38 @@ const handleHighlight = useCallback((site, originId) => {
       pendingPanelRef.current = panelId;
       if (fileInputRef.current) fileInputRef.current.click();
     }, []);
+
+const handleCreateColorMatrix = useCallback((id) => {
+    const sourceData = panelData[id];
+    if (!sourceData || !Array.isArray(sourceData.data) || sourceData.data.length === 0) {
+      alert('Cannot create color matrix from empty or invalid alignment.');
+      return;
+    }
+
+    const msa = sourceData.data;
+    const rowLabels = msa.map(seq => seq.id);
+    const colCount = msa[0]?.sequence.length || 0;
+    const colLabels = Array.from({ length: colCount }, (_, i) => String(i + 1));
+    const matrix = msa.map(seq => seq.sequence.split(''));
+
+    const baseName = (sourceData.filename ? sourceData.filename.replace(/\.[^.]+$/, '') : 'alignment');
+    const newFilename = `${baseName}.colors.tsv`;
+
+    addPanel({
+      type: 'heatmap',
+      data: {
+        matrix,
+        rowLabels,
+        colLabels,
+        filename: newFilename,
+        isMsaColorMatrix: true,
+        isSquare: false,
+      },
+      basedOnId: id,
+      layoutHint: { w: 6, h: 20 },
+      autoLinkTo: id,
+    });
+}, [panelData, addPanel]);
 
 const handleFileUpload = async (e) => {
     const file = e.target.files[0];
@@ -5187,6 +5254,7 @@ const handleRestoreSession = useCallback(() => {
         handleStructureDistanceMatrix={handleStructureDistanceMatrix}
         handleCreateTreeStats={handleCreateTreeStats}
         onCreateSubsetMsa={handleCreateSubsetMsa}
+        onCreateColorMatrix={handleCreateColorMatrix}
         setPanelData={setPanelData}
       />
     </div>
