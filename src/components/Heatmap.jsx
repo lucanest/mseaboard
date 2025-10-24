@@ -763,13 +763,14 @@ const handleColorbarMouseMove = (e) => {
 
     {tooltip.visible && tooltip.content && (
       <div
-        className="absolute pointer-events-none z-50 bg-black text-white text-sm px-2 py-1 rounded-lg shadow-lg"
+        className="absolute px-2 py-1 text-sm  text-gray-700 bg-gray-100 rounded-xl pointer-events-none z-[9999] shadow border border-gray-400"
         style={{
           left: tooltip.x,
           top: tooltip.y,
           transform: `${
             tooltip.x > dims.width / 2 ? "translateX(-120%)" : "translateX(0)"
           } ${tooltip.y > dims.height / 2 ? "translateY(-100%)" : "translateY(0)"}`,
+          
         }}
       >
         <div>
@@ -778,7 +779,7 @@ const handleColorbarMouseMove = (e) => {
           </strong>
         </div>
         <div>
-          <strong>{Number.isFinite(tooltip.content.value) ? tooltip.content.value.toFixed(4) : String(tooltip.content.value)}</strong>
+          {Number.isFinite(tooltip.content.value) ? tooltip.content.value.toFixed(4) : String(tooltip.content.value)}
         </div>
       </div>
     )}

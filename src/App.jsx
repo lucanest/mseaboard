@@ -411,7 +411,7 @@ function MSATooltip({ x, y, children, boundary }) {
   return ReactDOM.createPortal(
     <div
       ref={ref}
-      className="fixed px-1 py-0.5 text-sm bg-gray-200 rounded-xl pointer-events-none z-[9999] shadow border border-gray-400"
+      className="fixed px-1 py-0.5 text-sm bg-gray-100 rounded-xl pointer-events-none z-[9999] shadow border border-gray-400"
       style={{
         left: clampedLeft,
         top: clampedTop,
