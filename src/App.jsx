@@ -92,7 +92,43 @@ function useIsVisible(ref) {
   return isIntersecting;
 }
 
-function PanelHeader({
+const MemoizedButtonWithHover = React.memo(function ButtonWithHover({ name, children, handleEnter, handleLeave }) {
+  return (
+    <div
+      className="w-7 h-7 flex items-center justify-center"
+      onMouseEnter={() => handleEnter(name, false)}
+      onPointerLeave={handleLeave}
+      onFocus={() => handleEnter(name, false)}
+      onBlur={handleLeave}
+    >
+      {children}
+    </div>
+  );
+});
+
+const MemoizedLinkBadge = React.memo(function LinkBadge({ partnerId, active, colorForLink, id, onUnlink, onRestoreLink, handleEnter, handleLeave }) {
+  const baseColor = colorForLink?.(id, partnerId, true) ?? 'bg-blue-400';
+  return (
+    <button
+      type="button"
+      className={`w-4 h-4 rounded-full shadow hover:scale-110
+        ${active ? baseColor : 'bg-gray-300'}
+        ${!active ? `hover:bg-blue-300` : ''}`}
+      onMouseEnter={() => handleEnter(partnerId, true)}
+      onPointerLeave={handleLeave}
+      onFocus={() => handleEnter(partnerId, true)}
+      onBlur={handleLeave}
+      onClick={(e) => {
+        e.stopPropagation();
+        if (active) onUnlink?.(id, partnerId);
+        else onRestoreLink?.(id, partnerId);
+      }}
+    />
+  );
+});
+
+
+const PanelHeader = React.memo(function PanelHeader({
   id,
   prefix = '',
   filename,
@@ -134,40 +170,39 @@ function PanelHeader({
     };
   }, []);
 
-useEffect(() => {
-  function handleGlobalMouseMove(e) {
-    // If the mouse is not over any button or tooltip, clear all tooltips
-    if (
-      !(e.target instanceof Element) ||
-      (!e.target.closest('.panel-drag-handle') &&
-       !e.target.closest('.absolute.text-center'))
-    ) {
-      clearAllTooltips();
+  useEffect(() => {
+    function handleGlobalMouseMove(e) {
+      if (
+        !(e.target instanceof Element) ||
+        (!e.target.closest('.panel-drag-handle') &&
+         !e.target.closest('.absolute.text-center'))
+      ) {
+        clearAllTooltips();
+      }
     }
-  }
-  document.addEventListener('mousemove', handleGlobalMouseMove);
-  return () => document.removeEventListener('mousemove', handleGlobalMouseMove);
-}, [clearAllTooltips]);
+    document.addEventListener('mousemove', handleGlobalMouseMove);
+    return () => document.removeEventListener('mousemove', handleGlobalMouseMove);
+  }, [clearAllTooltips]);
 
   useEffect(() => {
-  if (!hoveredBtn && !hoveredBadge && showTooltip) {
-    setShowTooltip(false);
-    setShowBadgeTooltip(false);
-  }
+    if (!hoveredBtn && !hoveredBadge && showTooltip) {
+      setShowTooltip(false);
+      setShowBadgeTooltip(false);
+    }
   }, [hoveredBtn, hoveredBadge, showTooltip]);
 
-    const handleLeave = useCallback(() => {
-    clearTimeout(showTimer.current); // Cancel any pending show action
+  const handleLeave = useCallback(() => {
+    clearTimeout(showTimer.current);
     hideTimer.current = setTimeout(() => {
       clearAllTooltips();
-    }, 5); // Give a 5ms grace period for moving to the tooltip
+    }, 5);
   }, [clearAllTooltips]);
 
   const handleEnter = useCallback((name, isBadge = false) => {
     if (forceHideTooltip) {
       return;
     }
-    clearTimeout(hideTimer.current); // Cancel any pending hide action
+    clearTimeout(hideTimer.current);
     showTimer.current = setTimeout(() => {
       if (isBadge) {
         setHoveredBadge(name);
@@ -179,7 +214,6 @@ useEffect(() => {
     }, 150);
   }, [forceHideTooltip]);
 
-
   useEffect(() => {
     if (forceHideTooltip) {
       clearAllTooltips();
@@ -187,52 +221,16 @@ useEffect(() => {
   }, [forceHideTooltip, clearAllTooltips]);
 
   useEffect(() => {
-  // When extraButtons change, clear tooltip state to avoid stale tooltips
-  setHoveredBtn(null);
-  setShowTooltip(false);
-  setHoveredBadge(null);
-  setShowBadgeTooltip(false);
-}, [extraButtons]);
+    setHoveredBtn(null);
+    setShowTooltip(false);
+    setHoveredBadge(null);
+    setShowBadgeTooltip(false);
+  }, [extraButtons]);
 
   const tooltipMap = {
     duplicate: "Duplicate panel",
     remove: "Remove panel",
     link: "Link panel",
-  };
-
-  function ButtonWithHover({ name, children }) {
-    return (
-      <div
-        className="w-7 h-7 flex items-center justify-center"
-        onMouseEnter={() => handleEnter(name, false)}
-        onPointerLeave={handleLeave}
-        onFocus={() => handleEnter(name, false)}
-        onBlur={handleLeave}
-      >
-        {children}
-      </div>
-    );
-  }
-
-  const LinkBadge = ({ partnerId, active }) => {
-    const baseColor = colorForLink?.(id, partnerId, true) ?? 'bg-blue-400';
-    return (
-      <button
-        type="button"
-        className={`w-4 h-4 rounded-full shadow hover:scale-110
-          ${active ? baseColor : 'bg-gray-300'} 
-          ${!active ? `hover:bg-blue-300` : ''}`}
-        onMouseEnter={() => handleEnter(partnerId, true)}
-        onPointerLeave={handleLeave}
-        onFocus={() => handleEnter(partnerId, true)}
-        onBlur={handleLeave}
-        onClick={(e) => {
-          e.stopPropagation();
-          if (active) onUnlink?.(id, partnerId);
-          else onRestoreLink?.(id, partnerId);
-        }}
-      />
-    );
   };
 
   return (
@@ -245,7 +243,16 @@ useEffect(() => {
       <div className="flex items-center gap-1 pl-1">
         {linkBadges.map(({ partnerId, active }) => (
           <div key={partnerId} className="w-5 h-5">
-            <LinkBadge partnerId={partnerId} active={active} />
+            <MemoizedLinkBadge
+              partnerId={partnerId}
+              active={active}
+              colorForLink={colorForLink}
+              id={id}
+              onUnlink={onUnlink}
+              onRestoreLink={onRestoreLink}
+              handleEnter={handleEnter}
+              handleLeave={handleLeave}
+            />
           </div>
         ))}
       </div>
@@ -258,12 +265,12 @@ useEffect(() => {
           onPointerLeave={handleLeave}
         >
           {(() => {
-  const badge = linkBadges.find(b => b.partnerId === hoveredBadge);
-  if (!badge) return hoveredBadge;
-  return badge.active
-    ? (<>{badge.title}<br /><span className="text-xs text-gray-600">Click to disable link</span></>)
-    : (<>{badge.title}<br /><span className="text-xs text-gray-600">Click to restore link</span></>)
-})()}
+            const badge = linkBadges.find(b => b.partnerId === hoveredBadge);
+            if (!badge) return hoveredBadge;
+            return badge.active
+              ? (<>{badge.title}<br /><span className="text-xs text-gray-600">Click to disable link</span></>)
+              : (<>{badge.title}<br /><span className="text-xs text-gray-600">Click to restore link</span></>)
+          })()}
         </div>
       )}
 
@@ -289,26 +296,26 @@ useEffect(() => {
             tooltipMap[name] = tooltipText;
 
             return (
-              <ButtonWithHover key={i} name={name}>
+              <MemoizedButtonWithHover key={i} name={name} handleEnter={handleEnter} handleLeave={handleLeave}>
                 {element}
-              </ButtonWithHover>
+              </MemoizedButtonWithHover>
             );
           })}
-          <ButtonWithHover name="duplicate">
+          <MemoizedButtonWithHover name="duplicate" handleEnter={handleEnter} handleLeave={handleLeave}>
             <DuplicateButton tooltip={null} onClick={() => onDuplicate(id)} />
-          </ButtonWithHover>
+          </MemoizedButtonWithHover>
           {onLinkClick && (
-            <ButtonWithHover name="link">
+            <MemoizedButtonWithHover name="link" handleEnter={handleEnter} handleLeave={handleLeave}>
               <LinkButton
                 onClick={() => onLinkClick(id)}
                 isLinkModeActive={isLinkModeActive}
                 isEligibleLinkTarget={isEligibleLinkTarget}
               />
-            </ButtonWithHover>
+            </MemoizedButtonWithHover>
           )}
-          <ButtonWithHover name="remove">
+          <MemoizedButtonWithHover name="remove" handleEnter={handleEnter} handleLeave={handleLeave}>
             <RemoveButton onClick={() => onRemove(id)} />
-          </ButtonWithHover>
+          </MemoizedButtonWithHover>
         </div>
       </div>
 
@@ -316,8 +323,8 @@ useEffect(() => {
         <div className="absolute text-center top-12 right-2 z-30 px-2 py-1
                rounded-xl bg-gray-200 text-black text-sm
               transition-opacity whitespace-nowrap opacity-100 border border-gray-400"
-          onMouseEnter={() => clearTimeout(hideTimer.current)} // <-- Keep tooltip open
-          onPointerLeave={handleLeave} // <-- Hide when mouse leaves tooltip
+          onMouseEnter={() => clearTimeout(hideTimer.current)}
+          onPointerLeave={handleLeave}
         >
           {tooltipMap[hoveredBtn] ||
             (hoveredBtn.startsWith("extra") ? "Extra action" : "")}
@@ -325,7 +332,9 @@ useEffect(() => {
       )}
     </div>
   );
-}
+});
+
+
 function EditableFilename({ id, filename, setPanelData, prefix = '', className = '' }) {
   const [editing, setEditing] = useState(false);
   const [filenameInput, setFilenameInput] = useState(filename);
@@ -4909,9 +4918,9 @@ const handleRestoreSession = useCallback(() => {
 <div className="flex items-center gap-2"  style={{ pointerEvents: 'auto' }}>
 <div className="p-1/2 flex justify-between items-center"></div>
   <div className="flex items-center gap-2 mt-2 mr-4 px-1 py-2 rounded-xl 
-    bg-white-100/100">
+    bg-white-100/100 ">
 {/*border border-gray-400 bg-gradient-to-r from-purple-400/20 via-orange-400/20 via-yellow-400/20 via-purple-400/20 via-blue-400/20 via-indigo-400/20 to-green-400/20 backdrop-blur-xl*/}
-      <div className="flex flex-wrap items-center gap-0">
+      <div className="flex flex-wrap items-center gap-0 ">
 {/* Undo/Redo Buttons */}
 <div className="relative group mr-2 ml-2">
   <DelayedTooltip delay={135} top={48}
