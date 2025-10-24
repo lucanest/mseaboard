@@ -23,7 +23,7 @@ export const residueColorHex = {
   K: '#FDBA74', L: '#BFDBFE', M: '#DBEAFE', N: '#FECACA',
   P: '#99F6E4', Q: '#FECACA', R: '#FDBA74', S: '#BBF7D0',
   T: '#BBF7D0', V: '#DBEAFE', W: '#C4B5FD', Y: '#DDD6FE',
-  '-': '#FFFFFF'
+  '-': '#FFFFFF', '.': '#FFFFFF', '*': '#FFFFFF'
 };
 
 export const chainColors = [
