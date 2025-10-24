@@ -1,4 +1,5 @@
 import React, { useRef, useEffect, useState, useMemo } from "react";
+import { residueColorHex } from "../constants/colors";
 
 function hexToRgb(hex) {
   if (!hex) return null;
@@ -99,6 +100,7 @@ function Heatmap({
   maxVal,
   highColor,
   lowColor,
+  isMsaColorMatrix,
 }) {
   const containerRef = useRef();
   const canvasRef = useRef();
@@ -180,6 +182,9 @@ function Heatmap({
   const showHoverHighlight = cellSize > 6;
 
 const { min, max } = useMemo(() => {
+    if (isMsaColorMatrix) {
+      return { min: 0, max: 1 }; // Values not used, but return a default range
+    }
     // If minVal/maxVal are passed as props, use them directly.
     if (typeof minVal === 'number' && typeof maxVal === 'number') {
       return { min: minVal, max: maxVal };
@@ -194,7 +199,7 @@ const { min, max } = useMemo(() => {
     }
     // Default values if matrix is invalid
     return { min: 0, max: 1 };
-  }, [matrix, minVal, maxVal]);
+  }, [matrix, minVal, maxVal, isMsaColorMatrix]);
 
   /* ----- mouse → cell ----- */
   const computeCellFromEvent = (event) => {
@@ -359,10 +364,20 @@ const handleColorbarMouseMove = (e) => {
     ctx.clearRect(0, 0, gridWidth, gridHeight);
 
     if (!isDiamondView) {
-      for (let i = 0; i < nRows; i++) {
-        for (let j = 0; j < nCols; j++) {
-          ctx.fillStyle = valueToColor(matrix[i][j], min, max, threshold, lowColor, highColor);
-          ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
+      if (isMsaColorMatrix) { // modality for MSA character matrices
+        for (let i = 0; i < nRows; i++) {
+          for (let j = 0; j < nCols; j++) {
+            const char = matrix[i]?.[j]?.toUpperCase();
+            ctx.fillStyle = residueColorHex[char] || '#FFFFFF'; // Use canvas colors, default to white
+            ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
+          }
+        }
+      } else { // original modality for numeric matrices
+        for (let i = 0; i < nRows; i++) {
+          for (let j = 0; j < nCols; j++) {
+            ctx.fillStyle = valueToColor(matrix[i][j], min, max, threshold, lowColor, highColor);
+            ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
+          }
         }
       }
       if (showGridLines) {
@@ -439,7 +454,7 @@ const handleColorbarMouseMove = (e) => {
 
     if (hoverCell && showHoverHighlight)  strokeSel(hoverCell.row, hoverCell.col, "rgb(13,245,241)");
   }, [isDiamondView, matrix, gridWidth, gridHeight, cellSize, nRows, nCols, min, max,
-     hoverCell, highlightedCells, linkedHighlightCellIdx, showGridLines,threshold,showHoverHighlight, lowColor, highColor]);
+     hoverCell, highlightedCells, linkedHighlightCellIdx, showGridLines,threshold,showHoverHighlight, lowColor, highColor, isMsaColorMatrix]);
 
   let linkedTooltip = null;
   if (
@@ -453,6 +468,7 @@ const handleColorbarMouseMove = (e) => {
   ) {
     const x = labelSpace + (linkedHighlightCellIdx.col + 0.5) * cellSize - 40;
     const y = labelSpace + (linkedHighlightCellIdx.row + 0.5) * cellSize - 30;
+    const linkedVal = matrix[linkedHighlightCellIdx.row][linkedHighlightCellIdx.col];
 
     linkedTooltip = (
       <div
@@ -472,7 +488,7 @@ const handleColorbarMouseMove = (e) => {
         </div>
         <div>
           <strong>
-            {Number(matrix[linkedHighlightCellIdx.row][linkedHighlightCellIdx.col]).toFixed(4)}
+            {Number.isFinite(linkedVal) ? Number(linkedVal).toFixed(4) : String(linkedVal)}
           </strong>
         </div>
       </div>
@@ -484,7 +500,7 @@ const handleColorbarMouseMove = (e) => {
   const showEvery = isDiamondView ? Math.max(1, Math.ceil(minLabelSpacing / stepX)) : 1;
   const diamondHeight = isDiamondView ? cellSize * (nRows/2) : 0;
   const needToHideLegend = isDiamondView && (labelSpace + gridWidth + 10 + 46 > dims.width);
-  const showLegend = showlegend && !needToHideLegend;
+  const showLegend = showlegend && !needToHideLegend && !isMsaColorMatrix;
 
   const getColorbarGradient = () => {
     if (threshold === null) {
@@ -762,14 +778,14 @@ const handleColorbarMouseMove = (e) => {
           </strong>
         </div>
         <div>
-          <strong>{Number.isFinite(tooltip.content.value) ? tooltip.content.value.toFixed(4) : 'N/A'}</strong>
+          <strong>{Number.isFinite(tooltip.content.value) ? tooltip.content.value.toFixed(4) : String(tooltip.content.value)}</strong>
         </div>
       </div>
     )}
 
     {linkedTooltip}
 
-    {showlegend && !isDiamondView && (
+    {showLegend && !isDiamondView && (
       <div
         style={{
           width: gridWidth,
@@ -831,6 +847,6 @@ const handleColorbarMouseMove = (e) => {
 )}
   </div>
 );
-    }
+}
 
 export default React.memo(Heatmap);
