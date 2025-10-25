@@ -32,7 +32,7 @@ CodonToggleButton, TranslateButton, SiteStatsButton, LogYButton,
 SeqlogoButton, SequenceButton, DistanceMatrixButton, ZeroOneButton,
  DownloadButton, GitHubButton, SearchButton, TreeButton, ColorButton,
  DiamondButton, BranchLengthsButton, PruneButton, SubMSAButton,
- TableChartButton} from './components/Buttons.jsx';
+ TableChartButton, OmegaButton } from './components/Buttons.jsx';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon, ArrowUpOnSquareIcon, ArrowUturnLeftIcon, ArrowUturnRightIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick,
 newickToDistanceMatrix, detectFileType, toFasta, toPhylip, computeSiteStats, buildTreeFromDistanceMatrix,
@@ -50,6 +50,9 @@ import TableViewer from './components/TableViewer.jsx';
 import SequenceLogoCanvas from './components/Seqlogo.jsx';
 import StructureViewer from './components/StructureViewer.jsx';
 import useElementSize from './hooks/useElementSize.js'
+import { useOmegaModel } from './hooks/useOmegaModel.js'; // 1. Import the new hook
+
+
 
 
 const detectIndexingMode = (xValues) => {
@@ -1176,6 +1179,8 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   highlightedSequenceId, setHighlightedSequenceId,
   hoveredPanelId, setHoveredPanelId, setPanelData, justLinkedPanels,
   linkBadges, onRestoreLink, colorForLink, onUnlink, onCreateSubsetMsa,onCreateColorMatrix,
+  onPredictOmega,
+  modelLoading,
 }) {
   const msaData = useMemo(() => data.data, [data.data]);
   const filename = data.filename;
@@ -1515,13 +1520,17 @@ const onScroll = useMemo(() =>
   const handleCancelSelection = () => { setIsSelectionMode(false); setSelectedSequences(new Set()); };
   const handleLabelClick = (index) => { if (!isSelectionMode) return; const sel = new Set(selectedSequences); if (sel.has(index)) sel.delete(index); else sel.add(index); setSelectedSequences(sel); };
 
-  // Memoize extraButtons to prevent re-render loops.
+  // Memoized extraButtons to prevent re-render loops.
   const extraButtons = useMemo(() => (
     isNuc ? [ 
         { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowModelPicker(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
-        { element: <TreeButton onClick={() => { setIsSelectionMode(false); setShowSearch(false); handleTreeClick(); }} />, tooltip: <>Build phylogenetic tree <br /> <span className="text-xs text-gray-600">FastME</span></> },
         { element: <CodonToggleButton onClick={() => setCodonMode(m => !m)} isActive={codonMode} />, tooltip: "Toggle codon mode" },
         { element: <TranslateButton onClick={() => onDuplicateTranslate(id)} />, tooltip: "Translate to amino acids" },
+        { 
+            element: <OmegaButton onClick={() => onPredictOmega(id)} disabled={modelLoading} />, 
+            tooltip: modelLoading ? "Model is loading..." : <>Predict omega values <br /><span className="text-xs text-gray-600">Predict per-codon omega (dN/dS) values <br /> with DaNaiDeS (experimental)</span></> 
+        },
+        { element: <TreeButton onClick={() => { setIsSelectionMode(false); setShowSearch(false); handleTreeClick(); }} />, tooltip: <>Build phylogenetic tree <br /> <span className="text-xs text-gray-600">FastME</span></> },
         { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
         { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, tooltip: <>Compute {codonMode ? "per-codon" : "per-site"} statistics<br /><span className="text-xs text-gray-600">Conservation and gap fraction</span></> },
         { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)}/>, tooltip: <>Build distance matrix <br /><span className="text-xs text-gray-600">Normalized Hamming</span></> },
@@ -1538,7 +1547,8 @@ const onScroll = useMemo(() =>
         { element: <SubMSAButton onClick={() => { setShowSearch(false); handleToggleSelectionMode(); }} isActive={isSelectionMode} />, tooltip : <> Extract sequences <br /> <span className="text-xs text-gray-600">Choose a subset to create a new panel </span> </> },
         { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
     ]
-  ), [isNuc, id, codonMode, isSelectionMode, handleTreeClick, setCodonMode, onDuplicateTranslate, onCreateSeqLogo, onCreateSiteStatsHistogram, onGenerateDistance, handleToggleSelectionMode, handleDownload, onCreateColorMatrix]);
+  ), [isNuc, id, codonMode, isSelectionMode, handleTreeClick, setCodonMode, onDuplicateTranslate, onCreateSeqLogo, onCreateSiteStatsHistogram,
+     onGenerateDistance, handleToggleSelectionMode, handleDownload, onCreateColorMatrix,onPredictOmega, modelLoading]);
 
   useEffect(() => { if (data.codonMode !== codonMode) setCodonModeState(data.codonMode || false); }, [data.codonMode, codonMode]);
   useEffect(() => {
@@ -2572,7 +2582,9 @@ const PanelWrapper = React.memo(({
   handleCreateTreeStats,
   onCreateSubsetMsa,
   onCreateColorMatrix,
-  setPanelData
+  setPanelData,
+  onPredictOmega,
+  modelLoading,
 }) => {
   const commonProps = usePanelProps(panel.i, {
     linkMode,
@@ -2627,7 +2639,9 @@ const PanelWrapper = React.memo(({
       onGenerateDistance: handleAlignmentToDistance,
       onFastME: handleFastME,
       onCreateColorMatrix: onCreateColorMatrix,
-      onCreateSubsetMsa: onCreateSubsetMsa
+      onCreateSubsetMsa: onCreateSubsetMsa,
+      onPredictOmega: onPredictOmega,
+      modelLoading: modelLoading,
     }),
     ...(panel.type === 'tree' && {
       highlightedSequenceId,
@@ -2889,6 +2903,7 @@ function App() {
   }));
 
   const { panels, layout, panelData, panelLinks, panelLinkHistory, linkColors } = history.present;
+  
   
   const canUndo = history.past.length > 0;
   const canRedo = history.future.length > 0;
@@ -3268,6 +3283,70 @@ const addPanel = useCallback((config = {}) => {
     return nextPresent;
   }, true); // Save to history
 }, [setState, upsertHistory, assignPairColor]);
+
+
+// Omega model integration
+
+// Initialize the model hook
+  const { predict: predictOmega, loading: modelLoading, error: modelError } = useOmegaModel('./seqmodel.onnx');
+
+
+  // Display model errors to the user
+  useEffect(() => {
+    if (modelError) {
+      alert(`Model Error: ${modelError}`);
+    }
+  }, [modelError]);
+
+
+  const handlePredictOmega = useCallback(async (alignmentPanelId) => {
+    const alignmentPanelData = panelData[alignmentPanelId];
+    if (!alignmentPanelData || !alignmentPanelData.data) {
+        alert("Alignment data not found.");
+        return;
+    }
+
+    if (!isNucleotide(alignmentPanelData.data)) {
+        alert("Omega prediction is only available for nucleotide sequences.");
+        return;
+    }
+    
+    setTransientMessage('Predicting Omega values...'); // Give user feedback
+
+    try {
+        const omegaValues = await predictOmega(alignmentPanelData.data);
+        
+        // Format the results for a HistogramPanel
+        const siteData = {
+            headers: ['codon', 'predicted_omega'],
+            rows: omegaValues.map((value, index) => ({
+                'codon': index + 1,
+                'predicted_omega': value,
+            })),
+        };
+
+        const baseName = (alignmentPanelData.filename || 'alignment').replace(/\.[^.]+$/, '');
+
+        // Create a new histogram panel with the results
+        addPanel({
+            type: 'histogram',
+            data: {
+                data: siteData,
+                filename: `${baseName}_omega.csv`,
+                selectedXCol: 'codon',
+                selectedCol: 'predicted_omega',
+                indexingMode: '1-based', // Sites are 1-based
+            },
+            layoutHint: { w: 12, h: 8 },
+            autoLinkTo: alignmentPanelId, // Automatically link to the source alignment
+        });
+
+    } catch (e) {
+        console.error("Prediction failed:", e);
+        alert(`Prediction Failed: ${e.message}`);
+        setTransientMessage('');
+    }
+  }, [panelData, predictOmega, addPanel, setTransientMessage]);
 
   const handleCreateSubsetMsa = useCallback((id, selectedIndices) => {
     const sourceData = panelData[id];
@@ -5293,6 +5372,8 @@ const handleRestoreSession = useCallback(() => {
         onCreateSubsetMsa={handleCreateSubsetMsa}
         onCreateColorMatrix={handleCreateColorMatrix}
         setPanelData={setPanelData}
+        onPredictOmega={handlePredictOmega} // Pass the handler
+        modelLoading={modelLoading} // Pass loading state to disable button
       />
     </div>
   );
