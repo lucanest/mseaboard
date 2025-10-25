@@ -3338,7 +3338,8 @@ const addPanel = useCallback((config = {}) => {
                 indexingMode: '1-based', // Sites are 1-based
             },
             layoutHint: { w: 12, h: 8 },
-            autoLinkTo: alignmentPanelId, // Automatically link to the source alignment
+            // Automatically link to the source alignment if the latter is in codon mode
+            autoLinkTo: alignmentPanelData.codonMode ? alignmentPanelId : null,
         });
 
     } catch (e) {
