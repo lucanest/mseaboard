@@ -92,6 +92,41 @@ function useIsVisible(ref) {
   return isIntersecting;
 }
 
+function DelayedTooltip({ children, delay = 100,top=54, ...props }) {
+  const [visible, setVisible] = React.useState(false);
+  const timer = React.useRef();
+
+  const show = () => {
+    timer.current = setTimeout(() => setVisible(true), delay);
+  };
+  const hide = () => {
+    clearTimeout(timer.current);
+    setVisible(false);
+  };
+
+  return (
+    <span
+      onMouseEnter={show}
+      onPointerLeave={hide}
+      onFocus={show}
+      onBlur={hide}
+      style={{ position: 'relative', display: 'inline-block' }}
+    >
+      {props.trigger}
+      {visible && (
+        <span className="absolute text-center left-1/2 -translate-x-1/2 top-16 z-10 px-2 py-1
+         rounded-xl bg-gray-200 text-black text-sm pointer-events-none
+        transition-opacity whitespace-nowrap opacity-100 border border-gray-400"
+          style={{ top: top}}
+        >
+
+          {children}
+        </span>
+      )}
+    </span>
+  );
+}
+
 const MemoizedButtonWithHover = React.memo(function ButtonWithHover({ name, children, handleEnter, handleLeave }) {
   return (
     <div
@@ -2658,6 +2693,185 @@ const PanelWrapper = React.memo(({
   );
 });
 
+const TopBar = React.memo(function TopBar({
+  canUndo, undo, canRedo, redo, handleSaveBoard, fileInputRefBoard, handleLoadBoard,
+  handleShareBoard, addPanel, triggerUpload, fileInputRef, handleFileUpload
+}) {
+  return (
+    <div className="p-0 flex justify-between items-center fixed top-0 left-0 w-full z-50"
+        style={{ pointerEvents: 'none' }}>
+      <div style={{ height: 12 }} /> {/* Spacer for fixed header */}
+      <div className="flex items-center gap-2"  style={{ pointerEvents: 'auto' }}>
+        <div className="p-1/2 flex justify-between items-center"></div>
+        <div className="flex items-center gap-2 mt-2 mr-4 px-1 py-2 rounded-xl bg-white-100/100 ">
+          <div className="flex flex-wrap items-center gap-0 ">
+            {/* Undo/Redo Buttons */}
+            <div className="relative group mr-2 ml-2">
+              <DelayedTooltip delay={135} top={48}
+                trigger={
+                  <button
+                    onClick={undo}
+                    disabled={!canUndo}
+                    className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  >
+                    <ArrowUturnLeftIcon className="w-6 h-6" />
+                  </button>
+                }
+              >
+                <b>Undo</b><br />Undo the last action
+              </DelayedTooltip>
+            </div>
+            <div className="relative group mr-2">
+              <DelayedTooltip delay={135} top={48}
+                trigger={
+                  <button
+                    onClick={redo}
+                    disabled={!canRedo}
+                    className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition"
+                  >
+                    <ArrowUturnRightIcon className="w-6 h-6" />
+                  </button>
+                }
+              >
+                <b>Redo</b><br />Redo the last undone action
+              </DelayedTooltip>
+            </div>
+            {/* load/save buttons */}
+            <div className="relative group mr-2">
+              <DelayedTooltip  delay={135} top={48}
+                trigger={
+                  <button
+                    onClick={handleSaveBoard}
+                    className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center transition"
+                  >
+                    <ArrowDownTrayIcon className="w-6 h-6 " />
+                  </button>
+                }
+              >
+                <b>Save Board</b>
+                <br />
+                Save this board layout, data<br /> and links to a file
+              </DelayedTooltip>
+            </div>
+            <div className="relative group mr-0">
+              <DelayedTooltip delay={135} top={48}
+                trigger={
+                  <button
+                    onClick={() => fileInputRefBoard.current.click()}
+                    className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center transition"
+                  >
+                    <ArrowUpTrayIcon className="w-6 h-6" />
+                  </button>
+                }
+              >
+                <b>Load Board</b>
+                <br />
+                Load a saved board <br /> from a file
+              </DelayedTooltip>
+            </div>
+            {/* share button (gist) */}
+            <div className="relative group ml-2">
+                <DelayedTooltip delay={135} top={48}
+                    trigger={
+                        <button
+                            onClick={() => handleShareBoard()}
+                            className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center transition"
+                        >
+                            <ArrowUpOnSquareIcon className="w-6 h-6" />
+                        </button>
+                    }
+                >
+                    <b>Share via Gist</b>
+                    <br />
+                    Copy a shareable link to the clipboard
+                </DelayedTooltip>
+            </div>
+          </div>
+          <DelayedTooltip delay={135} top={52}
+            trigger={
+              <button
+                onClick={() => {
+                  addPanel({
+                    type: 'notepad',
+                    data: { filename: "Notes", text: "" },
+                    layoutHint: { w: 4, h: 10 }
+                  });
+                }}
+                className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-yellow-100 text-black px-4 py-4 rounded-xl hover:bg-yellow-200 shadow-lg hover:shadow-xl leading-tight transition"
+              >
+                Notepad
+              </button>
+            }
+          >
+            <b>New Notepad</b>
+            <br />
+            Add a notepad panel <br /> for notes and comments
+          </DelayedTooltip>
+          <input
+            ref={fileInputRefBoard}
+            type="file"
+            accept=".json"
+            onChange={handleLoadBoard}
+            style={{ display: 'none' }}
+          />        
+          <DelayedTooltip delay={135} top={52}
+            trigger={
+              <button onClick={() => triggerUpload('alignment')} className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-green-200 text-black px-4 py-4 rounded-xl hover:bg-green-300 shadow-lg hover:shadow-xl leading-tight transition">
+                MSA
+              </button>}
+          >
+            <b>Upload MSA</b>
+            <br />
+            Upload a sequence or multiple sequence <br /> alignment in FASTA format (.fasta/.fas)
+          </DelayedTooltip>
+          <DelayedTooltip delay={135} top={52}
+            trigger={
+              <button onClick={() => triggerUpload('tree')} className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-blue-200 text-black px-4 py-4 rounded-xl hover:bg-blue-300 shadow-lg hover:shadow-xl leading-tight transition">
+                Tree
+              </button>}
+          >
+            <b>Upload Tree</b>
+            <br />
+            Upload a phylogenetic tree <br /> in Newick format (.nwk/.nhx)
+          </DelayedTooltip>
+          <DelayedTooltip delay={135} top={52}
+            trigger={
+              <button onClick={() => triggerUpload('histogram')}  className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-orange-200 text-black px-4 py-4 rounded-xl hover:bg-orange-300 shadow-lg hover:shadow-xl leading-tight transition">
+                Data
+              </button>}
+          >
+            <b>Upload Data</b>
+            <br />
+            Upload tabular data (.tsv/.csv) <br /> or a list of numbers (.txt)
+          </DelayedTooltip>
+          <DelayedTooltip delay={135} top={52}
+            trigger={
+              <button onClick={() => triggerUpload('heatmap')}  className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-red-200 text-black px-4 py-4 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl leading-tight transition">
+                Matrix
+              </button>}
+          >
+            <b>Upload Matrix</b>
+            <br />
+            Upload a distance matrix in PHYLIP format  <br />  (.phy/.phylip/.dist) <br /> or an arbitrary matrix in tabular format (.tsv/.csv)
+          </DelayedTooltip>
+          <DelayedTooltip delay={135} top={52}
+            trigger={
+              <button onClick={() => triggerUpload('structure')} className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-purple-200 text-black px-4 py-4 rounded-xl hover:bg-purple-300 shadow-lg hover:shadow-xl leading-tight transition">
+                Structure
+              </button>}
+          >
+            <b>Upload Structure</b>
+            <br />
+            Upload a molecular structure <br /> in PDB format (.pdb)
+          </DelayedTooltip>
+          <GitHubButton />
+          <input ref={fileInputRef} type="file" accept=".fasta,.nwk,.nhx,.txt,.tsv,.csv,.fas,.phy,.phylip,.dist,.pdb" onChange={handleFileUpload} style={{ display: 'none' }} />
+        </div>
+      </div>
+    </div>
+  );
+});
+
 
 function App() {
   // Undo/Redo state management
@@ -4723,40 +4937,6 @@ const handleDrop = async (e) => {
   }
 };
 
-function DelayedTooltip({ children, delay = 100,top=54, ...props }) {
-  const [visible, setVisible] = React.useState(false);
-  const timer = React.useRef();
-
-  const show = () => {
-    timer.current = setTimeout(() => setVisible(true), delay);
-  };
-  const hide = () => {
-    clearTimeout(timer.current);
-    setVisible(false);
-  };
-
-  return (
-    <span
-      onMouseEnter={show}
-      onPointerLeave={hide}
-      onFocus={show}
-      onBlur={hide}
-      style={{ position: 'relative', display: 'inline-block' }}
-    >
-      {props.trigger}
-      {visible && (
-        <span className="absolute text-center left-1/2 -translate-x-1/2 top-16 z-10 px-2 py-1
-         rounded-xl bg-gray-200 text-black text-sm pointer-events-none
-        transition-opacity whitespace-nowrap opacity-100 border border-gray-400"
-          style={{ top: top}}
-        >
-
-          {children}
-        </span>
-      )}
-    </span>
-  );
-}
 
 const LINK_COMPAT = {
   alignment: new Set(['alignment','seqlogo','histogram','structure','tree', 'heatmap']),
@@ -4917,173 +5097,21 @@ const handleRestoreSession = useCallback(() => {
           <div style={{ height: 12 }} /> {/* Spacer for fixed header */}
 <div className="flex items-center gap-2"  style={{ pointerEvents: 'auto' }}>
 <div className="p-1/2 flex justify-between items-center"></div>
-  <div className="flex items-center gap-2 mt-2 mr-4 px-1 py-2 rounded-xl 
-    bg-white-100/100 ">
-{/*border border-gray-400 bg-gradient-to-r from-purple-400/20 via-orange-400/20 via-yellow-400/20 via-purple-400/20 via-blue-400/20 via-indigo-400/20 to-green-400/20 backdrop-blur-xl*/}
-      <div className="flex flex-wrap items-center gap-0 ">
-{/* Undo/Redo Buttons */}
-<div className="relative group mr-2 ml-2">
-  <DelayedTooltip delay={135} top={48}
-    trigger={
-      <button
-        onClick={undo}
-        disabled={!canUndo}
-        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition"
-      >
-        <ArrowUturnLeftIcon className="w-6 h-6" />
-      </button>
-    }
-  >
-    <b>Undo</b><br />Undo the last action
-  </DelayedTooltip>
-</div>
-<div className="relative group mr-2">
-  <DelayedTooltip delay={135} top={48}
-    trigger={
-      <button
-        onClick={redo}
-        disabled={!canRedo}
-        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition"
-      >
-        <ArrowUturnRightIcon className="w-6 h-6" />
-      </button>
-    }
-  >
-    <b>Redo</b><br />Redo the last undone action
-  </DelayedTooltip>
-</div>
-{/* load/save buttons */}
-<div className="relative group mr-2">
-  <DelayedTooltip  delay={135} top={48}
-    trigger={
-      <button
-        onClick={handleSaveBoard}
-        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center transition"
-      >
-        <ArrowDownTrayIcon className="w-6 h-6 " />
-      </button>
-    }
-  >
-    <b>Save Board</b>
-    <br />
-    Save this board layout, data<br /> and links to a file
-  </DelayedTooltip>
-</div>
-<div className="relative group mr-0">
-  <DelayedTooltip delay={135} top={48}
-    trigger={
-      <button
-        onClick={() => fileInputRefBoard.current.click()}
-        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center transition"
-      >
-        <ArrowUpTrayIcon className="w-6 h-6" />
-      </button>
-    }
-  >
-    <b>Load Board</b>
-    <br />
-    Load a saved board <br /> from a file
-  </DelayedTooltip>
-</div>
-{/* share button (gist) */}
-<div className="relative group ml-2">
-    <DelayedTooltip delay={135} top={48}
-        trigger={
-            <button
-                onClick={() => handleShareBoard()}
-                className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center transition"
-            >
-                <ArrowUpOnSquareIcon className="w-6 h-6" />
-            </button>
-        }
-    >
-        <b>Share via Gist</b>
-        <br />
-        Copy a shareable link to the clipboard
-    </DelayedTooltip>
-</div>
-</div>
-  <DelayedTooltip delay={135} top={52}
-  trigger={
-    <button
-      onClick={() => {
-        addPanel({
-          type: 'notepad',
-          data: { filename: "Notes", text: "" },
-          layoutHint: { w: 4, h: 10 }
-        });
-      }}
-      className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-yellow-100 text-black px-4 py-4 rounded-xl hover:bg-yellow-200 shadow-lg hover:shadow-xl leading-tight transition"
-    >
-      Notepad
-    </button>
-  }
->
-  <b>New Notepad</b>
-  <br />
-  Add a notepad panel <br /> for notes and comments
-  </DelayedTooltip>
-    <input
-      ref={fileInputRefBoard}
-      type="file"
-      accept=".json"
-      onChange={handleLoadBoard}
-      style={{ display: 'none' }}
-    />        
-  <DelayedTooltip delay={135} top={52}
-    trigger={
-            <button onClick={() => triggerUpload('alignment')} className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-green-200 text-black px-4 py-4 rounded-xl hover:bg-green-300 shadow-lg hover:shadow-xl leading-tight transition">
-              MSA
-              </button>}
-  >
-    <b>Upload MSA</b>
-    <br />
-    Upload a sequence or multiple sequence <br /> alignment in FASTA format (.fasta/.fas)
-  </DelayedTooltip>
-  <DelayedTooltip delay={135} top={52}
-    trigger={
-            <button onClick={() => triggerUpload('tree')} className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-blue-200 text-black px-4 py-4 rounded-xl hover:bg-blue-300 shadow-lg hover:shadow-xl leading-tight transition">
-              Tree
-            </button>}
-  >
-    <b>Upload Tree</b>
-    <br />
-    Upload a phylogenetic tree <br /> in Newick format (.nwk/.nhx)
-  </DelayedTooltip>
-  <DelayedTooltip delay={135} top={52}
-    trigger={
-            <button onClick={() => triggerUpload('histogram')}  className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-orange-200 text-black px-4 py-4 rounded-xl hover:bg-orange-300 shadow-lg hover:shadow-xl leading-tight transition">
-              Data
-            </button>}
-  >
-    <b>Upload Data</b>
-    <br />
-    Upload tabular data (.tsv/.csv) <br /> or a list of numbers (.txt)
-  </DelayedTooltip>
-  <DelayedTooltip delay={135} top={52}
-    trigger={
+<TopBar
+        canUndo={canUndo}
+        undo={undo}
+        canRedo={canRedo}
+        redo={redo}
+        handleSaveBoard={handleSaveBoard}
+        fileInputRefBoard={fileInputRefBoard}
+        handleLoadBoard={handleLoadBoard}
+        handleShareBoard={handleShareBoard}
+        addPanel={addPanel}
+        triggerUpload={triggerUpload}
+        fileInputRef={fileInputRef}
+        handleFileUpload={handleFileUpload}
+      />
 
-            <button onClick={() => triggerUpload('heatmap')}  className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-red-200 text-black px-4 py-4 rounded-xl hover:bg-red-300 shadow-lg hover:shadow-xl leading-tight transition">
-            Matrix
-            </button>}
-  >
-    <b>Upload Matrix</b>
-    <br />
-    Upload a distance matrix in PHYLIP format  <br />  (.phy/.phylip/.dist) <br /> or an arbitrary matrix in tabular format (.tsv/.csv)
-  </DelayedTooltip>
-  <DelayedTooltip delay={135} top={52}
-    trigger={
-            <button onClick={() => triggerUpload('structure')} className="w-24 upload-btn-trigger  whitespace-normal break-words h-18 bg-purple-200 text-black px-4 py-4 rounded-xl hover:bg-purple-300 shadow-lg hover:shadow-xl leading-tight transition">
-              Structure
-            </button>}
-  >
-    <b>Upload Structure</b>
-    <br />
-    Upload a molecular structure <br /> in PDB format (.pdb)
-  </DelayedTooltip>
-            <GitHubButton />
-            <input ref={fileInputRef} type="file" accept=".fasta,.nwk,.nhx,.txt,.tsv,.csv,.fas,.phy,.phylip,.dist,.pdb" onChange={handleFileUpload} style={{ display: 'none' }} />
-          </div>
         </div>
         </div>
          {/* instructions and example */}
