@@ -41,16 +41,22 @@ The full set of features and linking functionalities is described below (note, t
 ## Linking panels:
 Different panels can be linked to each other, allowing for linked element highlighting, via the **Link button**, once clicked the user enters <em>linking mode</em>: The available linking partners for the selected panel will be highlighted in blue, clicking on the Link button in one of them will establish a link between them and the original panel, to exit linking mode without completing a link simply click again on the Link button in the original panel.
 
+The links for a given panel are visualised as the round colored **Link badges** in the upper left corner of the panel, each active link is represented by the same color in both panels. Hovering over a link badge allows to see the name of the corresponding linked panel, clicking on a badge disactivates the corresponding link turning the badge gray, clicking an unactive link badge will reactivate it again.
 
-## Common panel features: (🚧)
+## Common panel features
+Three buttons are shared by all panels:
 
+- By clicking on the **Download button** the user can download the data contained inside a panel, e.g. the fasta file for alignment panels, the nwk/nhx string for tree panels, the txt file for notepad panels, the pdb file for protein structure panels etc.
+- By clicking on the **Duplicate button** the user can duplicate the corresponding panel.
+- By clicking on the **Remove button** the user can remove the corresponding panel along with its data, this will also remove in the other panels all the badges relative to links with the removed one.
+  
 ## Panel-specific features:
 
 ### **MSA panels**:
 View sequences or multiple sequence alignments (supported data format: fasta files), click on a site column to set a persistent highlight on it, click again to remove it.
 Scroll into view: When receiving a highlight from a linked panel the MSA scrolls to bring the corresponding highlighted site into view.
 
-<em>Can be linked to:</em> MSA panels, Tree panels, Heatmap panels, Data panels, Sequence logo panels, protein structures.
+<em>Can be linked to:</em> MSA panels, Tree panels, Heatmap panels, Data panels, Sequence logo panels, Protein structure panels.
 
 - By clicking on the **Search button** the user can perform a search inside the alignment: A search bar will appear, if the user types in an integer index and hits enter the alignment will scroll to it and the corresponding column will be highlighted, if the user types a motif (e.g. AACG) then all occurrences of that motif inside the MSA will be highlighted and the user will be able to navigate between them. To exit the search click on the button again or press escape.
 - Clicking on the **Tree button** allows to reconstruct a phylogenetic tree from the MSA using FastME (Lefort et al. “Fastme 2.0: A comprehen-
@@ -87,7 +93,7 @@ Visualise distance matrices (supported data format: phylip-formatted distance ma
 Provided the input data is properly formatted this panel allows a great deal of flexibility, beyond phylogenetic distance matrices the panel can be used to visualize protein residue distance matrices, HB plots, coevolution and correlation matrices, attention/saliency maps of a neural network, and in general any kind of data that can benefit from being visualized as 2D heatmap.
 The **colorbar** is a legend but also a threshold selector, clicking on it all cells containing values below the treshold will be colored with one color, those with values above it with the other (this can for instance turn a residue distance matrix into a protein contact map), click on the colorbar again to restore the original view.
 
-<em>Can be linked to:</em> MSA panels, Tree panels, Heatmap panels, protein structures.
+<em>Can be linked to:</em> MSA panels, Tree panels, Heatmap panels, Protein structure panels.
 
 - By clicking on the **Tree button** the user can reconstruct a tree from the matrix via the Neighbor Joining algorithm (Saitou and Nei “The neighbor-joining method: A new method
 for reconstructing phylogenetic trees”), the tree will be opened in another panel, linked to the original one.
