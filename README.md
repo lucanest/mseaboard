@@ -43,7 +43,7 @@ Different panels can be linked to each other, allowing for linked element highli
 
 The links for a given panel are visualised as the round colored **Link badges** in the upper left corner of the panel, each active link is represented by the same color in both panels. Hovering over a link badge allows to see the name of the corresponding linked panel, clicking on a badge disactivates the corresponding link turning the badge gray, clicking an unactive link badge will reactivate it again.
 
-## Common panel features
+## Common panel features:
 Three buttons are shared by all panels:
 
 - By clicking on the **Download button** the user can download the data contained inside a panel, e.g. the fasta file for alignment panels, the nwk/nhx string for tree panels, the txt file for notepad panels, the pdb file for protein structure panels etc.
