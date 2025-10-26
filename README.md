@@ -18,17 +18,17 @@ The full set of features and linking functionalities is described below (note, t
 - **MSA (.fasta/.fas)**: View alignments with colored residues and codon highlighting.
 - **Phylogenetic trees (.nwk/.nhx)**: Explore trees in Newick or NHX format.
 - **Distance matrices (.phy)**: Visualise phylogenetic distance matrices or any data that can be visualized as a 2D heatmap
-- **Tabular data (.csv/.tsv)**: Select numeric columns for barchart plotting.
+- **Tabular data (.csv/.tsv)**: Select numeric columns for barchart plotting or visualise the data as a table.
 - **Numeric lists (.txt)**: Plot numeric data as barcharts.
 
  **Flexible panel management**
 - Create, duplicate, remove, or rename panels dynamically.
 - Arrange panels freely in a draggable, resizable grid layout.
-- Save or load entire board (panel data, layout, and links).
+- Save, load or share via an URL entire boards (with all the panel data, settings, layout, and links).
 
  **Link panels for synchronized exploration**
 - Link alignment, tree, heatmap, structure, sequence logo or data panels.
-- Hover over alignment columns, tree tips, heatmap cells or barchart bars to highlight corresponding elements in linked panels.
+- Hover over alignment columns, tree tips, residues in a protein structure, heatmap cells or barchart bars to highlight corresponding elements in linked panels.
 - Horizontal scroll into view feature for alignments, sequence logos or barcharts when receiving a highlight through a link.
 
  **Export / import**
@@ -36,47 +36,50 @@ The full set of features and linking functionalities is described below (note, t
 - Load previously saved boards for seamless continuation and data sharing.
 
 
-## Panel-specific features (🚧):
+## Panel-specific features:
 
 ### **MSA panels**:
 View sequences or multiple sequence alignments (supported data format: fasta files), click on a site column to set a persistent highlight on it, click again to remove it.
 Scroll into view: When receiving a highlight from a linked panel the MSA scrolls to bring the corresponding highlighted site into view.
 
-Can be linked to: MSA panels, Tree panels, Heatmap panels, Data panels, Sequence logo panels, protein structures.
+<em>Can be linked to:</em> MSA panels, Tree panels, Heatmap panels, Data panels, Sequence logo panels, protein structures.
 
-- By clicking on the **search button** the user can perform a search inside the alignment: A search bar will appear, if the user types in an integer index and hits enter the alignment will scroll to it and the corresponding column will be highlighted, if the user types a motif (e.g. AACG) then all occurrences of that motif inside the MSA will be highlighted and the user will be able to navigate between them. To exit the search click on the button again or press escape.
-- Clicking on the **tree button** allows to reconstruct a phylogenetic tree from the MSA using FastME (Lefort et al. “Fastme 2.0: A comprehen-
-sive, accurate, and fast distance-based phylogeny inference program”), the user is prompted with the choice of a substitution model (among those supported by FastME) and then a phylogenetic tree is reconstructed, it will be opened in another panel, linked to the original one. Note: the reordering of the sequences in the alignment following the order in the tree isn't automatic but can be achieved by manually linking the two panels again. 
-- Clicking on the **sequence logo button** a will create a sequence logo, opened in a dedicated panel, showing the information in bits of each residue appearing in each site of the alignment. The sequence logo panel will be automatically linked to the original MSA panel provided the former is not in <em>codon mode</em> (see Nucleotide alignments below).
-- Clicking on the **statistics button** a set of per-site statistics (residue conservation and gap fraction, with more coming soon) will be computed and this data will be opened in a new data panel, automatically linked to the original MSA one. Note: When in <em>codon mode</em> (see Nucleotide alignments below), the statistics will be computed <em>per-codon</em>.
-- Clicking on the **distance matrix button** a distance matrix is built from the alignment (using normalized Hamming distances between sequences) and opened in a new heatmap panel (linked to the original MSA one).
+- By clicking on the **Search button** the user can perform a search inside the alignment: A search bar will appear, if the user types in an integer index and hits enter the alignment will scroll to it and the corresponding column will be highlighted, if the user types a motif (e.g. AACG) then all occurrences of that motif inside the MSA will be highlighted and the user will be able to navigate between them. To exit the search click on the button again or press escape.
+- Clicking on the **Tree button** allows to reconstruct a phylogenetic tree from the MSA using FastME (Lefort et al. “Fastme 2.0: A comprehen-
+sive, accurate, and fast distance-based phylogeny inference program”), the user is prompted with the choice of a substitution model (among those supported by FastME) and then a phylogenetic tree is reconstructed, it will be opened in another panel, linked to the original one. Note: In this case the reordering of the sequences in the alignment following the order in the tree isn't automatic but can be achieved by manually linking the two panels again. 
+- Clicking on the **Sequence logo button** a will create a sequence logo, opened in a dedicated panel, showing the information in bits of each residue appearing in each site of the alignment. The sequence logo panel will be automatically linked to the original MSA panel provided the former is not in <em>codon mode</em> (see Nucleotide alignments below).
+- Clicking on the **Statistics button** a set of per-site statistics (residue conservation and gap fraction, with more coming soon) will be computed and this data will be opened in a new data panel, automatically linked to the original MSA one. Note: When in <em>codon mode</em> (see Nucleotide alignments below), the statistics will be computed <em>per-codon</em>.
+- Clicking on the **Distance matrix button** a distance matrix is built from the alignment (using normalized Hamming distances between sequences) and opened in a new heatmap panel (linked to the original MSA one).
 - Clicking on the **MSA color matrix button** an alignment color matrix is built from the alignment and opened in a new heatmap panel (linked to the original MSA one) allowing for an overview of the entire MSA and for quicker navigation.
 - Clicking on the **Extract sequences button** the user can choose a subset of the sequences in the MSA to open in a new alignment panel (click on the sequence labels to select/deselect them).
   
 #### **Nucleotide alignments**:
 If the panels contains dna sequences a few more options are available to the user:
-- Clicking on the **codon button** the user can toggle <em>codon mode</em>, this will switch indexing to codons: In this mode on hover three adjacent alignment columns (corresponding to the three positions in each codon) are highlighted at a time and the codon indexing will be used for panel linking as well as for the search. When in this mode, if the user computes the alignment statistics via the corresponding button, these will be computed per-codon instead of per-site.
-- Nucleotide sequences/MSAs can be translated into amino acids with the **translation button**, the translation will then be opened in another panel (linked to the original if the former is in codon mode).
+- Clicking on the **Codon button** the user can toggle <em>codon mode</em>, this will switch indexing to codons: In this mode on hover three adjacent alignment columns (corresponding to the three positions in each codon) are highlighted at a time and the codon indexing will be used for panel linking as well as for the search. When in this mode, if the user computes the alignment statistics via the corresponding button, these will be computed per-codon instead of per-site.
+- Nucleotide sequences/MSAs can be translated into amino acids clicking **translation button**, the translation will then be opened in another panel (linked to the original if the latter is in codon mode).
+- Clicking on the **Omega button** allows the users to run a DaNaiDeS model (West et al. "Detecting interspecific positive selection
+using transformers",  <em>in preparation</em>) in order to predict per-codon omega (dN/dS) values which will be displayed in a new data panel (linked to the original if the latter is in codon mode). Note: This is still an experimental feature.
 
 
 ### **Tree panels**:
-Visualise phylogenetic trees (supported data format: Newick or NHX with node annotations), click on a leaf node to set a persistent highlight on it, click again to remove it. Hover over branches to see their lengths, hover over nodes to see their annotations (even beyond those used for coloring the nodes).
+Visualise phylogenetic trees (supported data format: Newick or NHX with node annotations), click on a leaf node to set a persistent highlight on it, click again to remove it. Hover over branches to see their lengths, hover over nodes to see all their annotations.
 
-Can be linked to: MSA panels, Tree panels, Heatmap panels.
+<em>Can be linked to:</em> MSA panels, Tree panels, Heatmap panels.
 
-- By clicking on the **branch lengths button** the user can switch between two different views, choosing whether to draw the branches with their actual lengths or not.
-- By clicking on the **tree view button** the user can again switch between two different views, choosing whether to represent the tree with a circular or a rectangular view.
-- Clicking on the **distance matrix button** a distance matrix is built from the tree (using patristic distances, the sum of the branch lengths along the path connecting one leaf to the other) and opened in a new heatmap panel (linked to the original tree one).
+- By clicking on the **Branch lengths button** the user can switch between two different views, choosing whether to draw the branches with their actual lengths or not.
+- By clicking on the **Tree view button** the user can again switch between two different views, choosing whether to represent the tree with a circular or a rectangular view.
+- Clicking on the **Distance matrix button** a distance matrix is built from the tree (using patristic distances, the sum of the branch lengths along the path connecting one leaf to the other) and opened in a new heatmap panel (linked to the original tree one).
 
 ### **Heatmap panels**:
 Visualise distance matrices (supported data format: phylip-formatted distance matrices), click on a cell to set a persistent highlight on it, click again to remove it.
 Provided the input data is properly formatted this panel allows a great deal of flexibility, beyond phylogenetic distance matrices the panel can be used to visualize protein residue distance matrices, HB plots, coevolution and correlation matrices, attention/saliency maps of a neural network, and in general any kind of data that can benefit from being visualized as 2D heatmap.
-The colorbar is a legend but also a threshold selector, clicking on it all cells containing values below the treshold will be colored with one color, those with values above it with the other (this can for instance turn a residue distance matrix into a protein contact map), click on the colorbar again to restore the original view.
+The **colorbar** is a legend but also a threshold selector, clicking on it all cells containing values below the treshold will be colored with one color, those with values above it with the other (this can for instance turn a residue distance matrix into a protein contact map), click on the colorbar again to restore the original view.
 
-Can be linked to: MSA panels, Tree panels, Heatmap panels, protein structures.
+<em>Can be linked to:</em> MSA panels, Tree panels, Heatmap panels, protein structures.
 
-- By clicking on the **tree button** the user can reconstruct a tree (via the Neighbor Joining algorithm) from the matrix, this will be opened in another panel, linked to the original one.
-- By clicking on the **view button** the user can switch between two different views, choosing whether to represent the data as a square matrix or a diamond (as typically done for LD plots).
+- By clicking on the **tree button** the user can reconstruct a tree from the matrix via the Neighbor Joining algorithm (Saitou and Nei “The neighbor-joining method: A new method
+for reconstructing phylogenetic trees”), the tree will be opened in another panel, linked to the original one.
+- By clicking on the **view button** the user can switch between two different views, choosing whether to represent the data as a square matrix or a diamond.
 
 ### **Data panels**: (🚧)
 
@@ -88,7 +91,7 @@ Can be linked to: MSA panels, Tree panels, Heatmap panels, protein structures.
 Create from MSA panels: Visually shows the information in bits of each residue appearing in each site of the alignment.
 Scroll into view: When receiving a highlight from a linked panel the sequence logo scrolls to bring the corresponding highlighted site into view.
 
-Can be linked to: MSA panels, Data panels, Sequence logo panels.
+<em>Can be linked to:</em> MSA panels, Data panels, Sequence logo panels.
 
 ### **Notepad panels**:
 Write notes and observations here.
