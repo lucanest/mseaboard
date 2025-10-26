@@ -41,16 +41,16 @@ The full set of features and linking functionalities is described below (note, t
 ### **MSA panels**:
 View sequences or multiple sequence alignments (supported data format: fasta files), click on a site column to set a persistent highlight on it, click again to remove it.
 Scroll into view: When receiving a highlight from a linked panel the MSA scrolls to bring the corresponding highlighted site into view.
+Can be linked to: MSA panels, Tree panels, Heatmap panels, Data panels, Sequence logo panels, protein structures.
 
 - By clicking on the **search button** the user can perform a search inside the alignment: A search bar will appear, if the user types in an integer index and hits enter the alignment will scroll to it and the corresponding column will be highlighted, if the user types a motif (e.g. AACG) then all occurrences of that motif inside the MSA will be highlighted and the user will be able to navigate between them. To exit the search click on the button again or press escape.
 - Clicking on the **statistics button** a set of per-site statistics (for now residue conservation and gap fraction) will be computed and this data will be opened in a new data panel.
 - Clicking on the **sequence logo button** a will create a sequence logo, opened in a dedicated panel, showing the information in bits of each residue appearing in each site of the alignment. The sequence logo panel will be automatically linked to the original MSA panel provided the former is not in codon mode.
-- If the panels contains dna sequences the user can toggle the codon mode via the **codon button**, this will switch indexing to codons: In this mode on hover three adjacent alignment columns (corresponding to the three positions in each codon) are highlighted at a time and the codon indexing will be used for panel linking as well as for the search. When in this mode, if the user computes the alignment statistics via the corresponding button, these will be computed per-codon instead of per-site.
 - Nucleotide sequences/MSAs can also be translated into amino acids with the **translation button**, the translation will then be opened in another panel (linked to the original if the former is in codon mode).
 - Clicking on the **distance matrix button** a distance matrix is built from the alignment (using normalized Hamming distances) and opened in a new heatmap panel (linked to the original MSA one).
 - Clicking on the **tree button** allows to reconstruct a phylogenetic tree from the MSA using FastME, the user is prompted with the choice of a substitution model (among those supported by FastME) and then a phylogenetic tree is reconstructed, it will be opened in another panel, linked to the original one.
-
-Can be linked to: MSA panels, Tree panels, Heatmap panels, Data panels, Sequence logo panels, protein structures.
+#### **Nucleotide alignments**:
+-  If the panels contains dna sequences the user can toggle the codon mode via the **codon button**, this will switch indexing to codons: In this mode on hover three adjacent alignment columns (corresponding to the three positions in each codon) are highlighted at a time and the codon indexing will be used for panel linking as well as for the search. When in this mode, if the user computes the alignment statistics via the corresponding button, these will be computed per-codon instead of per-site.
 
 
 ### **Tree panels**:
