@@ -3222,7 +3222,16 @@ const addPanel = useCallback((config = {}) => {
     const footer = nextPresent.layout.find(l => l.i === '__footer');
     const GRID_W = 12;
     const defaultW = layoutHint.w || 4;
-    const defaultH = layoutHint.h || 20;
+    let defaultH = layoutHint.h || 20;
+
+    if (type === 'alignment' && data?.data?.length > 0) {
+      // Calculate a height proportional to the number of sequences.
+      // (Approx. 2 grid units for header/padding + 0.8 units per sequence)
+      const proportionalHeight = 2 + Math.ceil(data.data.length * 0.8);
+      // Use the smaller of the proportional height and the standard default, ensuring it's not less than the minimum.
+      defaultH = Math.max(3, Math.min(defaultH, proportionalHeight));
+    }
+
     const occupancy = {};
     layoutWithoutFooter.forEach(l => {
       for (let x = l.x; x < l.x + l.w; x++) {
@@ -3259,7 +3268,7 @@ const addPanel = useCallback((config = {}) => {
       newY = maxY;
     }
 
-    const newLayoutItem = { i: newId, x: newX, y: newY, w: defaultW, h: defaultH, minW: 2, minH: 3, ...layoutHint };
+    const newLayoutItem = { i: newId, x: newX, y: newY, w: defaultW, h: defaultH, minW: 2, minH: 2, ...layoutHint };
     const nextLayout = [...layoutWithoutFooter, newLayoutItem];
     const newMaxY = nextLayout.reduce((max, l) => Math.max(max, l.y + l.h), 0);
     const newFooter = { ...(footer || {}), i: '__footer', x: 0, y: newMaxY, w: 12, h: 2, static: true };
@@ -4518,10 +4527,16 @@ const handleFileUpload = async (e) => {
     if (isReupload) {
         setPanelData(prev => ({ ...prev, [id]: panelPayload }));
     } else {
+        const layoutHint = { w: 4 };
+        // Don't specify a height for alignments, letting addPanel calculate it.
+        // For other types, use a default height.
+        if (type !== 'alignment') {
+            layoutHint.h = 20;
+        }
         addPanel({
             type,
             data: panelPayload,
-            layoutHint: { w: 4, h: 20 }
+            layoutHint: layoutHint
         });
     }
 
@@ -5017,10 +5032,16 @@ const handleDrop = async (e) => {
         console.warn(`Skipping board file ${f.name} in multi-file drop to avoid overwriting current board.`);
         continue;
       }
+      const layoutHint = { w: 4 };
+      if (built.type === 'seqlogo') {
+        layoutHint.h = 8;
+      } else if (built.type !== 'alignment') {
+        layoutHint.h = 20;
+      }
       addPanel({
         type: built.type,
         data: built.payload,
-        layoutHint: { w: 4, h: built.type === 'seqlogo' ? 8 : 20 }
+        layoutHint: layoutHint
       });
     } catch (err) {
       console.error('Failed to open dropped file', f.name, err);
