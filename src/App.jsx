@@ -3419,9 +3419,20 @@ const addPanel = useCallback((config = {}) => {
     const layoutItem = layout.find(l => l.i === id);
     if (!panel || !data || !layoutItem) return;
 
+    const newData = JSON.parse(JSON.stringify(data));
+
+    // Rehydrate the matrix view if it's a heatmap from a structure.
+    // The JSON stringify/parse process turns the matrix proxy into a plain object.
+    // We need to reconstruct the matrix view for the duplicated panel to use.
+    if (panel.type === 'heatmap' && newData.matrix && typeof newData.matrix === 'object' && newData.matrix.n && newData.matrix.data) {
+        const flatValues = Object.values(newData.matrix.data);
+        const buffer = new Float64Array(flatValues).buffer;
+        newData.matrix = createMatrixView(buffer, newData.matrix.n);
+    }
+
     addPanel({
       type: panel.type,
-      data: JSON.parse(JSON.stringify(data)), // Deep copy
+      data: newData,
       basedOnId: id,
       layoutHint: {
       w: layoutItem.w,
