@@ -518,7 +518,7 @@ const handleColorbarMouseMove = (e) => {
   return (
   <div
     ref={containerRef}
-    className="flex-1 relative overflow-visible w-full h-full"
+    className="flex-1 relative overflow-visible w-full h-full py-1"
     style={{ display: "flex", flexDirection: "column" }}
   >
     <div
