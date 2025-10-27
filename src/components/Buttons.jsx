@@ -1,5 +1,7 @@
 // Buttons.jsx
-import { LinkIcon, MagnifyingGlassIcon,ScissorsIcon, ChartBarIcon , Squares2X2Icon, DocumentDuplicateIcon, XMarkIcon, Bars3Icon, EyeIcon, LanguageIcon, CodeBracketIcon, ArrowDownTrayIcon, SwatchIcon } from '@heroicons/react/24/outline';
+import { LinkIcon, MagnifyingGlassIcon,ScissorsIcon, ChartBarIcon , Squares2X2Icon, DocumentDuplicateIcon,
+   XMarkIcon, Bars3Icon, EyeIcon, LanguageIcon, CodeBracketIcon, PhotoIcon,
+    ArrowDownTrayIcon, SwatchIcon } from '@heroicons/react/24/outline';
 
 export function ColorButton({ onClick }) {
   return (
@@ -51,7 +53,7 @@ export function LinkButton({ onClick, isLinkModeActive, isEligibleLinkTarget }) 
         className="p-0.5"
         //title={'Link panel'}
     >
-      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg hover:bg-yellow-300
+      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg hover:bg-yellow-200
 ${isLinkModeActive ? 'bg-blue-200' :'bg-gray-100'}
 ${isEligibleLinkTarget ? 'border-2 border-blue-400' : 'border border-gray-400'}`}>
           <LinkIcon
@@ -63,6 +65,21 @@ ${isEligibleLinkTarget ? 'border-2 border-blue-400' : 'border border-gray-400'}`
     </button>
   );
 }
+
+export function PictureButton({ onClick }) {
+  return (
+    <button
+      onClick={onClick}
+      className="p-0.5"
+    >
+      <span className="inline-flex items-center justify-center w-6 h-6
+       rounded-lg bg-gray-100 border border-gray-400 hover:bg-indigo-200">
+       <PhotoIcon className="w-4 h-4 text-indigo-700 flex-shrink-0 -translate-y-[0px]" />
+      </span>
+    </button>
+  );
+}
+
 
 export function RadialToggleButton({ onClick, isActive }) {
   return (
@@ -91,7 +108,7 @@ export function CodonToggleButton({ onClick, isActive }) {
     >
       <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
         ${isActive ? 'bg-purple-200' : 'bg-gray-100'}
-        border border-gray-400 hover:bg-purple-300`}>
+        border border-gray-400 hover:bg-purple-200`}>
         <span className="text-xs font-bold text-orange-800 leading-none">
           <Bars3Icon className="w-4 h-4 flex-shrink-0 -translate-y-[0px] rotate-90" />
         </span>
@@ -107,7 +124,7 @@ export function TableChartButton({ onClick, isActive }) {
       className="p-0.5"
     >
       <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100
-        border border-gray-400 hover:bg-green-300`}>
+        border border-gray-400 hover:bg-green-200`}>
                 <span className="text-xs font-bold text-green-800 leading-none">
           {!isActive ? (
             <Bars3Icon className="w-4 h-4 flex-shrink-0 -translate-y-[0px] rotate-0" />
@@ -128,7 +145,7 @@ export function SiteStatsButton({ onClick }) {
       //title="Compute per-site conservation and gap fraction"
     >
       <span className="inline-flex items-center justify-center w-6 h-6
-       rounded-lg bg-gray-100 border border-gray-400 hover:bg-orange-300">
+       rounded-lg bg-gray-100 border border-gray-400 hover:bg-orange-200">
        <ChartBarIcon className="w-4 h-4 text-orange-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
@@ -145,7 +162,7 @@ export function TranslateButton({ onClick }) {
       onClick={onClick}
       //title="Duplicate and translate to protein"
     >
-      <span className="inline-flex items-center text-orange-700 justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-orange-300">
+      <span className="inline-flex items-center text-orange-700 justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-orange-200">
           <LanguageIcon className="w-4 h-4 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
@@ -211,7 +228,7 @@ export function DistanceMatrixButton({ onClick, title = "Build distance matrix f
       onClick={onClick}
       //title={title}
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-purple-300">
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-purple-200">
         <Squares2X2Icon className="w-4 h-4 text-purple-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
@@ -225,7 +242,7 @@ export function DiamondButton({ onClick }) {
       className="p-0.5"
       onClick={onClick}
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-purple-300">
+      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-purple-200">
         <DiamondGlyph className="w-4 h-4 text-gray-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
@@ -481,7 +498,7 @@ export function OmegaButton({ onClick, tooltip = null }){
       onClick={onClick}
     >
       <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg
-        bg-gray-100 hover:bg-fuchsia-300 border border-gray-400">
+        bg-gray-100 hover:bg-fuchsia-200 border border-gray-400">
         <OmegaGlyph className="w-4 h-4 flex-shrink-0 m-0 p-0 -translate-y-[0px]" />
       </span>
     </button>
