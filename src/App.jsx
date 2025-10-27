@@ -537,71 +537,133 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
     return [];
   }, [data.msa]);
 
-  const scrollContainerRef = useRef();
-  const logoContainerRef = useRef(null);
+  const scrollContainerRef = useRef(null);
+  const [scrollLeft, setScrollLeft] = useState(0);
+  const [viewportWidth, setViewportWidth] = useState(0);
+  const isScrollingRef = useRef(false);
+  const scrollRafRef = useRef(null);
+
+  // Use requestAnimationFrame for smoother scrolling
+  const onScroll = useCallback((e) => {
+    const target = e?.currentTarget;
+    if (!target) return;
+    
+    if (scrollRafRef.current) {
+      cancelAnimationFrame(scrollRafRef.current);
+    }
+
+    isScrollingRef.current = true;
+    scrollRafRef.current = requestAnimationFrame(() => {
+      const newScrollLeft = target.scrollLeft;
+      setScrollLeft(newScrollLeft);
+      isScrollingRef.current = false;
+    });
+  }, []);
+
+
 
   const Highlighted = (
     highlightedSite != null &&
     (highlightOrigin === id || (Array.isArray(linkedTo) && linkedTo.includes(highlightOrigin)))
   );
 
+  // Update viewport width when container resizes
   useEffect(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return;
 
-  
-    // scroll-into-view logic
+    const updateViewportWidth = () => {
+      setViewportWidth(container.clientWidth);
+    };
+
+    updateViewportWidth();
+    
+    const resizeObserver = new ResizeObserver(updateViewportWidth);
+    resizeObserver.observe(container);
+
+    return () => {
+      resizeObserver.disconnect();
+    };
+  }, []);
+
+
+  useEffect(() => {
+    const container = scrollContainerRef.current;
     if (
-       highlightedSite != null && Number(highlightedSite) >= 0 && Number.isInteger(Number(highlightedSite)) &&
-       Array.isArray(linkedTo) && linkedTo.includes(highlightOrigin) &&
-       highlightOrigin !== id &&
-      scrollContainerRef.current
+      highlightedSite != null && 
+      Number.isInteger(Number(highlightedSite)) &&
+      Number(highlightedSite) >= 0 &&
+      Array.isArray(linkedTo) && 
+      linkedTo.includes(highlightOrigin) &&
+      highlightOrigin !== id &&
+      container &&
+      !isScrollingRef.current // Don't auto-scroll while user is manually scrolling
     ) {
       const colWidth = 24;
-      const container = scrollContainerRef.current;
-      const containerWidth = container.offsetWidth;
+      const containerWidth = container.clientWidth;
       const currentScroll = container.scrollLeft;
-      const maxScroll = container.scrollWidth - containerWidth;
-  
+      
       const colLeft = highlightedSite * colWidth;
       const colRight = colLeft + colWidth;
-      const padding = containerWidth / 3;
-  
-      let targetScroll = null;
-      if (colLeft < currentScroll ) targetScroll = colLeft - padding;
-      else if (colRight > currentScroll + containerWidth) targetScroll = colRight - containerWidth + padding;
-  
-      if (targetScroll != null) {
-        targetScroll = Math.max(0, Math.min(maxScroll, targetScroll));
-        container.scrollTo({ left: targetScroll });
+
+      // Only scroll if the column is mostly out of view
+      const visibleThreshold = containerWidth * 0.1; // 10% threshold
+      if (colRight < currentScroll + visibleThreshold || colLeft > currentScroll + containerWidth - visibleThreshold) {
+        const padding = containerWidth / 3;
+        let targetScroll = currentScroll;
+        
+        if (colLeft < currentScroll + padding) {
+          targetScroll = colLeft - padding;
+        } else if (colRight > currentScroll + containerWidth - padding) {
+          targetScroll = colRight - containerWidth + padding;
+        }
+
+        const maxScroll = container.scrollWidth - containerWidth;
+        const clampedScroll = Math.max(0, Math.min(maxScroll, targetScroll));
+        
+        container.scrollTo({ left: clampedScroll});
       }
     }
   }, [highlightedSite, highlightOrigin, linkedTo, id]);
 
- // download handler for PNG
- const handleDownloadPNG = useCallback(() => {
-   const canvas = logoContainerRef.current?.querySelector('canvas');
-   const base = (data?.filename || 'sequence_logo').replace(/\.[^.]+$/, '');
-   if (!canvas) {
-     alert('No image to download yet.');
-     return;
-   }
-   try {
-     const url = canvas.toDataURL('image/png');
-     const a = document.createElement('a');
-     a.href = url;
-     a.download = `${base}.png`;
-     document.body.appendChild(a);
-     a.click();
-     document.body.removeChild(a);
-   } catch (e) {
-     console.error('PNG export failed:', e);
-     alert('PNG export failed in this browser.');
-   }
- }, [data]);
+
+  const handleDownloadPNG = useCallback(() => {
+    const canvas = scrollContainerRef.current?.querySelector('canvas');
+    const base = (data?.filename || 'sequence_logo').replace(/\.[^.]+$/, '');
+    if (!canvas) {
+      alert('Could not find canvas to download.');
+      return;
+    }
+    try {
+      const url = canvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${base}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error('PNG export failed:', e);
+      alert('PNG export failed in this browser.');
+    }
+  }, [data]);
 
   const extraButtons = useMemo(() => [
     { element: <DownloadButton onClick={handleDownloadPNG} />,
       tooltip: "Download png" }
   ], [handleDownloadPNG]);
+
+  const seqLen = sequences[0]?.length || 0;
+  const totalWidth = seqLen * 24 - 14; // 24px per residue - 14px adjustment for last column
+
+  // Clean up RAF on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollRafRef.current) {
+        cancelAnimationFrame(scrollRafRef.current);
+      }
+    };
+  }, []);
 
   return (
     <PanelContainer
@@ -609,7 +671,7 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
       hoveredPanelId={hoveredPanelId}
       setHoveredPanelId={setHoveredPanelId}
       linkedTo={linkedTo}
-      panelLinks={panelLinks} 
+      panelLinks={panelLinks}
       isEligibleLinkTarget={isEligibleLinkTarget}
       justLinkedPanels={justLinkedPanels}
     >
@@ -631,20 +693,26 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
       />
       <div
         ref={scrollContainerRef}
+        onScroll={onScroll}
         className="flex-1 p-2 bg-white overflow-x-auto"
+        style={{ 
+          overflowX: 'auto',
+          WebkitOverflowScrolling: 'touch',
+        }}
       >
         {sequences.length === 0 ? (
-          <div className="text-gray-400 text-center">
+          <div className="p-2 text-gray-400 text-center">
             No data to render sequence logo.
           </div>
         ) : (
-          // wrap the logo so we can query the node
-          <div ref={logoContainerRef}>
+          <div style={{ width: `${totalWidth}px`, height: '100%', position: 'relative' }}>
             <SequenceLogoCanvas
               sequences={sequences}
               height={200}
               highlightedSite={Highlighted ? highlightedSite : null}
               onHighlight={siteIdx => { if (onHighlight) onHighlight(siteIdx, id); }}
+              scrollLeft={scrollLeft}
+              viewportWidth={viewportWidth}
             />
           </div>
         )}
@@ -652,6 +720,9 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
     </PanelContainer>
   );
 });
+
+
+
 
 const HeatmapPanel = React.memo(function HeatmapPanel({
   id, data, onRemove, onDuplicate, onLinkClick, isLinkModeActive,isEligibleLinkTarget,
