@@ -25,6 +25,8 @@ import debounce from 'lodash.debounce';
 import GridLayout from 'react-grid-layout';
 import ReactDOM from 'react-dom';
 import pako from 'pako';
+import { jsPDF } from 'jspdf';
+import html2canvas from 'html2canvas';
 import { useDistanceMatrixWorker } from './hooks/useDistanceMatrixWorker.js';
 import { createMatrixView } from './components/MatrixView.js';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
@@ -32,7 +34,7 @@ CodonToggleButton, TranslateButton, SiteStatsButton, LogYButton,
 SeqlogoButton, SequenceButton, DistanceMatrixButton, ZeroOneButton,
  DownloadButton, GitHubButton, SearchButton, TreeButton, ColorButton,
  DiamondButton, BranchLengthsButton, PruneButton, SubMSAButton,
- TableChartButton, OmegaButton } from './components/Buttons.jsx';
+ TableChartButton, OmegaButton, PictureButton } from './components/Buttons.jsx';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon, ArrowUpOnSquareIcon, ArrowUturnLeftIcon, ArrowUturnRightIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick,
 newickToDistanceMatrix, detectFileType, toFasta, toPhylip, computeSiteStats, buildTreeFromDistanceMatrix,
@@ -732,7 +734,62 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
   const { labels, rowLabels, colLabels, matrix, filename, threshold=null, minVal, maxVal } = data || {};
   const [showColorModal, setShowColorModal] = useState(false);
   const colorModalRef = useRef(null);
+  const [showDownloadOptions, setShowDownloadOptions] = useState(false);
+  const downloadOptionsRef = useRef(null);
+  const pictureButtonWrapperRef = useRef(null);
+  const [containerRef, dims] = useElementSize({ debounceMs: 90 });
 
+  // Handler for Canvas-Only PDF Download
+  const handleDownloadCanvasPDF = useCallback(() => {
+    setShowDownloadOptions(false);
+    const canvas = containerRef.current?.querySelector('canvas');
+    if (!canvas) {
+      alert("Could not find the heatmap canvas.");
+      return;
+    }
+    const base = baseName(filename, 'heatmap_canvas');
+    try {
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      const pdf = new jsPDF({
+        orientation: canvas.width > canvas.height ? 'landscape' : 'portrait',
+        unit: 'px',
+        format: [canvas.width, canvas.height]
+      });
+      pdf.addImage(imgData, 'PNG', 0, 0, canvas.width, canvas.height);
+      pdf.save(`${base}.pdf`);
+    } catch (e) {
+      console.error("PDF (Canvas) export failed:", e);
+      alert("Failed to export canvas as PDF.");
+    }
+  }, [filename, containerRef]);
+
+  // Handler for Full Figure PDF Download
+  const handleDownloadFigurePDF = useCallback(async () => {
+    setShowDownloadOptions(false);
+    const contentToCapture = containerRef.current;
+    if (!contentToCapture) {
+      alert("Could not find the heatmap content to generate a PDF.");
+      return;
+    }
+    const base = baseName(filename, 'heatmap_figure');
+    const scale = 2; // resolution
+    try {
+      const canvas = await html2canvas(contentToCapture, { scale, useCORS: true, allowTaint: true, logging: false });
+      const imgData = canvas.toDataURL('image/png', 1.0);
+      const originalWidth = contentToCapture.offsetWidth;
+      const originalHeight = contentToCapture.offsetHeight;
+      const pdf = new jsPDF({
+        orientation: originalWidth > originalHeight ? 'landscape' : 'portrait',
+        unit: 'px',
+        format: [originalWidth, originalHeight]
+      });
+      pdf.addImage(imgData, 'PNG', 0, 0, originalWidth, originalHeight);
+      pdf.save(`${base}.pdf`);
+    } catch (e) {
+      console.error("PDF (Figure) export failed:", e);
+      alert("Failed to export figure as PDF.");
+    }
+  }, [filename, containerRef]);
   
   // Robustly determine if the matrix is square, supporting old board formats.
   const isSquare = data.isSquare === true || (labels && !rowLabels);
@@ -740,14 +797,25 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
   // Default to square view (diamondMode=false) if the property doesn't exist on old boards.
   const diamondMode = data.diamondMode === true;
 
-    useEffect(() => {
-    if (!showColorModal) return;
+useEffect(() => {
+    if (!showColorModal && !showDownloadOptions) return;
     const closeOnEsc = (e) => {
-      if (e.key === 'Escape') setShowColorModal(false);
+      if (e.key === 'Escape') {
+        setShowColorModal(false);
+        setShowDownloadOptions(false);
+      }
     };
     const closeOnClickOutside = (e) => {
       if (colorModalRef.current && !colorModalRef.current.contains(e.target)) {
         setShowColorModal(false);
+      }
+      // This condition now checks that the click is not on the download button
+      if (
+        downloadOptionsRef.current &&
+        !downloadOptionsRef.current.contains(e.target) &&
+        (!pictureButtonWrapperRef.current || !pictureButtonWrapperRef.current.contains(e.target))
+      ) {
+        setShowDownloadOptions(false);
       }
     };
     document.addEventListener('keydown', closeOnEsc);
@@ -756,10 +824,9 @@ const HeatmapPanel = React.memo(function HeatmapPanel({
       document.removeEventListener('keydown', closeOnEsc);
       document.removeEventListener('mousedown', closeOnClickOutside);
     };
-  }, [showColorModal]);
+  }, [showColorModal, showDownloadOptions]);
 
 
-  const [containerRef, dims] = useElementSize({ debounceMs: 90 });
   const handleDiamondToggle = useCallback(() => {
   setPanelData(pd => ({
     ...pd,
@@ -844,39 +911,43 @@ const handleDownload = useCallback(() => {
     [id, setPanelData]
   );
   
-  const extraButtons = useMemo(() => {
-    if (data.isMsaColorMatrix) {
-        return [{ 
+const extraButtons = useMemo(() => {
+    const commonButtons = [
+      { 
+        element: (
+          <div ref={pictureButtonWrapperRef}>
+            <PictureButton onClick={() => setShowDownloadOptions(s => !s)} />
+          </div>
+        ),
+        tooltip: (<>Download figure<br /><span className="text-xs text-gray-600"> (.pdf)</span></>)
+      },
+      { 
         element: <DownloadButton onClick={handleDownload} />,
         tooltip: "Download matrix"
-        }];
+      },
+    ];
+
+    if (data.isMsaColorMatrix) {
+        return commonButtons;
     }
+
     const buttons = [];
     buttons.push({
     element: <ColorButton onClick={() => setShowColorModal(s => !s)} />,
     tooltip: "Change colors"
     });
     if (isSquare) {
-    buttons.push({ 
-        element: <TreeButton onClick={() => onGenerateTree(id)} />,
-        tooltip: (
-        <>
-        Build tree from distances<br />
-        <span className="text-xs text-gray-600">Neighbor-Joining</span>
-        </>
-        )
-    });
-    buttons.push({ 
-        element: diamondMode ? <DistanceMatrixButton onClick={handleDiamondToggle} /> : <DiamondButton onClick={handleDiamondToggle} />,
-        tooltip: diamondMode ? <>Switch to square view</> : <>Switch to diamond view</>
-    });
+      buttons.push({ 
+          element: <TreeButton onClick={() => onGenerateTree(id)} />,
+          tooltip: (<>Build tree from distances<br /><span className="text-xs text-gray-600">Neighbor-Joining</span></>)
+      });
+      buttons.push({ 
+          element: diamondMode ? <DistanceMatrixButton onClick={handleDiamondToggle} /> : <DiamondButton onClick={handleDiamondToggle} />,
+          tooltip: diamondMode ? <>Switch to square view</> : <>Switch to diamond view</>
+      });
     }
-    buttons.push({ 
-    element: <DownloadButton onClick={handleDownload} />,
-    tooltip: "Download matrix"
-    });
-    return buttons;
-}, [id, onGenerateTree, diamondMode, handleDiamondToggle, handleDownload, isSquare, setShowColorModal, data.isMsaColorMatrix]);
+    return buttons.concat(commonButtons);
+  }, [id, onGenerateTree, diamondMode, handleDiamondToggle, handleDownload, handleDownloadCanvasPDF, handleDownloadFigurePDF, isSquare, setShowColorModal, data.isMsaColorMatrix]);
 
   if (!matrix) {
     return (
@@ -887,34 +958,43 @@ const handleDownload = useCallback(() => {
     );
   }
 
-return (
-  <PanelContainer
-    id={id}
-    hoveredPanelId={hoveredPanelId}
-    setHoveredPanelId={setHoveredPanelId}
-    //onDoubleClick={() => onReupload(id)}
-    isEligibleLinkTarget={isEligibleLinkTarget}
-    justLinkedPanels={justLinkedPanels}
-  >
-    <PanelHeader
-          id={id}
-          prefix=""
-          filename={filename}
-          setPanelData={setPanelData}
-          onDuplicate={onDuplicate}
-          onLinkClick={onLinkClick}
-          panelLinks={panelLinks} 
-          isEligibleLinkTarget={isEligibleLinkTarget}
-          isLinkModeActive={isLinkModeActive}
-          linkBadges={linkBadges}
-          onRestoreLink={onRestoreLink}
-          onUnlink={onUnlink}
-          colorForLink={colorForLink}
-          onRemove={onRemove}
-          forceHideTooltip={showColorModal}
-          extraButtons={extraButtons}
-    />
-         {showColorModal && (
+  return (
+    <PanelContainer
+      id={id}
+      hoveredPanelId={hoveredPanelId}
+      setHoveredPanelId={setHoveredPanelId}
+      isEligibleLinkTarget={isEligibleLinkTarget}
+      justLinkedPanels={justLinkedPanels}
+    >
+      <PanelHeader
+            id={id}
+            prefix=""
+            filename={filename}
+            setPanelData={setPanelData}
+            onDuplicate={onDuplicate}
+            onLinkClick={onLinkClick}
+            panelLinks={panelLinks} 
+            isEligibleLinkTarget={isEligibleLinkTarget}
+            isLinkModeActive={isLinkModeActive}
+            linkBadges={linkBadges}
+            onRestoreLink={onRestoreLink}
+            onUnlink={onUnlink}
+            colorForLink={colorForLink}
+            onRemove={onRemove}
+            forceHideTooltip={showColorModal || showDownloadOptions}
+            extraButtons={extraButtons}
+      />
+      {showDownloadOptions && (
+        <div ref={downloadOptionsRef} className="absolute top-11 right-3 z-50 bg-white border border-gray-300 rounded-xl shadow px-1 py-1 flex flex-col items-stretch space-y-1">
+          <button onClick={handleDownloadFigurePDF} className="text-sm text-left px-3 py-1 rounded-lg hover:bg-gray-200 whitespace-nowrap">
+            Full Figure
+          </button>
+          <button onClick={handleDownloadCanvasPDF} className="text-sm text-left px-3 py-1 rounded-lg hover:bg-gray-200 whitespace-nowrap">
+            Matrix Only
+          </button>
+        </div>
+      )}
+      {showColorModal && (
        <div ref={colorModalRef} className="absolute top-11 right-3 z-50 bg-white border border-gray-300 rounded-xl shadow px-2 py-2 flex items-center space-x-2">
          <div className="flex flex-col items-center">
            <span className="text-xs font-semibold text-gray-600 py-1">High</span>
