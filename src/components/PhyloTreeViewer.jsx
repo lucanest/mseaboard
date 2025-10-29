@@ -1,3 +1,5 @@
+// PhyloTreeViewer.jsx
+
 import React, { useEffect, useRef, useState } from 'react';
 import { parseNewick } from './Utils';
 import * as d3 from 'd3';
@@ -21,6 +23,10 @@ const PhyloTreeViewer = ({
   useBranchLengths = false,
   pruneMode = false,
   toNewick,
+  extractMode = false,
+  onLeafSelect,
+  selectedLeaves = new Set(),
+  onCountLeaves,
 }) => {
   const containerRef = useRef();
   const [size, setSize] = useState({ width: 0, height: 0 });
@@ -155,6 +161,7 @@ const PhyloTreeViewer = ({
     let data = convertToD3Hierarchy(parsed);
     let root = d3.hierarchy(data);
     const leavesCount = root.leaves().length;
+    onCountLeaves?.(leavesCount);
     const fontScale = 2.7 * scaleFactor / Math.sqrt(leavesCount / 10 + 1);
     const minLabelLength = d3.min(root.leaves(), d => (d.data.name || '').length);
     const maxLabelLength = d3.max(root.leaves(), d => (d.data.name || '').length);
@@ -510,6 +517,7 @@ const PhyloTreeViewer = ({
       .attr('cx', d => radial ? null : d.y) //  y is horizontal
       .attr('cy', d => radial ? null : d.x) //  x is vertical
       .attr('r', d => Math.max(minNodeRadius, Math.min(maxNodeRadius, 3 * scaleFactor)) * nodeRadius)
+      .style('cursor', extractMode ? 'pointer' : 'default')
       .attr('fill', d => {
         const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
         return val ? colorMap[val] : DARK_GRAY_COLOR;
@@ -555,20 +563,26 @@ const PhyloTreeViewer = ({
       })
       .on('click', (event, d) => {
 
-        const name = event.data?.name;
-        const isLeaf = event.height === 0;
-        if (!isLeaf || !name) return;
 
-        setPanelData(prev => {
-          const current = prev[id] || {};
-          const prevHighlights = current.highlightedNodes || [];
-          const already = prevHighlights.includes(name);
-          const updated = already
-            ? prevHighlights.filter(n => n !== name)
-            : [...prevHighlights, name];
-          return { ...prev, [id]: { ...current, highlightedNodes: updated } };
-        });
+      if (extractMode) {
+            onLeafSelect?.(event);
+        } else {
+            const name = event.data?.name;
+            const isLeaf = event.height === 0;
+            if (!isLeaf || !name) return;
+            // Original highlighting logic for when extractMode is off
+            setPanelData(prev => {
+              const current = prev[id] || {};
+              const prevHighlights = current.highlightedNodes || [];
+              const already = prevHighlights.includes(name);
+              const updated = already
+                ? prevHighlights.filter(n => n !== name)
+                : [...prevHighlights, name];
+              return { ...prev, [id]: { ...current, highlightedNodes: updated } };
+            });
+        }
       })
+
 
     g.append('g')
       .selectAll('text')
@@ -603,10 +617,16 @@ const PhyloTreeViewer = ({
       })
       .style('fill', d => {
         const { isHighlight, isPersistentHighlight } = getHighlightState(d);
+        if (extractMode && selectedLeaves.has(d.data.name)) {
+            return '#2563EB'; // Blue for selected
+        }
         return isHighlight ? DARK_GRAY_COLOR : (isPersistentHighlight ? MAGENTA_COLOR : DARK_GRAY_COLOR);
       })
       .style('font-weight', d => {
         const { isHighlight, isPersistentHighlight } = getHighlightState(d);
+        if (extractMode && selectedLeaves.has(d.data.name)) {
+            return 'bold';
+        }
         return isHighlight || isPersistentHighlight ? 'bold' : 'normal';
       })
       .on('mouseenter', (event, d) => {
@@ -620,22 +640,23 @@ const PhyloTreeViewer = ({
         onHoverTip?.(null, null);
         setHighlightedNode(null);
       })
-      .on('click', (event, d) => {
-
-        const name = event.data?.name;
-        const isLeaf = event.height === 0;
-        if (!isLeaf || !name) return;
-
-        setPanelData(prev => {
-          const current = prev[id] || {};
-          const prevHighlights = current.highlightedNodes || [];
-          const already = prevHighlights.includes(name);
-          const updated = already
-            ? prevHighlights.filter(n => n !== name)
-            : [...prevHighlights, name];
-          return { ...prev, [id]: { ...current, highlightedNodes: updated } };
-        });
+    .on('click', (event, d) => {
+        // Pass the entire d3 node object up
+        if (extractMode) {
+            onLeafSelect?.(event);
+        } else {
+            const name = event.data?.name;
+            // Original highlighting logic for when extractMode is off
+            setPanelData(prev => {
+                const current = prev[id] || {};
+                const prevHighlights = current.highlightedNodes || [];
+                const already = prevHighlights.includes(name);
+                const updated = already ? prevHighlights.filter(n => n !== name) : [...prevHighlights, name];
+                return { ...prev, [id]: { ...current, highlightedNodes: updated } };
+            });
+        }
       })
+
 
     if (Object.keys(colorMap).length > 0) {
       const items = Object.entries(colorMap);
@@ -661,7 +682,9 @@ const PhyloTreeViewer = ({
     }
 
     setDebugInfo(`Tree rendered successfully. Found ${Object.keys(colorMap).length} different ${colorField} values.`);
-  }, [newickStr, isNhx, size, linkedTo, highlightOrigin, onHoverTip, highlightedNodes, linkedHighlights, radial, useBranchLengths, pruneMode, id, setPanelData, toNewick, nhxColorField, labelSize, nodeRadius, branchWidth, treeRadius, rightMargin]);
+  }, [newickStr, isNhx, size, linkedTo, highlightOrigin, onHoverTip, highlightedNodes, linkedHighlights, radial, useBranchLengths,
+     pruneMode, id, setPanelData, toNewick, nhxColorField, labelSize, nodeRadius, branchWidth,
+      treeRadius, rightMargin,extractMode, selectedLeaves, onLeafSelect, onCountLeaves]);
 
   useEffect(() => {
     function handleDocumentMouseMove(e) {

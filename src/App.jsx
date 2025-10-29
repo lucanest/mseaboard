@@ -27,6 +27,7 @@ import ReactDOM from 'react-dom';
 import pako from 'pako';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
+import * as d3 from 'd3'; 
 import { useDistanceMatrixWorker } from './hooks/useDistanceMatrixWorker.js';
 import { createMatrixView } from './components/MatrixView.js';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
@@ -41,7 +42,7 @@ newickToDistanceMatrix, detectFileType, toFasta, toPhylip, computeSiteStats, bui
 computeNormalizedHammingMatrix, pickAlignedSeqForChain, chainIdFromSeqId, residueIndexToMsaCol, 
 reorderHeatmapByLeafOrder, reorderMsaByLeafOrder, distanceMatrixFromAtoms, msaColToResidueIndex,
 parsePdbChains, mkDownload, baseName, msaToPhylip, computeCorrelationMatrix, uint8ArrayToBase64, base64ToUint8Array,
-computeTreeStats, parseTsvMatrix
+computeTreeStats, parseTsvMatrix, parseNewick, toNewick
 } from './components/Utils.jsx';
 import { residueColors, logoColors, linkpalette } from './constants/colors.js';
 import { TitleFlip, AnimatedList } from './components/Animations.jsx';
@@ -53,7 +54,6 @@ import SequenceLogoCanvas from './components/Seqlogo.jsx';
 import StructureViewer from './components/StructureViewer.jsx';
 import useElementSize from './hooks/useElementSize.js'
 import { useOmegaModel } from './hooks/useOmegaModel.js'; // 1. Import the new hook
-
 
 
 
@@ -1889,7 +1889,7 @@ const handleGridMouseMove = useMemo(() =>
                 tabIndex={-1} 
                 /> 
                 <span className="text-sm text-gray-700 px-2">
-                  Click sequence labels to select.<br /><strong>{selectedSequences.size}/{msaData.length} selected</strong>
+                  Click sequence labels to select or deselect them<br /><strong>{selectedSequences.size}/{msaData.length} selected</strong>
                 </span>
                 <button className="px-2 py-1 rounded-md bg-gray-200 text-gray-700 hover:bg-red-300" 
                 onClick={handleCancelSelection}>
@@ -2059,39 +2059,20 @@ const handleGridMouseMove = useMemo(() =>
   );
 });
 
-function toNewick(node) {
-  let result = '';
-  if (node.children && node.children.length > 0) {
-    const childStrings = node.children.map(child => toNewick(child)).join(',');
-    result += `(${childStrings})`;
-  }
-  if (node.data && node.data.name) {
-    const sanitizedName = String(node.data.name).replace(/[():,;\s]/g, '_');
-    if(sanitizedName) result += sanitizedName;
-  }
-  // Check for and serialize NHX data
-  if (node.data && node.data.nhx && Object.keys(node.data.nhx).length > 0) {
-    const nhxString = Object.entries(node.data.nhx)
-      .map(([key, value]) => `${key}=${value}`)
-      .join(':');
-    if (nhxString) {
-      result += `[&&NHX:${nhxString}]`;
-    }
-  }
-  if (node.data && typeof node.data.length === 'number' && node.data.length > 0) {
-    result += `:${node.data.length}`;
-  }
-  return result;
-}
+
 const TreePanel = React.memo(function TreePanel({
   id, data, onRemove, onReupload, onDuplicate, onGenerateDistance,
   highlightedSequenceId, onHoverTip, panelLinks,
   linkedTo, highlightOrigin,
   onLinkClick, isLinkModeActive,isEligibleLinkTarget,hoveredPanelId,
   setHoveredPanelId, setPanelData,justLinkedPanels,
-  linkBadges, onRestoreLink, colorForLink, onUnlink, onCreateTreeStats,
+  linkBadges, onRestoreLink, colorForLink, onUnlink, onCreateTreeStats, onCreateSubtree,
 }) {
   const { filename, isNhx, RadialMode= true, drawBranchLengths=false, pruneMode = false } = data || {};
+  const [extractMode, setExtractMode] = useState(false);
+  const [selectedLeaves, setSelectedLeaves] = useState(new Set());
+
+  const [totalLeaves, setTotalLeaves] = useState(0);
 
   const handleRadialToggle = useCallback(() => {
     setPanelData(pd => ({
@@ -2129,6 +2110,55 @@ const TreePanel = React.memo(function TreePanel({
     const ext  = data?.isNhx ? 'nhx' : 'nwk';
     mkDownload(base, text, ext)();
   }, [data]);
+
+  const handleExtractToggle = useCallback(() => {
+    if (extractMode) {
+        setSelectedLeaves(new Set());
+    }
+    setExtractMode(prev => !prev);
+  }, [extractMode]);
+
+  const handleGoClick = () => {
+    if (selectedLeaves.size === 0) return;
+    onCreateSubtree(id, selectedLeaves);
+    setExtractMode(false);
+    setSelectedLeaves(new Set());
+  };
+
+  const handleCancelSelection = () => {
+    setExtractMode(false);
+    setSelectedLeaves(new Set());
+  };
+
+  const handleLeafSelect = useCallback((node) => {
+    if (!extractMode) return;
+
+    const newSelection = new Set(selectedLeaves);
+
+    // Check if the clicked node is an internal node or a leaf.
+    if (!node.children || node.children.length === 0) {
+        // It's a leaf node. Toggle its selection status as before.
+        const leafName = node.data.name;
+        if (newSelection.has(leafName)) {
+            newSelection.delete(leafName);
+        } else {
+            newSelection.add(leafName);
+        }
+    } else {
+        // It's an internal node. Get all its descendant leaves.
+        const descendantLeaves = node.leaves().map(leaf => leaf.data.name);
+
+        // Iterate through each descendant and invert its individual selection status.
+        descendantLeaves.forEach(leafName => {
+            if (newSelection.has(leafName)) {
+                newSelection.delete(leafName);
+            } else {
+                newSelection.add(leafName);
+            }
+        });
+    }
+    setSelectedLeaves(newSelection);
+  }, [extractMode, selectedLeaves]);
   
   // Memoize extraButtons to prevent re-render loops.
   const extraButtons = useMemo(() => [
@@ -2156,6 +2186,10 @@ const TreePanel = React.memo(function TreePanel({
       (
         <>Prune tree <br /> <span className="text-xs text-gray-600">Remove branches and their descendants</span></>
       ) 
+    },
+    { 
+      element: <TreeButton onClick={handleExtractToggle} isActive={extractMode} />, 
+      tooltip: <>Extract subtree<br /><span className="text-xs text-gray-600">Choose a subset of leaves to create a new tree</span></>
     },
     { element: <DownloadButton onClick={handleDownload} />,
      tooltip: "Download tree" }
@@ -2199,12 +2233,29 @@ const TreePanel = React.memo(function TreePanel({
       isEligibleLinkTarget={isEligibleLinkTarget}
       isLinkModeActive={isLinkModeActive}
       extraButtons={extraButtons}
-        linkBadges={linkBadges}
-        onRestoreLink={onRestoreLink}
-        onUnlink={onUnlink}
-        colorForLink={colorForLink}
-        onRemove={onRemove}
+      forceHideTooltip={extractMode} 
+      linkBadges={linkBadges}
+      onRestoreLink={onRestoreLink}
+      onUnlink={onUnlink}
+      colorForLink={colorForLink}
+      onRemove={onRemove}
       />
+      {extractMode && (
+          <div className="absolute right-3 top-10 z-[1100] bg-white border rounded-xl shadow p-2 flex items-center gap-2">
+              <span className="text-sm text-gray-700 px-2">
+                  Click nodes to select or deselect all its children<br /><strong>{selectedLeaves.size}/{totalLeaves} leaves selected</strong>
+              </span>
+              <button className="px-2 py-1 rounded-md bg-gray-200 text-gray-700 hover:bg-red-300"
+                  onClick={handleCancelSelection}>
+                  Cancel
+              </button>
+              <button className="px-2 py-1 rounded-md bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                  onClick={handleGoClick}
+                  disabled={selectedLeaves.size === 0}>
+                  Go
+              </button>
+          </div>
+      )}
       <div className="flex-1 overflow-auto flex items-center justify-center">
           <PhyloTreeViewer
             // Pass the entire data object. It contains the newick string,
@@ -2222,6 +2273,10 @@ const TreePanel = React.memo(function TreePanel({
             radial={RadialMode}
             useBranchLengths={drawBranchLengths}
             pruneMode={pruneMode}
+            extractMode={extractMode}
+            onLeafSelect={handleLeafSelect}
+            selectedLeaves={selectedLeaves}
+            onCountLeaves={setTotalLeaves}
 
             // This prop is also dynamic and used for a different highlight effect
             linkedHighlights={
@@ -2732,6 +2787,7 @@ const PanelWrapper = React.memo(({
   handleGenerateCorrelationMatrix,
   handleCreateTreeStats,
   onCreateSubsetMsa,
+  onCreateSubtree,
   onCreateColorMatrix,
   setPanelData,
   onPredictOmega,
@@ -2798,7 +2854,8 @@ const PanelWrapper = React.memo(({
       highlightedSequenceId,
       onHoverTip: setHighlightedSequenceId,
       onGenerateDistance: handleTreeToDistance,
-      onCreateTreeStats: handleCreateTreeStats 
+      onCreateTreeStats: handleCreateTreeStats,
+      onCreateSubtree: onCreateSubtree,
     }),
     ...(panel.type === 'heatmap' && {
       onHighlight: handleHighlight,
@@ -3536,6 +3593,107 @@ const addPanel = useCallback((config = {}) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
+const handleCreateSubtree = useCallback((id, selectedLeaves) => {
+    const sourceData = panelData[id];
+    if (!sourceData?.data || !selectedLeaves || selectedLeaves.size < 2) {
+        alert("Please select at least two leaves to create a subtree.");
+        console.error("Subtree creation aborted: Not enough leaves selected.");
+        return;
+    }
+
+    try {
+        const originalTree = parseNewick(sourceData.data);
+        const leavesToKeep = new Set(Array.from(selectedLeaves));
+
+        // Helper to convert raw parsed data into a d3-hierarchy
+        const convertToD3HierarchyData = (node) => {
+            if (!node) return null;
+
+            const nameWithNhx = node.name || '';
+            const nhxMatch = nameWithNhx.match(/\[&&NHX:([^\]]+)\]/);
+            
+            // Create a clean name by removing the NHX annotation string.
+            const cleanName = nameWithNhx.replace(/\[&&NHX:[^\]]+\]/, '').trim();
+            
+            const nhxData = {};
+            if (nhxMatch) {
+                const nhxString = nhxMatch[1];
+                nhxString.split(':').forEach(part => {
+                    const [key, value] = part.split('=', 2);
+                    if (key && value) {
+                        nhxData[key.trim()] = value.trim();
+                    }
+                });
+            }
+
+            const children = (node.children || []).map(convertToD3HierarchyData).filter(Boolean);
+            return {
+                name: cleanName, // Use the clean name for matching
+                nhx: nhxData,
+                length: node.length || 0,
+                ...(children.length > 0 && { children })
+            };
+        };
+        
+        const hierarchyData = convertToD3HierarchyData(originalTree);
+        let root = d3.hierarchy(hierarchyData);
+
+        // Find all leaves in the original tree that were not selected for keeping.
+        const leavesToPrune = root.leaves().filter(leaf => !leavesToKeep.has(leaf.data.name));
+        
+
+        // Iterate through each unselected leaf and apply the pruning logic.
+        leavesToPrune.forEach(nodeToPrune => {
+            if (!nodeToPrune.parent) {
+                return;
+            }
+            
+            const parent = nodeToPrune.parent;
+
+            if (parent.children && parent.children.length === 2) {
+                const grandparent = parent.parent;
+                const sibling = parent.children.find(child => child !== nodeToPrune);
+
+                if (!sibling) return; 
+
+                sibling.data.length = (parent.data.length || 0) + (sibling.data.length || 0);
+
+                if (grandparent) {
+                    const parentIndex = grandparent.children.indexOf(parent);
+                    if (parentIndex !== -1) {
+                        grandparent.children[parentIndex] = sibling;
+                        sibling.parent = grandparent;
+                    }
+                } else {
+                    sibling.parent = null;
+                    root = sibling;
+                }
+            } else if (parent.children) {
+                parent.children = parent.children.filter(child => child !== nodeToPrune);
+            }
+        });
+        
+
+        if (!root || (root.children && root.children.length < 1 && !leavesToKeep.has(root.data.name))) {
+             alert("Pruning resulted in an invalid tree. Please select at least two related leaves.");
+             console.error("Final tree is invalid or empty after pruning.", root);
+             return;
+        }
+
+        const newNewickString = toNewick(root) + ';';
+        const newFilename = (sourceData.filename ? sourceData.filename.replace(/\.[^.]+$/, '') : 'tree') + '.subset.nwk';
+
+        addPanel({
+            type: 'tree',
+            data: { ...sourceData, data: newNewickString, filename: newFilename, pruneMode: false },
+            basedOnId: id,
+        });
+
+    } catch (error) {
+        console.error("An error occurred during subtree creation:", error);
+        alert(`Could not create subtree: ${error.message}`);
+    }
+}, [panelData, addPanel]);
 
   const onSyncScroll = useCallback((scrollLeft, originId) => {
     const targetIds = Array.isArray(panelLinks[originId]) ? panelLinks[originId] : [];
@@ -5554,6 +5712,7 @@ const handleRestoreSession = useCallback(() => {
         handleStructureDistanceMatrix={handleStructureDistanceMatrix}
         handleCreateTreeStats={handleCreateTreeStats}
         onCreateSubsetMsa={handleCreateSubsetMsa}
+        onCreateSubtree={handleCreateSubtree}
         onCreateColorMatrix={handleCreateColorMatrix}
         setPanelData={setPanelData}
         onPredictOmega={handlePredictOmega} // Pass the handler
