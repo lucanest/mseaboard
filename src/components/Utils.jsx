@@ -1264,3 +1264,30 @@ export function parseTsvMatrix(text) {
     isSquare: finalRowLabels.length === finalColLabels.length,
   };
 }
+
+export function toNewick(node) {
+  if (!node) return '';
+  // Handle both raw parsed nodes and d3-hierarchy nodes
+  const nodeData = node.data || node;
+  let result = '';
+  if (node.children && node.children.length > 0) {
+    const childStrings = node.children.map(child => toNewick(child)).join(',');
+    result += `(${childStrings})`;
+  }
+  if (nodeData.name) {
+    const sanitizedName = String(nodeData.name).replace(/[():,;\s]/g, '_');
+    if(sanitizedName) result += sanitizedName;
+  }
+  if (nodeData.nhx && Object.keys(nodeData.nhx).length > 0) {
+    const nhxString = Object.entries(nodeData.nhx)
+      .map(([key, value]) => `${key}=${value}`)
+      .join(':');
+    if (nhxString) {
+      result += `[&&NHX:${nhxString}]`;
+    }
+  }
+  if (typeof nodeData.length === 'number' && nodeData.length > 0) {
+    result += `:${nodeData.length}`;
+  }
+  return result;
+}
