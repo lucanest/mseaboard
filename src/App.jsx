@@ -3094,6 +3094,62 @@ const TopBar = React.memo(function TopBar({
   );
 });
 
+function ConfirmationBanner({ isOpen, message, onConfirm, onCancel }) {
+  // useEffect to handle keyboard events
+  React.useEffect(() => {
+    // Only listen for keys when the banner is visible
+    if (!isOpen) {
+      return;
+    }
+
+    const handleKeyDown = (event) => {
+      // Confirm on Enter
+      if (event.key === 'Enter') {
+        event.preventDefault(); // Prevent any default browser action
+        onConfirm();
+      } 
+      // Cancel on Escape
+      else if (event.key === 'Escape') {
+        event.preventDefault();
+        onCancel();
+      }
+    };
+
+    // Add the event listener to the whole document
+    document.addEventListener('keydown', handleKeyDown);
+
+    // Cleanup function to remove the listener
+    // This runs when the component unmounts or `isOpen` becomes false
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onConfirm, onCancel]);
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-[10001] bg-black/50 flex items-center justify-center" onClick={onCancel}>
+      <div className="bg-white rounded-2xl shadow-2xl p-8 w-full max-w-md text-center" onClick={(e) => e.stopPropagation()}>
+        <p className="mb-6 text-gray-800 text-lg font-medium">{message}</p>
+        <div className="flex justify-center gap-4">
+          <button
+            onClick={onCancel}
+            className="px-8 py-2 bg-gray-200 text-gray-800 font-semibold rounded-lg hover:bg-gray-300 transition-colors focus:outline-none focus:ring-2 focus:ring-gray-400"
+          >
+            No
+          </button>
+          <button
+            onClick={onConfirm}
+            autoFocus
+            className="px-8 py-2 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            Yes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function App() {
   // Undo/Redo state management
@@ -3169,6 +3225,13 @@ function App() {
   const [windowWidth, setWindowWidth] = useState(window.innerWidth);
   const [hoveredPanelId, setHoveredPanelId] = useState(null);
   const [showRestoreButton, setShowRestoreButton] = useState(false);
+
+  const [confirmation, setConfirmation] = useState({
+  isOpen: false,
+  message: '',
+  onConfirm: () => {},
+  onCancel: () => {},
+  });
 
   const fileInputRef = useRef(null);
   const fileInputRefBoard = useRef(null);
@@ -3416,7 +3479,7 @@ const treeLeafNamesCache = useMemo(() => {
 
 const addPanel = useCallback((config = {}) => {
   const { type, data, layoutHint = {}, autoLinkTo = null } = config;
-  const newId = `${type}-${Date.now()}`;
+  const newId = `${type}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
 
   setState(present => {
     let nextPresent = { ...present };
@@ -3499,6 +3562,7 @@ const addPanel = useCallback((config = {}) => {
     
     return nextPresent;
   }, true); // Save to history
+  return newId;
 }, [setState, upsertHistory, assignPairColor]);
 
 
@@ -3566,26 +3630,229 @@ const addPanel = useCallback((config = {}) => {
     }
   }, [panelData, predictOmega, addPanel, setTransientMessage]);
 
-  const handleCreateSubsetMsa = useCallback((id, selectedIndices) => {
+// Functions to create subset MSA and subtree 
+
+const handleCreateSubsetMsaRef = useRef();
+const handleCreateSubtreeRef = useRef();
+
+const handleCreateSubsetMsa = useCallback((id, selectedIndices, quiet = false) => {
     const sourceData = panelData[id];
     if (!sourceData || !Array.isArray(sourceData.data)) return;
 
-    const subsetMsa = selectedIndices.map(index => sourceData.data[index]);
-    const newFilename = (sourceData.filename ? sourceData.filename.replace(/\.[^.]+$/, '') : 'alignment') + '.subset.fasta';
+    const createSubMsaPanel = () => {
+        const subsetMsa = selectedIndices.map(index => sourceData.data[index]);
+        const newFilename = (sourceData.filename ? sourceData.filename.replace(/\.[^.]+$/, '') : 'alignment') + '.subset.fasta';
+        const newPanelData = { ...sourceData, data: subsetMsa, filename: newFilename };
+        delete newPanelData.highlightedSites;
+        delete newPanelData.searchHighlight;
+        delete newPanelData.linkedSiteHighlight;
+        return addPanel({ type: 'alignment', data: newPanelData, basedOnId: id });
+    };
 
-    const newPanelData = JSON.parse(JSON.stringify(sourceData));
-    newPanelData.data = subsetMsa;
-    newPanelData.filename = newFilename;
-    delete newPanelData.highlightedSites;
-    delete newPanelData.searchHighlight;
-    delete newPanelData.linkedSiteHighlight;
+    if (quiet) {
+        return createSubMsaPanel();
+    }
 
-    addPanel({
-        type: 'alignment',
-        data: newPanelData,
-        basedOnId: id,
+    const linkedTrees = (panelLinks[id] || [])
+        .map(linkedId => panels.find(p => p.i === linkedId))
+        .filter(p => p && p.type === 'tree');
+
+    const selectedLeafNames = new Set(selectedIndices.map(index => sourceData.data[index].id));
+
+    if (linkedTrees.length === 0 || selectedLeafNames.size < 2) {
+        createSubMsaPanel();
+        return;
+    }
+
+    const closeBanner = () => setConfirmation(prev => ({ ...prev, isOpen: false }));
+
+    const handleConfirm = () => {
+        const newMsaId = createSubMsaPanel();
+        const pairsToLink = [];
+
+        linkedTrees.forEach(treePanel => {
+            // Call through the ref to get the latest function
+            const newTreeId = handleCreateSubtreeRef.current(treePanel.i, selectedLeafNames, true);
+            if (newTreeId) {
+                pairsToLink.push([newMsaId, newTreeId]);
+            }
+        });
+
+        if (pairsToLink.length > 0) {
+            setState(present => {
+                let next = { ...present };
+                pairsToLink.forEach(([id1, id2]) => {
+                    next.panelLinks[id1] = [...new Set([...(next.panelLinks[id1] || []), id2])];
+                    next.panelLinks[id2] = [...new Set([...(next.panelLinks[id2] || []), id1])];
+                    next.panelLinkHistory = upsertHistory(id1, id2, next);
+                    next.linkColors = assignPairColor(id1, id2, next);
+                });
+                setJustLinkedPanels([newMsaId, ...pairsToLink.map(p => p[1])]);
+                setTimeout(() => setJustLinkedPanels([]), 1000);
+                return next;
+            }, true);
+        }
+        closeBanner();
+    };
+
+    const handleCancel = () => {
+        createSubMsaPanel();
+        closeBanner();
+    };
+
+    setConfirmation({
+        isOpen: true,
+        message: "Extract corresponding sub-tree from linked trees?",
+        onConfirm: handleConfirm,
+        onCancel: handleCancel,
     });
-  }, [panelData, addPanel]);
+}, [panelData, panelLinks, panels, setState, addPanel, upsertHistory, assignPairColor]);
+
+
+const handleCreateSubtree = useCallback((id, selectedLeaves, quiet = false) => {
+    const sourceData = panelData[id];
+    if (!sourceData?.data || !selectedLeaves || selectedLeaves.size < 2) {
+        if (!quiet) alert("Please select at least two leaves to create a subtree.");
+        return null;
+    }
+    
+    const createSubtreePanel = () => {
+        try {
+            const originalTree = parseNewick(sourceData.data);
+            const leavesToKeep = new Set(Array.from(selectedLeaves));
+            const convertToD3HierarchyData = (node) => {
+                if (!node) return null;
+                const nameWithNhx = node.name || '';
+                const cleanName = nameWithNhx.replace(/\[&&NHX:[^\]]+\]/, '').trim();
+                const nhxData = {};
+                if (nameWithNhx.match(/\[&&NHX:([^\]]+)\]/)) {
+                    const nhxString = nameWithNhx.match(/\[&&NHX:([^\]]+)\]/)[1];
+                    nhxString.split(':').forEach(part => {
+                        const [key, value] = part.split('=', 2);
+                        if (key && value) nhxData[key.trim()] = value.trim();
+                    });
+                }
+                const children = (node.children || []).map(convertToD3HierarchyData).filter(Boolean);
+                return { name: cleanName, nhx: nhxData, length: node.length || 0, ...(children.length > 0 && { children }) };
+            };
+            const hierarchyData = convertToD3HierarchyData(originalTree);
+            let root = d3.hierarchy(hierarchyData);
+            const leavesToPrune = root.leaves().filter(leaf => !leavesToKeep.has(leaf.data.name));
+            leavesToPrune.forEach(nodeToPrune => {
+                if (!nodeToPrune.parent) return;
+                const parent = nodeToPrune.parent;
+                if (parent.children && parent.children.length === 2) {
+                    const grandparent = parent.parent;
+                    const sibling = parent.children.find(child => child !== nodeToPrune);
+                    if (!sibling) return; 
+                    sibling.data.length = (parent.data.length || 0) + (sibling.data.length || 0);
+                    if (grandparent) {
+                        const parentIndex = grandparent.children.indexOf(parent);
+                        if (parentIndex !== -1) {
+                            grandparent.children[parentIndex] = sibling;
+                            sibling.parent = grandparent;
+                        }
+                    } else {
+                        sibling.parent = null;
+                        root = sibling;
+                    }
+                } else if (parent.children) {
+                    parent.children = parent.children.filter(child => child !== nodeToPrune);
+                }
+            });
+            if (!root || (root.children && root.children.length < 1 && !leavesToKeep.has(root.data.name))) {
+                 if(!quiet) alert("Pruning resulted in an invalid tree. Please select at least two related leaves.");
+                 return null;
+            }
+            const newNewickString = toNewick(root) + ';';
+            const newFilename = (sourceData.filename ? sourceData.filename.replace(/\.[^.]+$/, '') : 'tree') + '.subset.nwk';
+            return addPanel({
+                type: 'tree',
+                data: { ...sourceData, data: newNewickString, filename: newFilename, pruneMode: false },
+                basedOnId: id,
+            });
+        } catch (error) {
+            console.error("An error occurred during subtree creation:", error);
+            if(!quiet) alert(`Could not create subtree: ${error.message}`);
+            return null;
+        }
+    };
+    
+    if (quiet) {
+        return createSubtreePanel();
+    }
+
+    const linkedAlignments = (panelLinks[id] || [])
+        .map(linkedId => panels.find(p => p.i === linkedId))
+        .filter(p => p && p.type === 'alignment');
+
+    if (linkedAlignments.length === 0) {
+        createSubtreePanel();
+        return;
+    }
+
+    const closeBanner = () => setConfirmation(prev => ({ ...prev, isOpen: false }));
+
+    const handleConfirm = () => {
+        const newTreeId = createSubtreePanel();
+        if (!newTreeId) {
+            closeBanner();
+            return;
+        }
+        const pairsToLink = [];
+        linkedAlignments.forEach(alnPanel => {
+            const alnData = panelData[alnPanel.i];
+            if (!alnData || !Array.isArray(alnData.data)) return;
+            const alnIndicesToKeep = alnData.data
+                .map((seq, index) => selectedLeaves.has(seq.id) ? index : -1)
+                .filter(index => index !== -1);
+            if (alnIndicesToKeep.length > 0) {
+                // Call through the ref to get the latest function
+                const newMsaId = handleCreateSubsetMsaRef.current(alnPanel.i, alnIndicesToKeep, true);
+                if (newMsaId) {
+                    pairsToLink.push([newTreeId, newMsaId]);
+                }
+            }
+        });
+        if (pairsToLink.length > 0) {
+            setState(present => {
+                let next = { ...present };
+                pairsToLink.forEach(([id1, id2]) => {
+                    next.panelLinks[id1] = [...new Set([...(next.panelLinks[id1] || []), id2])];
+                    next.panelLinks[id2] = [...new Set([...(next.panelLinks[id2] || []), id1])];
+                    next.panelLinkHistory = upsertHistory(id1, id2, next);
+                    next.linkColors = assignPairColor(id1, id2, next);
+                });
+                setJustLinkedPanels([newTreeId, ...pairsToLink.map(p => p[1])]);
+                setTimeout(() => setJustLinkedPanels([]), 1000);
+                return next;
+            }, true);
+        }
+        closeBanner();
+    };
+
+    const handleCancel = () => {
+        createSubtreePanel();
+        closeBanner();
+    };
+
+    setConfirmation({
+        isOpen: true,
+        message: "Extract corresponding sub-MSAs from linked alignments?",
+        onConfirm: handleConfirm,
+        onCancel: handleCancel,
+    });
+}, [panelData, panelLinks, panels, setState, addPanel, toNewick, parseNewick, upsertHistory, assignPairColor]);
+
+
+  // useEffects to keep the refs updated.
+  useEffect(() => {
+    handleCreateSubsetMsaRef.current = handleCreateSubsetMsa;
+  }, [handleCreateSubsetMsa]);
+
+  useEffect(() => {
+    handleCreateSubtreeRef.current = handleCreateSubtree;
+  }, [handleCreateSubtree]);
 
   useEffect(() => {
     const handleResize = () => setWindowWidth(window.innerWidth);
@@ -3593,107 +3860,6 @@ const addPanel = useCallback((config = {}) => {
     return () => window.removeEventListener('resize', handleResize);
   }, []);
 
-const handleCreateSubtree = useCallback((id, selectedLeaves) => {
-    const sourceData = panelData[id];
-    if (!sourceData?.data || !selectedLeaves || selectedLeaves.size < 2) {
-        alert("Please select at least two leaves to create a subtree.");
-        console.error("Subtree creation aborted: Not enough leaves selected.");
-        return;
-    }
-
-    try {
-        const originalTree = parseNewick(sourceData.data);
-        const leavesToKeep = new Set(Array.from(selectedLeaves));
-
-        // Helper to convert raw parsed data into a d3-hierarchy
-        const convertToD3HierarchyData = (node) => {
-            if (!node) return null;
-
-            const nameWithNhx = node.name || '';
-            const nhxMatch = nameWithNhx.match(/\[&&NHX:([^\]]+)\]/);
-            
-            // Create a clean name by removing the NHX annotation string.
-            const cleanName = nameWithNhx.replace(/\[&&NHX:[^\]]+\]/, '').trim();
-            
-            const nhxData = {};
-            if (nhxMatch) {
-                const nhxString = nhxMatch[1];
-                nhxString.split(':').forEach(part => {
-                    const [key, value] = part.split('=', 2);
-                    if (key && value) {
-                        nhxData[key.trim()] = value.trim();
-                    }
-                });
-            }
-
-            const children = (node.children || []).map(convertToD3HierarchyData).filter(Boolean);
-            return {
-                name: cleanName, // Use the clean name for matching
-                nhx: nhxData,
-                length: node.length || 0,
-                ...(children.length > 0 && { children })
-            };
-        };
-        
-        const hierarchyData = convertToD3HierarchyData(originalTree);
-        let root = d3.hierarchy(hierarchyData);
-
-        // Find all leaves in the original tree that were not selected for keeping.
-        const leavesToPrune = root.leaves().filter(leaf => !leavesToKeep.has(leaf.data.name));
-        
-
-        // Iterate through each unselected leaf and apply the pruning logic.
-        leavesToPrune.forEach(nodeToPrune => {
-            if (!nodeToPrune.parent) {
-                return;
-            }
-            
-            const parent = nodeToPrune.parent;
-
-            if (parent.children && parent.children.length === 2) {
-                const grandparent = parent.parent;
-                const sibling = parent.children.find(child => child !== nodeToPrune);
-
-                if (!sibling) return; 
-
-                sibling.data.length = (parent.data.length || 0) + (sibling.data.length || 0);
-
-                if (grandparent) {
-                    const parentIndex = grandparent.children.indexOf(parent);
-                    if (parentIndex !== -1) {
-                        grandparent.children[parentIndex] = sibling;
-                        sibling.parent = grandparent;
-                    }
-                } else {
-                    sibling.parent = null;
-                    root = sibling;
-                }
-            } else if (parent.children) {
-                parent.children = parent.children.filter(child => child !== nodeToPrune);
-            }
-        });
-        
-
-        if (!root || (root.children && root.children.length < 1 && !leavesToKeep.has(root.data.name))) {
-             alert("Pruning resulted in an invalid tree. Please select at least two related leaves.");
-             console.error("Final tree is invalid or empty after pruning.", root);
-             return;
-        }
-
-        const newNewickString = toNewick(root) + ';';
-        const newFilename = (sourceData.filename ? sourceData.filename.replace(/\.[^.]+$/, '') : 'tree') + '.subset.nwk';
-
-        addPanel({
-            type: 'tree',
-            data: { ...sourceData, data: newNewickString, filename: newFilename, pruneMode: false },
-            basedOnId: id,
-        });
-
-    } catch (error) {
-        console.error("An error occurred during subtree creation:", error);
-        alert(`Could not create subtree: ${error.message}`);
-    }
-}, [panelData, addPanel]);
 
   const onSyncScroll = useCallback((scrollLeft, originId) => {
     const targetIds = Array.isArray(panelLinks[originId]) ? panelLinks[originId] : [];
@@ -5442,7 +5608,12 @@ const handleRestoreSession = useCallback(() => {
   onDragLeave={handleDragLeave}
   onDrop={handleDrop}
 >
-
+<ConfirmationBanner 
+      isOpen={confirmation.isOpen}
+      message={confirmation.message}
+      onConfirm={confirmation.onConfirm}
+      onCancel={confirmation.onCancel}
+    />
 {transientMessage && (
   <div className="fixed inset-0 z-[10002] flex items-center justify-center">
     <div className="bg-blue-400 text-white px-6 py-5 rounded-xl shadow-lg text-2xl font-semibold transition-all animate-fade-in-out">
