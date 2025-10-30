@@ -35,7 +35,7 @@ CodonToggleButton, TranslateButton, SiteStatsButton, LogYButton,
 SeqlogoButton, SequenceButton, DistanceMatrixButton, ZeroOneButton,
  DownloadButton, GitHubButton, SearchButton, TreeButton, ColorButton,
  DiamondButton, BranchLengthsButton, PruneButton, SubMSAButton,
- TableChartButton, OmegaButton, PictureButton } from './components/Buttons.jsx';
+ TableChartButton, OmegaButton, PictureButton, ShuffleButton } from './components/Buttons.jsx';
 import { ArrowDownTrayIcon, ArrowUpTrayIcon, PencilSquareIcon, ArrowUpOnSquareIcon, ArrowUturnLeftIcon, ArrowUturnRightIcon } from '@heroicons/react/24/outline';
 import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFasta, getLeafOrderFromNewick,
 newickToDistanceMatrix, detectFileType, toFasta, toPhylip, computeSiteStats, buildTreeFromDistanceMatrix,
@@ -1358,6 +1358,96 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
 
   const [labelWidth, setLabelWidth] = useState(data.labelWidth ?? LABEL_WIDTH * 1.5);
 
+  const [showReorderOptions, setShowReorderOptions] = useState(false);
+  const reorderOptionsRef = useRef(null);
+  const shuffleButtonWrapperRef = useRef(null);
+
+   // Store original order of IDs if it doesn't exist yet
+  useEffect(() => {
+    if (data.data && !data.originalOrder) {
+      const order = data.data.map(seq => seq.id);
+      setPanelData(pd => ({
+        ...pd,
+        [id]: {
+          ...pd[id],
+          originalOrder: order
+        }
+      }));
+    }
+  }, [id, data.data, data.originalOrder, setPanelData]);
+
+  const isOrderChanged = useMemo(() => {
+    if (!data.originalOrder || !data.data) return false;
+    if (data.originalOrder.length !== data.data.length) return true;
+    for (let i = 0; i < data.data.length; i++) {
+      if (data.data[i].id !== data.originalOrder[i]) {
+        return true;
+      }
+    }
+    return false;
+  }, [data.data, data.originalOrder]);
+
+  const restoreOriginalOrder = useCallback(() => {
+    if (!data.originalOrder || !data.data) return;
+    
+    // Create a map for efficient lookup of the current sequence objects by their ID
+    const currentDataMap = new Map(data.data.map(seq => [seq.id, seq]));
+    
+    // Rebuild the data array in the original order
+    const restoredData = data.originalOrder
+      .map(id => currentDataMap.get(id))
+      .filter(Boolean); // Filter out any sequences that might have been deleted
+
+    setPanelData(pd => ({
+      ...pd,
+      [id]: { ...pd[id], data: restoredData }
+    }));
+    setShowReorderOptions(false);
+  }, [id, data.data, data.originalOrder, setPanelData]);
+
+  const sortAlphabetically = useCallback(() => {
+    const sortedData = [...data.data].sort((a, b) => a.id.localeCompare(b.id));
+    setPanelData(pd => ({
+      ...pd,
+      [id]: { ...pd[id], data: sortedData }
+    }));
+    setShowReorderOptions(false);
+  }, [id, data.data, setPanelData]);
+
+  const reverseCurrentOrder = useCallback(() => {
+    const reversedData = [...data.data].reverse();
+    setPanelData(pd => ({
+      ...pd,
+      [id]: { ...pd[id], data: reversedData }
+    }));
+    setShowReorderOptions(false);
+  }, [id, data.data, setPanelData]);
+
+  useEffect(() => {
+    if (!showReorderOptions) return;
+    const closeOnEsc = (e) => {
+      if (e.key === 'Escape') {
+        setShowReorderOptions(false);
+      }
+    };
+    const closeOnClickOutside = (e) => {
+      if (
+        reorderOptionsRef.current &&
+        !reorderOptionsRef.current.contains(e.target) &&
+        (!shuffleButtonWrapperRef.current || !shuffleButtonWrapperRef.current.contains(e.target))
+      ) {
+        setShowReorderOptions(false);
+      }
+    };
+    document.addEventListener('keydown', closeOnEsc);
+    document.addEventListener('mousedown', closeOnClickOutside);
+    return () => {
+      document.removeEventListener('keydown', closeOnEsc);
+      document.removeEventListener('mousedown', closeOnClickOutside);
+    };
+  }, [showReorderOptions]);
+
+
 
   // --- Pre-calculation for Linking/Highlighting ---
   // Determine the active linked site once per render
@@ -1672,6 +1762,7 @@ const onScroll = useMemo(() =>
   const handleLabelClick = (index) => { if (!isSelectionMode) return; const sel = new Set(selectedSequences); if (sel.has(index)) sel.delete(index); else sel.add(index); setSelectedSequences(sel); };
 
   // Memoized extraButtons to prevent re-render loops.
+  
   const extraButtons = useMemo(() => (
     isNuc ? [ 
         { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowModelPicker(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
@@ -1687,6 +1778,7 @@ const onScroll = useMemo(() =>
         { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)}/>, tooltip: <>Build distance matrix <br /><span className="text-xs text-gray-600">Normalized Hamming</span></> },
         { element: <RadialToggleButton onClick={() => onCreateColorMatrix(id)} />, tooltip: "Create alignment color matrix"},
         { element: <SubMSAButton onClick={() => { setShowSearch(false); handleToggleSelectionMode(); }} isActive={isSelectionMode} />, tooltip : <> Extract sequences <br /> <span className="text-xs text-gray-600">Choose a subset to create a new panel </span> </> },
+        { element: <div ref={shuffleButtonWrapperRef}><ShuffleButton onClick={() => setShowReorderOptions(s => !s)} /></div>, tooltip: "Reorder sequences" },
         { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
     ] : [
         { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowModelPicker(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
@@ -1696,7 +1788,9 @@ const onScroll = useMemo(() =>
         { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)} />, tooltip: <>Build distance matrix <br /><span className="text-xs text-gray-600">Normalized Hamming</span></> },
         { element: <RadialToggleButton onClick={() => onCreateColorMatrix(id)} />, tooltip: "Create alignment color matrix"},
         { element: <SubMSAButton onClick={() => { setShowSearch(false); handleToggleSelectionMode(); }} isActive={isSelectionMode} />, tooltip : <> Extract sequences <br /> <span className="text-xs text-gray-600">Choose a subset to create a new panel </span> </> },
-        { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
+        { element: <div ref={shuffleButtonWrapperRef}><ShuffleButton onClick={() => setShowReorderOptions(s => !s)} /></div>, tooltip: "Reorder sequences" },
+        { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" },
+        
     ]
   ), [isNuc, id, codonMode, isSelectionMode, handleTreeClick, setCodonMode, onDuplicateTranslate, onCreateSeqLogo, onCreateSiteStatsHistogram,
      onGenerateDistance, handleToggleSelectionMode, handleDownload, onCreateColorMatrix,onPredictOmega, modelLoading]);
@@ -1808,7 +1902,7 @@ const handleGridMouseMove = useMemo(() =>
             id={id}
             filename={filename} 
             setPanelData={setPanelData} 
-            forceHideTooltip={showSearch || isSelectionMode} 
+            forceHideTooltip={showSearch || isSelectionMode || showReorderOptions} 
             extraButtons={extraButtons}
             onDuplicate={onDuplicate}
             onLinkClick={onLinkClick} 
@@ -1821,6 +1915,21 @@ const handleGridMouseMove = useMemo(() =>
         </div>
 
         {/* --- Overlays --- */}
+        {showReorderOptions && (
+          <div ref={reorderOptionsRef} className="absolute top-11 right-3 z-50 bg-white border border-gray-300 rounded-xl shadow px-1 py-1 flex flex-col items-stretch space-y-1">
+            {isOrderChanged && (
+              <button onClick={restoreOriginalOrder} className="text-sm text-left px-3 py-1 rounded-lg hover:bg-gray-200 whitespace-nowrap">
+                Restore original order
+              </button>
+            )}
+            <button onClick={sortAlphabetically} className="text-sm text-left px-3 py-1 rounded-lg hover:bg-gray-200 whitespace-nowrap">
+              Alphabetical order
+            </button>
+            <button onClick={reverseCurrentOrder} className="text-sm text-left px-3 py-1 rounded-lg hover:bg-gray-200 whitespace-nowrap">
+              Reverse order
+            </button>
+          </div>
+        )}
         {showModelPicker && ( 
         <div className="absolute inset-0 z-[1000] bg-black/40 flex items-center justify-center rounded-2xl"
          onClick={() => setShowModelPicker(false)}> 
@@ -3646,6 +3755,7 @@ const handleCreateSubsetMsa = useCallback((id, selectedIndices, quiet = false) =
         delete newPanelData.highlightedSites;
         delete newPanelData.searchHighlight;
         delete newPanelData.linkedSiteHighlight;
+        newPanelData.originalOrder = originalOrder;
         return addPanel({ type: 'alignment', data: newPanelData, basedOnId: id });
     };
 
@@ -3942,11 +4052,14 @@ const handleCreateSubtree = useCallback((id, selectedLeaves, quiet = false) => {
     }, true); // This is an irreversible action so save it.
   }, [setState]);
 
-    const handleDuplicateTranslate = useCallback((id) => {
+  const handleDuplicateTranslate = useCallback((id) => {
     const data = panelData[id];
     if (!data) return;
 
+    const layoutItem = layout.find(l => l.i === id);
+
     const translatedMsa = translateNucToAmino(data.data);
+    const originalOrder = translatedMsa.map(seq => seq.id);
     const newFilename = (data.filename ? data.filename.replace(/\.[^.]+$/, '') : 'alignment') + '.aa.fasta';
 
     addPanel({
@@ -3954,10 +4067,15 @@ const handleCreateSubtree = useCallback((id, selectedLeaves, quiet = false) => {
       data: {
         ...data,
         data: translatedMsa,
+        originalOrder: originalOrder,
         filename: newFilename,
         codonMode: false,
       },
       basedOnId: id,
+      layoutHint: {
+        w: layoutItem ? layoutItem.w : 6,
+        h: layoutItem ? layoutItem.h : 20
+      },
       autoLinkTo: data.codonMode ? id : null,
     });
   }, [panelData, addPanel]);
@@ -4002,10 +4120,13 @@ const handleCreateSequenceFromStructure = useCallback((id) => {
         [...chains.entries()].forEach(([chainId, { seq }], idx) => {
             if (!seq) return;
             const newId = `alignment-from-pdb-${chainId}-${Date.now()}-${idx}`;
+            const newData = [{ id: `${baseNameStr}_chain_${chainId}`, sequence: seq }];
+            const originalOrder = newData.map(s => s.id);
             newPanels.push({ i: newId, type: 'alignment' });
             newLayouts.push({ i: newId, x: 0, y: baseY + idx * 3, h: 3, w: 12, minH: 2, minW: 2 });
             newPanelDataEntries[newId] = {
-                data: [{ id: `${baseNameStr}_chain_${chainId}`, sequence: seq }],
+                data: newData,
+                originalOrder: originalOrder,
                 filename: `${baseNameStr}_chain_${chainId}.fasta`,
                 codonMode: false
             };
@@ -4939,7 +5060,8 @@ const handleFileUpload = async (e) => {
     if (type === 'alignment') {
       const text = await file.text();
       const parsed = parseFasta(text);
-      panelPayload = { data: parsed, filename };
+      const originalOrder = parsed.map(seq => seq.id);
+      panelPayload = { data: parsed, originalOrder, filename };
     } else if (type === 'tree') {
         const text = await file.text();
         const isNhx = /\.nhx$/i.test(filename) || text.includes('[&&NHX');
