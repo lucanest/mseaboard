@@ -3755,7 +3755,7 @@ const handleCreateSubsetMsa = useCallback((id, selectedIndices, quiet = false) =
         delete newPanelData.highlightedSites;
         delete newPanelData.searchHighlight;
         delete newPanelData.linkedSiteHighlight;
-        newPanelData.originalOrder = originalOrder;
+        newPanelData.originalOrder = sourceData.originalOrder ? sourceData.originalOrder.filter((_, idx) => selectedIndices.includes(idx)) : undefined;
         return addPanel({ type: 'alignment', data: newPanelData, basedOnId: id });
     };
 
