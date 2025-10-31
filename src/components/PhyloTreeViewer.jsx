@@ -3,12 +3,14 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { parseNewick } from './Utils';
 import * as d3 from 'd3';
-import { Box, Button, Chip, IconButton, Slider, Stack } from '@mui/material';
+import { Box, Button, Chip, IconButton, Slider, Stack, Switch, FormControlLabel } from '@mui/material';
 
 const BLACK_COLOR = "#fff";
 const LIGHT_GRAY_COLOR = "#ccc";
 const DARK_GRAY_COLOR = "#555";
 const MAGENTA_COLOR = "#cc0066";
+const HIGH_COLOR = '#db0404ff';
+const LOW_COLOR = '#34a2f7ff';
 
 const PhyloTreeViewer = ({
   id,
@@ -36,6 +38,7 @@ const PhyloTreeViewer = ({
   const [showControls, setShowControls] = useState(false);
   const [nhxFieldStats, setNhxFieldStats] = useState({});
   const [tooltipContent, setTooltipContent] = useState('');
+  const [colorbarTooltip, setColorbarTooltip] = useState({ visible: false, x: 0, y: 0, value: null });
   const controlsRef = useRef(null);
 
   // Destructure view-independent data from panelData.
@@ -43,6 +46,8 @@ const PhyloTreeViewer = ({
     data: newickStr,
     highlightedNodes = [],
     nhxColorField: initialNhxColorField,
+    nhxContinuousFields,
+    nhxThresholds,
     radialSettings = {}, // Default to empty objects if not present
     rectangularSettings = {},
   } = panelData || {};
@@ -179,27 +184,69 @@ const PhyloTreeViewer = ({
       if (d.data.nhx && typeof d.data.nhx === 'object') {
         Object.entries(d.data.nhx).forEach(([key, val]) => {
           if (!localNhxFieldStats[key]) {
-            localNhxFieldStats[key] = new Set();
+            localNhxFieldStats[key] = {
+              values: new Set(),
+              isNumeric: true,
+              hasFloat: false,
+              min: Infinity,
+              max: -Infinity,
+            };
           }
-          localNhxFieldStats[key].add(val);
+          const stats = localNhxFieldStats[key];
+          stats.values.add(val);
+
+          if (stats.isNumeric) {
+            const numVal = Number(val);
+            if (isNaN(numVal) || val === null || String(val).trim() === '') {
+              stats.isNumeric = false;
+            } else {
+              if (!Number.isInteger(numVal)) {
+                stats.hasFloat = true;
+              }
+              stats.min = Math.min(stats.min, numVal);
+              stats.max = Math.max(stats.max, numVal);
+            }
+          }
         });
+      }
+    });
+
+    Object.values(localNhxFieldStats).forEach(stats => {
+      if (!stats.isNumeric) {
+        stats.min = undefined;
+        stats.max = undefined;
+      } else if (stats.min === Infinity) { // Handle case with no numeric values
+        stats.min = 0;
+        stats.max = 1;
       }
     });
     setNhxFieldStats(localNhxFieldStats);
 
-
-    //  Pick the best key for coloring
+    // Pick the best key for coloring
     let colorField = nhxColorField;
-    if (typeof nhxColorField === "undefined") {
+    if (colorField === undefined && Object.keys(localNhxFieldStats).length > 0) {
       let maxDistinct = 0;
-      for (const [key, valueSet] of Object.entries(localNhxFieldStats)) {
-        if (valueSet.size > maxDistinct && valueSet.size > 1) {
-          maxDistinct = valueSet.size;
-          colorField = key;
+      let bestField = null;
+      
+      for (const [key, stats] of Object.entries(localNhxFieldStats)) {
+        if (stats.values.size > maxDistinct && stats.values.size > 1) {
+          maxDistinct = stats.values.size;
+          bestField = key;
         }
       }
-      // If we found a field, set it so the UI reflects the picked field
-      if (colorField) setNhxColorField(colorField);
+      
+      if (bestField) {
+        colorField = bestField;
+        // Update both local state and panel data
+        setNhxColorField(bestField);
+        setPanelData(prev => ({
+          ...prev,
+          [id]: {
+            ...prev[id],
+            nhxColorField: bestField,
+          },
+        }));
+      }
     }
 
 
@@ -305,16 +352,43 @@ const PhyloTreeViewer = ({
     }
 
 
-    const colorMap = {};
-    let colorIndex = 0;
-    const colorScale = d3.schemeCategory10;
+const fieldStats = nhxFieldStats[colorField];
+    const isContinuous = fieldStats && (
+        (fieldStats.isNumeric && fieldStats.hasFloat) ||
+        (nhxContinuousFields && nhxContinuousFields[colorField])
+    );
+    const threshold = nhxThresholds?.[colorField];
+    let colorValueFunction;
+    let colorMap = {};
 
-    root.each(d => {
-      const val = d.data.nhx?.[colorField];
-      if (val && !(val in colorMap)) {
-        colorMap[val] = colorScale[colorIndex++ % colorScale.length];
-      }
-    });
+    if (isContinuous && fieldStats) {
+        const { min, max } = fieldStats;
+        if (threshold != null) {
+            // Threshold mode
+            colorValueFunction = (val) => Number(val) >= threshold ? HIGH_COLOR : LOW_COLOR;
+        } else {
+            // Gradient mode
+            const interpolator = d3.interpolateRgb(LOW_COLOR, HIGH_COLOR);
+            const colorScale = d3.scaleSequential(interpolator).domain([min, max]);
+            colorValueFunction = (val) => {
+                const numVal = Number(val);
+                return isNaN(numVal) ? DARK_GRAY_COLOR : colorScale(numVal);
+            };
+        }
+    } else {
+        // Discrete mode (original logic)
+        let colorIndex = 0;
+        const colorScale = d3.schemeCategory10;
+        if (fieldStats) {
+            const sortedValues = Array.from(fieldStats.values).sort();
+            sortedValues.forEach(val => {
+                if (!(val in colorMap)) {
+                    colorMap[val] = colorScale[colorIndex++ % colorScale.length];
+                }
+            });
+        }
+        colorValueFunction = (val) => colorMap[val] || DARK_GRAY_COLOR;
+    }
 
     const links = root.links();  // Each is { source, target }
 
@@ -519,8 +593,8 @@ const PhyloTreeViewer = ({
       .attr('r', d => Math.max(minNodeRadius, Math.min(maxNodeRadius, 3 * scaleFactor)) * nodeRadius)
       .style('cursor', extractMode ? 'pointer' : 'default')
       .attr('fill', d => {
-        const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
-        return val ? colorMap[val] : DARK_GRAY_COLOR;
+        const val = d.data.nhx?.[colorField];
+        return val != null ? colorValueFunction(val) : DARK_GRAY_COLOR;
       })
       .attr('stroke', d => {
         const { isHighlight, isPersistentHighlight } = getHighlightState(d);
@@ -535,11 +609,13 @@ const PhyloTreeViewer = ({
         const isLeaf = event.height == 0;
         const nhxData = event.data?.nhx || {};
 
-        const nhxString = Object.entries(nhxData)
-          .map(([key, val]) => `<div><strong>${key}</strong>: ${val}</div>`)
-          .join('') || '<div>No NHX data</div>';
-
-        d3.select(this).attr('fill', MAGENTA_COLOR);
+        const nhxString =
+          (nodeName ? `<div><span style="font-size: 14px; font-weight: bold;">${nodeName}</span></div>` : '') +
+          (
+            Object.entries(nhxData)
+              .map(([key, val]) => `<div><strong>${key}</strong>: ${val}</div>`)
+              .join('')
+          );
 
         setTooltipContent(nhxString);
 
@@ -554,8 +630,8 @@ const PhyloTreeViewer = ({
       .on('mouseleave', function () {
         d3.select(this)
           .attr('fill', d => {
-            const val = d.data && d.data.nhx ? d.data.nhx[colorField] : undefined;
-            return val ? colorMap[val] : DARK_GRAY_COLOR;
+            const val = d.data.nhx?.[colorField];
+            return val != null ? colorValueFunction(val) : DARK_GRAY_COLOR;
           });
         setTooltipContent('');
         onHoverTip?.(null, null);
@@ -612,7 +688,9 @@ const PhyloTreeViewer = ({
           const fontSizeToFit = availableWidth / (maxLabelLength * 0.35); // Using 0.35 as a character width heuristic
           baseSize = Math.min(baseSize, fontSizeToFit);
         }
-        const finalSize = Math.max(minFontSize, Math.min(maxFontSize, baseSize * labelSize), 1 * labelSize * minFontSize);
+        let factor = maxLabelLength < 10 ? 2 : 1;
+        factor = radial ? factor : factor * 0.7;
+        const finalSize = Math.max(minFontSize, Math.min(maxFontSize, baseSize * labelSize), 1 * labelSize * minFontSize) * factor;
         return isHighlight || isPersistentHighlight ? `${finalSize * 1.6}px` : `${finalSize}px`;
       })
       .style('fill', d => {
@@ -658,27 +736,134 @@ const PhyloTreeViewer = ({
       })
 
 
-    if (Object.keys(colorMap).length > 0) {
-      const items = Object.entries(colorMap);
+    // Dynamic legend and colorbar rendering
+    legend.selectAll('*').remove();
+    svg.selectAll('.colorbar-group').remove();
 
+    // Case 1: The selected field is continuous
+    if (isContinuous && fieldStats) {
+        // Add colorbar title
+        legend.append('text')
+            .attr('x', 0)
+            .attr('y', (_, i) => i * 20 + 12 -14)
+            .text(colorField)
+            .style('font-size', '12px')
+            .style('fill', DARK_GRAY_COLOR)
+            .style('font-weight', '350');
+
+        // render the colorbar for continuous data
+        const colorbarY = radial ? 26 : 26;
+        const colorbarX = 20
+        const colorbar = svg.append('g')
+            .attr('class', 'colorbar-group')
+            .attr('transform', `translate(${colorbarX}, ${colorbarY})`); // Set fixed top-left position
+        const gradientID = `tree-gradient-${id}`;
+        const defs = colorbar.append('defs');
+        const linearGradient = defs.append('linearGradient').attr('id', gradientID);
+        
+        const colorScale = d3.scaleSequential(d3.interpolateRgb(LOW_COLOR, HIGH_COLOR))
+            .domain([fieldStats.min, fieldStats.max]);
+
+        linearGradient.selectAll("stop")
+            .data(d3.range(0, 1.01, 0.1))
+            .enter().append("stop")
+            .attr("offset", d => `${d*100}%`)
+            .attr("stop-color", d => {
+                const value = fieldStats.min + d * (fieldStats.max - fieldStats.min);
+                // If threshold is active, the gradient should also be binary
+                return threshold != null ? (value >= threshold ? HIGH_COLOR : LOW_COLOR) : colorScale(value);
+            });
+
+        const barWidth = Math.min(150, size.width/4);
+        const barHeight = 10;
+
+        colorbar.append("rect")
+            .attr("width", barWidth)
+            .attr("height", barHeight)
+            .style("fill", `url(#${gradientID})`)
+            .attr("rx", 4)
+            .style("stroke", "#ccc")
+            .style("stroke-width", 1);
+            
+
+        const xScale = d3.scaleLinear()
+            .domain([fieldStats.min, fieldStats.max])
+            .range([0, barWidth]);
+
+        const axis = colorbar.append("g")
+            .attr("transform", `translate(0, ${barHeight - 4})`)
+            .call(d3.axisBottom(xScale).ticks(5));
+        
+
+        // Remove the horizontal axis line
+        axis.select(".domain").remove();
+
+        // Remove the vertical tick lines
+        axis.selectAll(".tick line").remove();
+
+        colorbar.append('rect')
+            .attr('width', barWidth)
+            .attr('height', barHeight)
+            .style('fill', 'transparent')
+            .style('cursor', 'pointer')
+            .on('click', function(event) {
+                setPanelData(prev => {
+                    const currentPanelData = prev[id] || {};
+                    const newThresholds = { ...(currentPanelData.nhxThresholds || {}) };
+                    if (newThresholds[colorField] != null) {
+                        delete newThresholds[colorField];
+                    } else {
+                        const clickX = d3.mouse(this)[0];
+                        newThresholds[colorField] = xScale.invert(clickX);
+                    }
+                    return { ...prev, [id]: { ...currentPanelData, nhxThresholds: newThresholds } };
+                });
+            
+                
+            })
+          .on('mousemove', function() { 
+                const containerRect = containerRef.current.getBoundingClientRect();
+                const barRect = this.getBoundingClientRect(); // Get the colorbar's own position
+                const relX = d3.mouse(this)[0];
+                const value = xScale.invert(relX);
+
+                setColorbarTooltip({
+                    visible: true,
+                    // Replicate Heatmap.jsx logic for x and y
+                    x: barRect.left - containerRect.left + relX,
+                    y: barRect.bottom - containerRect.top + 11,
+                    value: value,
+                });
+            })
+            .on('mouseleave', () => {
+                setColorbarTooltip({ visible: false, x: 0, y: 0, value: null });
+            });
+                
+        
+    } 
+    // Case 2: The selected field is discrete
+    else if (Object.keys(colorMap).length > 0) {
+      const items = Object.entries(colorMap);
       legend.selectAll('rect')
         .data(items)
         .join('rect')
         .attr('x', 0)
-        .attr('y', (_, i) => i * 20)
+        .attr('y', (_, i) => i * 20 -20)
         .attr('width', 15)
         .attr('height', 15)
         .attr('fill', d => d[1])
         .attr('rx', 4);
+        
 
       legend.selectAll('text')
         .data(items)
         .join('text')
         .attr('x', 20)
-        .attr('y', (_, i) => i * 20 + 12)
+        .attr('y', (_, i) => i * 20 + 12 -20)
         .text(d => `${colorField}: ${d[0]}`)
         .style('font-size', '12px')
-        .style('fill', DARK_GRAY_COLOR);
+        .style('fill', DARK_GRAY_COLOR)
+        .style('font-weight', '400');
     }
 
     setDebugInfo(`Tree rendered successfully. Found ${Object.keys(colorMap).length} different ${colorField} values.`);
@@ -727,16 +912,35 @@ const PhyloTreeViewer = ({
     };
 
   // Specific handler for the color field to also update local state.
-  const handleColorFieldChange = (field) => {
-    setNhxColorField(field); // Update local state for immediate visual feedback
-    // This updates the top-level setting, as it's view-independent
+const handleColorFieldChange = (field) => {
+    setNhxColorField(field); 
     setPanelData(prev => ({
         ...prev,
         [id]: {
             ...prev[id],
             nhxColorField: field,
+            nhxThresholds: { ...((prev[id] || {}).nhxThresholds || {}), [nhxColorField]: null }
         },
     }));
+  };
+
+   const handleContinuousToggle = (field, isContinuous) => {
+    setPanelData(prev => {
+        const currentPanelData = prev[id] || {};
+        const continuousFields = { ...(currentPanelData.nhxContinuousFields || {}) };
+        if (isContinuous) {
+            continuousFields[field] = true;
+        } else {
+            delete continuousFields[field];
+        }
+        return {
+            ...prev,
+            [id]: {
+                ...currentPanelData,
+                nhxContinuousFields: continuousFields,
+            },
+        };
+    });
   };
 
 
@@ -908,29 +1112,47 @@ const PhyloTreeViewer = ({
               <Button
                 key="none"
                 size="small"
-                variant={nhxColorField === null ? "contained" : "outlined"}
+                variant={!nhxColorField ? "contained" : "outlined"}
                 onClick={() => handleColorFieldChange(null)}
                 sx={{
                   justifyContent: 'center', textTransform: 'none',
-                  backgroundColor: nhxColorField === null ? '#60a5fa' : 'inherit',
+                  backgroundColor: !nhxColorField ? '#60a5fa' : 'inherit',
                 }}
               >
                 None
               </Button>
-              {(Object.keys(nhxFieldStats).length > 0) ? Object.keys(nhxFieldStats).map(field => (
-                <Button
-                  key={field}
-                  size="small"
-                  variant={nhxColorField === field ? "contained" : "outlined"}
-                  onClick={() => handleColorFieldChange(field)}
-                  sx={{
-                    justifyContent: 'center', textTransform: 'none',
-                    backgroundColor: nhxColorField === field ? '#60a5fa' : 'inherit',
-                  }}
-                >
-                  {field}
-                </Button>
-              )) : <div style={{ fontSize: 12, color: DARK_GRAY_COLOR, padding: '4px' }}>No NHX fields found</div>}
+              {(Object.keys(nhxFieldStats).length > 0) ? Object.keys(nhxFieldStats).map(field => {
+                 const stats = nhxFieldStats[field];
+                 const isAmbiguous = stats.isNumeric && !stats.hasFloat && stats.values.size > 1;
+                 return (
+                    <div key={field}>
+                        <Button
+                            size="small"
+                            variant={nhxColorField === field ? "contained" : "outlined"}
+                            onClick={() => handleColorFieldChange(field)}
+                            sx={{
+                                width: '100%', justifyContent: 'center', textTransform: 'none',
+                                backgroundColor: nhxColorField === field ? '#60a5fa' : 'inherit',
+                            }}
+                        >
+                            {field}
+                        </Button>
+                        {nhxColorField === field && isAmbiguous && (
+                            <FormControlLabel
+                                control={
+                                    <Switch
+                                        size="small"
+                                        checked={!!(nhxContinuousFields && nhxContinuousFields[field])}
+                                        onChange={(e) => handleContinuousToggle(field, e.target.checked)}
+                                    />
+                                }
+                                label={<span style={{ fontSize: '12px', color: DARK_GRAY_COLOR }}>Treat as continuous</span>}
+                                sx={{ ml: 1, display: 'flex', justifyContent: 'center' }}
+                            />
+                        )}
+                    </div>
+                 )
+              }) : <div style={{ fontSize: 12, color: DARK_GRAY_COLOR, padding: '4px' }}>No NHX fields found</div>}
             </Stack>
           </Box>
           )}
@@ -944,8 +1166,9 @@ const PhyloTreeViewer = ({
           position: 'absolute',
           bottom: '10px',
           left: '10px',
-          background: 'rgba(0,0,0,0.3)',
-          color: BLACK_COLOR,
+          background: 'white',
+          color: `${DARK_GRAY_COLOR}`,
+          border: `1px solid ${DARK_GRAY_COLOR}`,
           padding: '4px 8px',
           borderRadius: '8px',
           pointerEvents: 'none',
@@ -957,23 +1180,37 @@ const PhyloTreeViewer = ({
       />
 
       {/* Toggle Controls Button */}
-      {!showControls && !tooltipContent && (
+      {!showControls  && (
         <IconButton
           size="large"
           sx={{
             position: 'absolute',
-            bottom: 5,
-            left: 5,
+            bottom: 12,
+            left: 16,
             background: 'rgba(255, 255, 255, 0.9)',
             boxShadow: 2,
-            zIndex: 20,
+            zIndex: 8,
             '&:hover': {
-              background: '#DBEAFE',
+              background: '#bfdafcd7',
+              boxShadow: 4,
             },
           }}
           onClick={() => setShowControls(true)}
         >
         </IconButton>
+      )}
+    {colorbarTooltip.visible && (
+        <div
+          className="absolute pointer-events-none z-50 bg-transparent text-black text-xs px-2 py-2 rounded"
+          style={{
+            left: colorbarTooltip.x,
+            top: colorbarTooltip.y,
+            transform: 'translateX(-50%)',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {colorbarTooltip.value.toFixed(4)}
+        </div>
       )}
     </div>
   );
