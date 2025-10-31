@@ -616,8 +616,12 @@ const fieldStats = nhxFieldStats[colorField];
               .map(([key, val]) => `<div><strong>${key}</strong>: ${val}</div>`)
               .join('')
           );
-
-        setTooltipContent(nhxString);
+        d3.select(this)
+          // set a black border on hover
+          .attr('stroke', 'black')
+          .attr('stroke-width', 2);
+        
+          setTooltipContent(nhxString);
 
         if (isLeaf) {
           onHoverTip?.(nodeName || '', id);
@@ -632,6 +636,14 @@ const fieldStats = nhxFieldStats[colorField];
           .attr('fill', d => {
             const val = d.data.nhx?.[colorField];
             return val != null ? colorValueFunction(val) : DARK_GRAY_COLOR;
+          })
+          .attr('stroke', d => {
+            const { isHighlight, isPersistentHighlight } = getHighlightState(d);
+            return isHighlight ? DARK_GRAY_COLOR : (isPersistentHighlight ? MAGENTA_COLOR : BLACK_COLOR);
+          })
+          .attr('stroke-width', d => {
+            const { isHighlight, isPersistentHighlight } = getHighlightState(d);
+            return isHighlight || isPersistentHighlight ? 2 : 1;
           });
         setTooltipContent('');
         onHoverTip?.(null, null);
