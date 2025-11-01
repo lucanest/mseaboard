@@ -1274,3 +1274,12 @@ export function toNewick(node) {
   }
   return result;
 }
+
+export const detectIndexingMode = (xValues) => {
+  // If the first x-value is 0, assume the data is 0-based.
+  if (Array.isArray(xValues) && xValues.length > 0 && xValues[0] === 0) {
+    return '0-based';
+  }
+  // Otherwise, default to the more common 1-based convention.
+  return '1-based';
+};

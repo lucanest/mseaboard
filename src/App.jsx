@@ -42,7 +42,7 @@ newickToDistanceMatrix, detectFileType, toFasta, toPhylip, computeSiteStats, bui
 computeNormalizedHammingMatrix, pickAlignedSeqForChain, chainIdFromSeqId, residueIndexToMsaCol, 
 reorderHeatmapByLeafOrder, reorderMsaByLeafOrder, msaColToResidueIndex,
 parsePdbChains, mkDownload, baseName, msaToPhylip, computeCorrelationMatrix, uint8ArrayToBase64, base64ToUint8Array,
-computeTreeStats, parseTsvMatrix, parseNewick, toNewick
+computeTreeStats, parseTsvMatrix, parseNewick, toNewick, detectIndexingMode
 } from './components/Utils.jsx';
 import { residueColors, logoColors, linkpalette } from './constants/colors.js';
 import { TitleFlip, AnimatedList } from './components/Animations.jsx';
@@ -56,19 +56,8 @@ import useElementSize from './hooks/useElementSize.js'
 import { useOmegaModel } from './hooks/useOmegaModel.js'; // 1. Import the new hook
 
 
-
-const detectIndexingMode = (xValues) => {
-  // If the first x-value is 0, assume the data is 0-based.
-  if (Array.isArray(xValues) && xValues.length > 0 && xValues[0] === 0) {
-    return '0-based';
-  }
-  // Otherwise, default to the more common 1-based convention.
-  return '1-based';
-};
-
 const LABEL_WIDTH = 66;
 const CELL_SIZE = 24;
-
 
 function useIsVisible(ref) {
   const [isIntersecting, setIntersecting] = useState(false);
