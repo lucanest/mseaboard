@@ -619,23 +619,6 @@ export function parsePdbChains(pdb) {
   return chains;
 }
 
-/** Euclidean distance matrix from an ordered list of atoms with display labels */
-export function distanceMatrixFromAtoms(atoms) {
-  const N = atoms.length;
-  const labels = atoms.map(a => a.label); // uses dispResi
-  const matrix = Array.from({ length: N }, () => Array(N).fill(0));
-  for (let i = 0; i < N; i++) {
-    for (let j = i; j < N; j++) {
-      const dx = atoms[i].x - atoms[j].x;
-      const dy = atoms[i].y - atoms[j].y;
-      const dz = atoms[i].z - atoms[j].z;
-      const d = Math.sqrt(dx*dx + dy*dy + dz*dz);
-      matrix[i][j] = d; matrix[j][i] = d;
-    }
-  }
-  return { labels, matrix };
-}
-
 
 /** Reorder an MSA array by Newick leaf order, appending non-matches at end */
 export function reorderMsaByLeafOrder(msaSeqs, leafOrder) {
