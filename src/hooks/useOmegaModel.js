@@ -1,6 +1,7 @@
 // src/hooks/useOmegaModel.js
 import { useState, useEffect } from 'react';
 import { InferenceSession, Tensor } from 'onnxruntime-web';
+import pako from 'pako';
 
 const NUCLEOTIDES = ['A', 'C', 'T', 'G', '-'];
 
@@ -34,6 +35,30 @@ function msaToTensor(msa) {
     return new Tensor('float32', tensorData, dims);
 }
 
+async function loadCompressedModel(modelPath) {
+    try {
+        // Try compressed version first
+        const response = await fetch(`${modelPath}.gz`);
+        if (!response.ok) throw new Error('Compressed model not found');
+        
+        const compressedBuffer = await response.arrayBuffer();
+        const decompressed = pako.inflate(new Uint8Array(compressedBuffer));
+        // ONNX Runtime Web uses WebAssembly for performance.
+        // 'wasm' is the recommended execution provider.
+        return await InferenceSession.create(decompressed.buffer, {
+            executionProviders: ['wasm'],
+            graphOptimizationLevel: 'all',
+        });
+    } catch (compressedError) {
+        console.warn('Compressed model failed, falling back to uncompressed:', compressedError);
+        // Fall back to uncompressed version
+        return await InferenceSession.create(modelPath, {
+            executionProviders: ['wasm'],
+            graphOptimizationLevel: 'all',
+        });
+    }
+}
+
 export function useOmegaModel(modelPath) {
     const [session, setSession] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -44,12 +69,7 @@ export function useOmegaModel(modelPath) {
             setLoading(true);
             setError(null);
             try {
-                // ONNX Runtime Web uses WebAssembly for performance.
-                // 'wasm' is the recommended execution provider.
-                const newSession = await InferenceSession.create(modelPath, {
-                     executionProviders: ['wasm'],
-                     graphOptimizationLevel: 'all',
-                });
+                const newSession = await loadCompressedModel(modelPath);
                 setSession(newSession);
             } catch (e) {
                 console.error("Failed to load ONNX model:", e);
