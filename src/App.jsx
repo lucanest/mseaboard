@@ -5871,10 +5871,15 @@ const handleRestoreSession = useCallback(() => {
     className="bg-gray-200 hover:bg-gray-300 text-gray-700 text-2xl font-semibold px-4 py-4 rounded-xl shadow-xl transition text-center"
     onClick={async () => {
       try {
-        const resp = await fetch('/mseaboard-example.json');
+        const resp = await fetch('/mseaboard-example.txt');
         if (!resp.ok) throw new Error('Example file not found');
-        const text = await resp.text();
-        const board = JSON.parse(text);
+        const exampleText = await resp.text();
+        const compressed = base64ToUint8Array(exampleText);
+        const jsonString = pako.inflate(compressed, { to: 'string' });
+        const parsedBoard = JSON.parse(jsonString);
+        const board = rehydrateBoardState(parsedBoard);
+
+    
         setHistory({
             past: [],
             present: {
