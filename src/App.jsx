@@ -5090,7 +5090,12 @@ const handleFileUpload = async (e) => {
 
         } else {
             // This handles plain text files with lists of numbers
-            const values = lines.map(s => Number(s.trim())).filter(n => Number.isFinite(n));
+            // if there are multiple lines we read as if each line is a number, otherwise we treat the single line as spaces/comma-separated numbers
+            let linesToProcess = lines;
+            if (lines.length === 1) {
+                linesToProcess = lines[0].split(/[\s,]+/);
+            }
+            const values = linesToProcess.map(s => Number(s.trim())).filter(n => Number.isFinite(n));
             const xValues = values.map((_, i) => i + 1);
             const indexingMode = detectIndexingMode(xValues); // Will be '1-based'
             panelPayload = { data: values, filename, xValues, indexingMode };
