@@ -2388,6 +2388,53 @@ const TreePanel = React.memo(function TreePanel({
   );
 });
 
+const ImagePanel = React.memo(function ImagePanel({
+  id, data, onRemove, onDuplicate, hoveredPanelId, panelLinks,
+  setHoveredPanelId, setPanelData,isEligibleLinkTarget, justLinkedPanels,
+}) {
+
+  const handleDownload = useCallback(() => {
+    if (!data?.src) return;
+    const a = document.createElement('a');
+    a.href = data.src;
+    a.download = data.filename || 'image.png';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+  }, [data]);
+
+  const extraButtons = useMemo(() => [
+    { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download png" }
+  ], [handleDownload]);
+
+  return (
+    <PanelContainer
+      id={id}
+      hoveredPanelId={hoveredPanelId}
+      setHoveredPanelId={setHoveredPanelId}
+      isEligibleLinkTarget={isEligibleLinkTarget}
+      panelLinks={panelLinks}
+      justLinkedPanels={justLinkedPanels}
+    >
+      <PanelHeader
+        id={id}
+        filename={data.filename || "Image"}
+        setPanelData={setPanelData}
+        onDuplicate={onDuplicate}
+        onRemove={onRemove}
+        extraButtons={extraButtons}
+      />
+      <div className="flex-1 p-2 flex items-center justify-center overflow-hidden">
+        {data.src ? (
+          <img src={data.src} alt={data.filename} className="max-w-full max-h-full object-contain" />
+        ) : (
+          <div className="text-gray-400">No image loaded.</div>
+        )}
+      </div>
+    </PanelContainer>
+  );
+});
+
 const NotepadPanel = React.memo(function NotepadPanel({
   id, data, onRemove, onDuplicate, hoveredPanelId, panelLinks,
   setHoveredPanelId, setPanelData,isEligibleLinkTarget, justLinkedPanels,
@@ -2994,6 +3041,8 @@ const PanelWrapper = React.memo(({
       return <SeqLogoPanel {...commonProps} {...additionalProps} />;
     case 'structure':
       return <StructurePanel {...commonProps} {...additionalProps} />;
+    case 'image':
+      return <ImagePanel {...commonProps} {...additionalProps} />;
     default:
       return null;
   }
@@ -3185,7 +3234,7 @@ const TopBar = React.memo(function TopBar({
             Upload a molecular structure <br /> in PDB format (.pdb)
           </DelayedTooltip>
           <GitHubButton />
-          <input ref={fileInputRef} type="file" accept=".fasta,.nwk,.nhx,.txt,.tsv,.csv,.fas,.phy,.phylip,.dist,.pdb" onChange={handleFileUpload} style={{ display: 'none' }} />
+          <input ref={fileInputRef} type="file" accept=".fasta,.nwk,.nhx,.txt,.tsv,.csv,.fas,.phy,.phylip,.dist,.pdb,.png,.jpg,.jpeg,.gif,.svg,.webp,.avif,.bmp,.ico" onChange={handleFileUpload} style={{ display: 'none' }} />
         </div>
       </div>
     </div>
@@ -5429,6 +5478,19 @@ const dragCounter = useRef(0); // helps ignore child enter/leave flicker
 // --- build panel payload from file  ---
 const buildPanelPayloadFromFile = async (file) => {
   const filename = file.name;
+  const lowerFilename = filename.toLowerCase();
+
+ const supportedImageExtensions = ['.png', '.jpg', '.jpeg', '.gif', '.svg', '.webp', '.avif', '.bmp', '.ico'];
+
+  if (supportedImageExtensions.some(ext => lowerFilename.endsWith(ext))) {
+    const src = await new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = (error) => reject(error);
+        reader.readAsDataURL(file);
+    });
+    return { type: 'image', payload: { src, filename } };
+  }
   const text = await file.text();
   const kind = detectFileType(filename, text);
 
@@ -5649,6 +5711,7 @@ const LINK_COMPAT = {
   tree:      new Set(['alignment','heatmap','tree','histogram']),
   structure: new Set(['alignment','heatmap']),
   notepad:   new Set([]),
+  image:     new Set([]),
 };
 
 const canLink = (typeA, typeB) => {
