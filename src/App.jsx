@@ -44,7 +44,7 @@ reorderHeatmapByLeafOrder, reorderMsaByLeafOrder, msaColToResidueIndex,
 parsePdbChains, mkDownload, baseName, msaToPhylip, computeCorrelationMatrix, uint8ArrayToBase64, base64ToUint8Array,
 computeTreeStats, parseTsvMatrix, parseNewick, toNewick, detectIndexingMode
 } from './components/Utils.jsx';
-import { residueColors, logoColors, linkpalette } from './constants/colors.js';
+import { residueColors, logoColors, linkpalette, residueSvgColors } from './constants/colors.js';
 import { TitleFlip, AnimatedList } from './components/Animations.jsx';
 import PhyloTreeViewer from './components/PhyloTreeViewer.jsx';
 import Heatmap from "./components/Heatmap.jsx";
@@ -53,7 +53,7 @@ import TableViewer from './components/TableViewer.jsx';
 import SequenceLogoCanvas from './components/Seqlogo.jsx';
 import StructureViewer from './components/StructureViewer.jsx';
 import useElementSize from './hooks/useElementSize.js'
-import { useOmegaModel } from './hooks/useOmegaModel.js'; // 1. Import the new hook
+import { useOmegaModel } from './hooks/useOmegaModel.js';
 
 
 const LABEL_WIDTH = 66;
@@ -528,11 +528,65 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
     return [];
   }, [data.msa]);
 
+   const alphabet = useMemo(() => {
+    if (!sequences || sequences.length === 0) return [];
+    const set = new Set();
+    sequences.forEach((seq) => {
+      for (const c of seq) set.add(c.toUpperCase());
+    });
+    set.delete("-");
+    set.delete(".");
+    return Array.from(set).sort();
+  }, [sequences]);
+
+  const columns = useMemo(() => {
+    if (sequences.length === 0 || sequences[0].length === 0) return [];
+    const seqLen = sequences[0].length;
+    const results = [];
+    const log2 = (x) => (x <= 0 ? 0 : Math.log2(x));
+    for (let i = 0; i < seqLen; ++i) {
+      const freq = {};
+      let total = 0;
+      for (const seq of sequences) {
+        const c = seq[i]?.toUpperCase();
+        if (!c || c === "-" || c === ".") continue;
+        freq[c] = (freq[c] || 0) + 1;
+        total += 1;
+      }
+      Object.keys(freq).forEach((k) => (freq[k] /= total || 1));
+      let entropy = 0;
+      Object.values(freq).forEach((p) => (entropy -= p * log2(p)));
+      const s = alphabet.length || 1;
+      const info = log2(s) - entropy;
+      const ordered = Object.entries(freq).sort((a, b) => a[1] - b[1]);
+      results.push({ ordered, info });
+    }
+    return results;
+  }, [sequences, alphabet]);
+
   const scrollContainerRef = useRef(null);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [viewportWidth, setViewportWidth] = useState(0);
   const isScrollingRef = useRef(false);
   const scrollRafRef = useRef(null);
+  const [showDownloadOptions, setShowDownloadOptions] = useState(false);
+  const downloadOptionsRef = useRef(null);
+  const pictureButtonWrapperRef = useRef(null);
+
+  useEffect(() => {
+    if (!showDownloadOptions) return;
+    const closeOnClickOutside = (e) => {
+      if (
+        downloadOptionsRef.current &&
+        !downloadOptionsRef.current.contains(e.target) &&
+        (!pictureButtonWrapperRef.current || !pictureButtonWrapperRef.current.contains(e.target))
+      ) {
+        setShowDownloadOptions(false);
+      }
+    };
+    document.addEventListener('mousedown', closeOnClickOutside);
+    return () => document.removeEventListener('mousedown', closeOnClickOutside);
+  }, [showDownloadOptions]);
 
   // Use requestAnimationFrame for smoother scrolling
   const onScroll = useCallback((e) => {
@@ -618,15 +672,77 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
   }, [highlightedSite, highlightOrigin, linkedTo, id]);
 
 
-  const handleDownloadPNG = useCallback(() => {
-    const canvas = scrollContainerRef.current?.querySelector('canvas');
-    const base = (data?.filename || 'sequence_logo').replace(/\.[^.]+$/, '');
-    if (!canvas) {
-      alert('Could not find canvas to download.');
-      return;
+  const handleDownloadFullImage = useCallback(() => {
+    setShowDownloadOptions(false);
+    if (!columns.length) return;
+
+    // Constants for drawing, mirrored from Seqlogo.jsx
+    const height = 200;
+    const colWidth = 24;
+    const fontFamily = "monospace";
+    const xAxisHeight = 30;
+    const canvasHeight = height + xAxisHeight;
+    const seqLen = columns.length;
+    const fullWidth = seqLen * colWidth;
+
+    const maxInfo = Math.log2(alphabet.length) || 2;
+    const yScale = (val) => (val / maxInfo) * height;
+    const textHeightPx = colWidth * 1.1;
+
+    const tempCanvas = document.createElement('canvas');
+    let dpr = window.devicePixelRatio || 1;
+    tempCanvas.width = Math.ceil(fullWidth * dpr);
+    tempCanvas.height = Math.ceil(canvasHeight * dpr);
+    const ctx = tempCanvas.getContext("2d");
+    if (!ctx) return;
+
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    
+    // Background
+    ctx.fillStyle = "#fff";
+    ctx.fillRect(0, 0, fullWidth, canvasHeight);
+
+    // Drawing logic copied and adapted from Seqlogo.jsx
+    ctx.textAlign = "center";
+    ctx.textBaseline = "alphabetic";
+    
+    for (let i = 0; i < seqLen; i++) {
+      const col = columns[i];
+      if (!col) continue;
+
+      const xPos = i * colWidth;
+      let y0 = height;
+
+      for (const [res, p] of col.ordered) {
+        const charHeight = yScale(p * col.info);
+        if (charHeight < 0.1) continue;
+        y0 -= charHeight;
+        ctx.fillStyle = residueSvgColors[res] || "#444";
+        const xCenter = xPos + colWidth / 2;
+        
+        ctx.save();
+        ctx.translate(xCenter, y0 + charHeight);
+        const scaleY = Math.max(0.1, charHeight / textHeightPx);
+        ctx.scale(1, scaleY);
+        ctx.font = `700 ${textHeightPx}px ${fontFamily}`;
+        ctx.fillText(res, 0, -2);
+        ctx.restore();
+      }
+      
+      // Draw axis labels
+      const label = String(i + 1);
+      const len = label.length;
+      let fontSize = 12;
+      if (len > 2) fontSize = (colWidth / len) * 1.2;
+      ctx.font = `${fontSize}px monospace`;
+      ctx.fillStyle = "#888";
+      ctx.fillText(label, xPos + colWidth / 2, height + 25);
     }
+    
+    // Trigger download
+    const base = (data?.filename || 'sequence_logo_full').replace(/\.[^.]+$/, '');
     try {
-      const url = canvas.toDataURL('image/png');
+      const url = tempCanvas.toDataURL('image/png');
       const a = document.createElement('a');
       a.href = url;
       a.download = `${base}.png`;
@@ -634,15 +750,102 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
       a.click();
       document.body.removeChild(a);
     } catch (e) {
-      console.error('PNG export failed:', e);
-      alert('PNG export failed in this browser.');
+      console.error('Full PNG export failed:', e);
+      alert('Full PNG export failed in this browser.');
+    }
+  }, [data, columns, alphabet]);
+
+  const handleDownloadVisibleImage = useCallback(() => {
+    setShowDownloadOptions(false);
+    const sourceCanvas = scrollContainerRef.current?.querySelector('canvas');
+    if (!sourceCanvas) {
+      alert('Could not find canvas to download.');
+      return;
+    }
+    
+    // The sourceCanvas represents the visible, scrolled area.
+    const base = (data?.filename || 'sequence_logo_visible').replace(/\.[^.]+$/, '');
+    try {
+      const url = sourceCanvas.toDataURL('image/png');
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${base}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error('Visible PNG export failed:', e);
+      alert('Visible PNG export failed in this browser.');
     }
   }, [data]);
 
+const handleDownloadTSV = useCallback(() => {
+    if (!sequences || sequences.length === 0) return;
+
+    const seqLen = sequences[0].length;
+    const numSeqs = sequences.length;
+
+    const allChars = new Set(sequences.join(''));
+    const dnaChars = new Set(['A', 'C', 'G', 'T', 'U', 'N', '-', '.', '*']);
+    let isProtein = false;
+    for (const char of allChars) {
+      if (!dnaChars.has(char.toUpperCase())) {
+        isProtein = true;
+        break;
+      }
+    }
+    const alphabetSize = isProtein ? 20 : 4;
+    const log2s = Math.log2(alphabetSize);
+
+    let tsvContent = 'site\tresidue\tinformation content (bits)\n';
+
+    for (let i = 0; i < seqLen; i++) {
+      const counts = {};
+      let totalNonGap = 0;
+
+      for (let j = 0; j < numSeqs; j++) {
+        const char = sequences[j][i];
+        if (char && char !== '-' && char !== '.') {
+          counts[char] = (counts[char] || 0) + 1;
+          totalNonGap++;
+        }
+      }
+
+      if (totalNonGap === 0) continue;
+
+      let H = 0;
+      for (const char in counts) {
+        const p = counts[char] / totalNonGap;
+        if (p > 0) {
+          H -= p * Math.log2(p);
+        }
+      }
+
+      const e_n = (alphabetSize - 1) / (2 * Math.LN2 * totalNonGap);
+      const R = log2s - (H + e_n);
+      const R_final = Math.max(0, R);
+
+      for (const char in counts) {
+        const p = counts[char] / totalNonGap;
+        const height = p * R_final;
+        tsvContent += `${i + 1}\t${char}\t${height.toFixed(4)}\n`;
+      }
+    }
+
+    const base = (data?.filename || 'sequence_logo_data').replace(/\.[^.]+$/, '');
+    mkDownload(base, tsvContent, 'tsv')();
+  }, [sequences, data?.filename]);
+
   const extraButtons = useMemo(() => [
-    { element: <DownloadButton onClick={handleDownloadPNG} />,
-      tooltip: "Download png" }
-  ], [handleDownloadPNG]);
+    { element: (
+        <div ref={pictureButtonWrapperRef}>
+          <PictureButton onClick={() => setShowDownloadOptions(s => !s)} />
+        </div>
+      ),
+      tooltip: "Download image (.png)" },
+    { element: <DownloadButton onClick={handleDownloadTSV} />,
+      tooltip: "Download data (.tsv)" },
+  ], [handleDownloadFullImage, handleDownloadVisibleImage, handleDownloadTSV]);
 
   const seqLen = sequences[0]?.length || 0;
   const totalWidth = seqLen * 24 - 14; // 24px per residue - 14px adjustment for last column
@@ -666,6 +869,16 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
       isEligibleLinkTarget={isEligibleLinkTarget}
       justLinkedPanels={justLinkedPanels}
     >
+      {showDownloadOptions && (
+        <div ref={downloadOptionsRef} className="absolute top-11 right-3 z-50 bg-white border border-gray-300 rounded-xl shadow px-1 py-1 flex flex-col items-stretch space-y-1">
+          <button onClick={handleDownloadVisibleImage} className="text-sm text-left px-3 py-1 rounded-lg hover:bg-gray-200 whitespace-nowrap">
+            Visible Area
+          </button>
+          <button onClick={handleDownloadFullImage} className="text-sm text-left px-3 py-1 rounded-lg hover:bg-gray-200 whitespace-nowrap">
+            Full Logo
+          </button>
+        </div>
+      )}
       <PanelHeader
         id={id}
         prefix=""
@@ -681,6 +894,7 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
         onUnlink={onUnlink}
         colorForLink={colorForLink}
         extraButtons={extraButtons}
+        forceHideTooltip={showDownloadOptions}
       />
       <div
         ref={scrollContainerRef}
