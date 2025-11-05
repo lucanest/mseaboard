@@ -135,25 +135,19 @@ Visit `http://localhost:3000` and upload your files.
 ├── package.json
 ├── postcss.config.js
 ├── public
-│   ├── animatedtitle.gif
+│   ├── logo.png
 │   ├── d3.min.js
 │   ├── index.html
-│   ├── mseaboard-example.json
-│   └── wasm
-│       ├── fastme.js
-│       └── fastme.wasm
+│   ├── mseaboard-example.txt
+│   ├── seqmodel.onnx.gz
+│   ├── wasm
+│   │   ├── fastme.js
+│   │   └── fastme.wasm
+│   └── workers
+│   │   └── distanceMatrix.worker.js
 ├── README.md
 ├── src
 │   ├── App.jsx
-│   ├── components
-│   │   ├── Animations.jsx
-│   │   ├── Buttons.jsx
-│   │   ├── Heatmap.jsx
-│   │   ├── Histogram.jsx
-│   │   ├── PhyloTreeViewer.jsx
-│   │   ├── Seqlogo.jsx
-│   │   ├── StructureViewer.jsx
-│   │   └── Utils.jsx
 │   ├── constants
 │   │   └── colors.js
 │   ├── hooks
@@ -161,6 +155,21 @@ Visit `http://localhost:3000` and upload your files.
 │   ├── index.css
 │   ├── index.jsx
 │   └── main.jsx
+|   ├── components
+│   |   ├── Animations.jsx
+│   |   ├── Buttons.jsx
+│   |   ├── Heatmap.jsx
+│   |   ├── Histogram.jsx
+│   |   ├── MatrixView.js
+│   |   ├── PhyloTreeViewer.jsx
+│   |   ├── Seqlogo.jsx
+│   |   ├── StructureViewer.jsx
+│   |   ├── TableViewer.jsx
+│   |   └── Utils.jsx
+|   ├── hooks
+│   |   ├── useDistanceMatrixWorker.js
+│   |   ├── useElementSize.js
+│   |   └── useOmegaModel.js
 └── tailwind.config.js
 ```
 
