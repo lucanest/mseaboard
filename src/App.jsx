@@ -2383,6 +2383,7 @@ const TreePanel = React.memo(function TreePanel({
   const { filename, isNhx, RadialMode= true, drawBranchLengths=false, pruneMode = false } = data || {};
   const [extractMode, setExtractMode] = useState(false);
   const [selectedLeaves, setSelectedLeaves] = useState(new Set());
+  const treeContainerRef = useRef(null);
 
   const [totalLeaves, setTotalLeaves] = useState(0);
 
@@ -2422,6 +2423,53 @@ const TreePanel = React.memo(function TreePanel({
     const ext  = data?.isNhx ? 'nhx' : 'nwk';
     mkDownload(base, text, ext)();
   }, [data]);
+
+  const handleDownloadPNG = useCallback(() => {
+    const svgEl = treeContainerRef.current?.querySelector('svg');
+    if (!svgEl) {
+      alert('Could not find the tree SVG to download.');
+      return;
+    }
+
+    const { width, height } = svgEl.getBoundingClientRect();
+    const serializer = new XMLSerializer();
+    let source = serializer.serializeToString(svgEl);
+
+    // Add a white background by wrapping the SVG content in a new SVG with a rect
+    source = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+                <rect width="100%" height="100%" fill="white"></rect>
+                ${svgEl.innerHTML}
+              </svg>`;
+
+    const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      const dpr = 5;
+      canvas.width = width * dpr;
+      canvas.height = height * dpr;
+      const ctx = canvas.getContext('2d');
+      ctx.scale(dpr, dpr);
+      ctx.drawImage(img, 0, 0);
+
+      const pngUrl = canvas.toDataURL('image/png');
+      const base = baseName(data?.filename, 'tree_figure');
+      const a = document.createElement('a');
+      a.href = pngUrl;
+      a.download = `${base}.png`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    };
+    img.onerror = () => {
+        alert("Failed to convert tree to PNG.");
+        URL.revokeObjectURL(url);
+    }
+    img.src = url;
+  }, [data?.filename]);
 
   const handleExtractToggle = useCallback(() => {
     if (extractMode) {
@@ -2503,9 +2551,11 @@ const TreePanel = React.memo(function TreePanel({
       element: <TreeButton onClick={handleExtractToggle} isActive={extractMode} />, 
       tooltip: <>Extract subtree<br /><span className="text-xs text-gray-600">Choose a subset of leaves to create a new tree</span></>
     },
+    { element: <PictureButton onClick={handleDownloadPNG} />, 
+      tooltip: "Download image (.png)" },
     { element: <DownloadButton onClick={handleDownload} />,
      tooltip: "Download tree" }
-  ], [id, drawBranchLengths, RadialMode, pruneMode, handleBranchLengthsToggle, handleRadialToggle, onCreateTreeStats, onGenerateDistance, handlePruneToggle, handleDownload]);
+  ], [id, drawBranchLengths, RadialMode, pruneMode, extractMode, handleBranchLengthsToggle, handleRadialToggle, onCreateTreeStats, onGenerateDistance, handlePruneToggle, handleDownload, handleDownloadPNG, handleExtractToggle]);
 
   // Dynamic version of the panel data.
   // This lets us merge stored highlights (from clicks) with live highlights (from hovers).
@@ -2568,7 +2618,7 @@ const TreePanel = React.memo(function TreePanel({
               </button>
           </div>
       )}
-      <div className="flex-1 overflow-auto flex items-center justify-center">
+      <div ref={treeContainerRef} className="w-full h-full flex-1 overflow-auto flex items-center justify-center">
           <PhyloTreeViewer
             // Pass the entire data object. It contains the newick string,
             // saved settings, and the dynamically calculated highlights.
