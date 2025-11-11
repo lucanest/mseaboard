@@ -113,6 +113,8 @@ Scroll into view: When receiving a highlight from a linked panel the sequence lo
 
 ### **Notepad panels**:
 Write notes and observations here.
+### **Image panels**:
+Drop an image into the interface to display it in a panel. Supported formats: png,jpg,jpeg,gif,svg,webp,avif,bmp,ico.
 
 
 
