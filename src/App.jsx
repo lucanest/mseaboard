@@ -931,7 +931,7 @@ const handleDownloadTSV = useCallback(() => {
 
 const HeatmapPanel = React.memo(function HeatmapPanel({
   id, data, onRemove, onDuplicate, onLinkClick, isLinkModeActive,isEligibleLinkTarget,
-  hoveredPanelId, setHoveredPanelId, setPanelData, onReupload, highlightedSite, panelLinks,
+  hoveredPanelId, setHoveredPanelId, setPanelData, highlightedSite, panelLinks,
   highlightOrigin, onHighlight, justLinkedPanels,linkBadges, onRestoreLink, colorForLink, onUnlink, onGenerateTree
 }) {
   const { labels, rowLabels, colLabels, matrix, filename, threshold=null, minVal, maxVal } = data || {};
@@ -1265,7 +1265,7 @@ const extraButtons = useMemo(() => {
 });
 
 const StructurePanel = React.memo(function StructurePanel({
-  id, data, onRemove, onDuplicate, hoveredPanelId, setHoveredPanelId, setPanelData, onReupload,
+  id, data, onRemove, onDuplicate, hoveredPanelId, setHoveredPanelId, setPanelData,
   onCreateSequenceFromStructure, 
   onGenerateDistance,
   onLinkClick, isLinkModeActive,isEligibleLinkTarget,
@@ -1376,7 +1376,6 @@ const pickChain = React.useCallback((choice) => {
       id={id}
       hoveredPanelId={hoveredPanelId}
       setHoveredPanelId={setHoveredPanelId}
-      // onDoubleClick={() => onReupload(id)}
       isEligibleLinkTarget={isEligibleLinkTarget}
       justLinkedPanels={justLinkedPanels}
       panelLinks={panelLinks} 
@@ -1526,10 +1525,9 @@ const useVirtualization = (scrollTop, scrollLeft, viewportWidth, viewportHeight,
 const AlignmentPanel = React.memo(function AlignmentPanel({
   id,
   data,
-  onRemove, onReupload, onDuplicate, onDuplicateTranslate, onCreateSeqLogo, onCreateSiteStatsHistogram, onGenerateDistance,
+  onRemove, onDuplicate, onDuplicateTranslate, onCreateSeqLogo, onCreateSiteStatsHistogram, onGenerateDistance,
   onLinkClick, isLinkModeActive, isEligibleLinkTarget, linkedTo,
-  highlightedSite, highlightOrigin, onHighlight, highlightOriginType,
-  onSyncScroll, externalScrollLeft, onFastME, panelLinks,
+  highlightedSite, highlightOrigin, onHighlight, highlightOriginType, externalScrollLeft, onFastME, panelLinks,
   highlightedSequenceId, setHighlightedSequenceId,
   hoveredPanelId, setHoveredPanelId, setPanelData, justLinkedPanels,
   linkBadges, onRestoreLink, colorForLink, onUnlink, onCreateSubsetMsa,onCreateColorMatrix,
@@ -2280,7 +2278,7 @@ const handleGridMouseMove = useMemo(() =>
                           const { rawId, id: seqId } = sequenceLabels[rowIndex];
                           
                           // Use the pre-calculated Set for an O(1) check
-                          const isNameHighlight = (hoveredRow === rowIndex && hoveredCol == null) || 
+                          const isNameHighlight = (hoveredRow === rowIndex) || 
                                                   (highlightedSequenceId === seqId && Array.isArray(linkedTo) && linkedTo.includes(hoveredPanelId)) || 
                                                   linkedHighlightsSet.has(seqId);
                           const isSelected = selectedSequences.has(rowIndex);
@@ -2373,7 +2371,7 @@ const handleGridMouseMove = useMemo(() =>
 
 
 const TreePanel = React.memo(function TreePanel({
-  id, data, onRemove, onReupload, onDuplicate, onGenerateDistance,
+  id, data, onRemove, onDuplicate, onGenerateDistance,
   highlightedSequenceId, onHoverTip, panelLinks,
   linkedTo, highlightOrigin,
   onLinkClick, isLinkModeActive,isEligibleLinkTarget,hoveredPanelId,
@@ -2764,7 +2762,7 @@ const NotepadPanel = React.memo(function NotepadPanel({
 });
 
 const HistogramPanel = React.memo(function HistogramPanel({ 
-  id, data, onRemove, onReupload, onDuplicate,
+  id, data, onRemove, onDuplicate,
   onLinkClick, isLinkModeActive, isEligibleLinkTarget, linkedTo, panelLinks,
   highlightedSite, highlightOrigin, onHighlight, hoveredPanelId, justLinkedPanels,
   setHoveredPanelId, setPanelData,
@@ -3119,7 +3117,6 @@ const usePanelProps = (panelId, {
     onUnlink: handleUnlink,
     colorForLink,
     onRemove: removePanel,
-    onReupload: id => triggerUpload(panelType, id),
     onDuplicate: duplicatePanel,
     onLinkClick: handleLinkClick,
     linkedTo: activePartners,
@@ -3180,7 +3177,6 @@ const PanelWrapper = React.memo(({
   setHoveredPanelId,
   canLink,
   // Additional props needed for specific panel types
-  onSyncScroll,
   scrollPositions,
   highlightedSequenceId,
   setHighlightedSequenceId,
@@ -3245,7 +3241,6 @@ const PanelWrapper = React.memo(({
     setPanelData,
     justLinkedPanels,
     ...(panel.type === 'alignment' && {
-      onSyncScroll,
       externalScrollLeft: scrollPositions[panel.i],
       highlightedSequenceId,
       setHighlightedSequenceId,
@@ -4648,6 +4643,8 @@ const handleGenerateCorrelationMatrix = useCallback((id) => {
         isSquare: true,
         matrix,
         filename: `${base}_corr.phy`,
+        highColor: '#FFFF00',
+        lowColor: '#3C00A0',
       },
       basedOnId: id,
       layoutHint: { w: 4, h: 16 },
