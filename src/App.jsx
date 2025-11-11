@@ -45,6 +45,7 @@ parsePdbChains, mkDownload, baseName, msaToPhylip, computeCorrelationMatrix, uin
 computeTreeStats, parseTsvMatrix, parseNewick, toNewick, detectIndexingMode
 } from './components/Utils.jsx';
 import { residueColors, logoColors, linkpalette, residueSvgColors } from './constants/colors.js';
+import { CELL_SIZE, LABEL_WIDTH } from './constants/sizes.js';
 import { TitleFlip, AnimatedList } from './components/Animations.jsx';
 import PhyloTreeViewer from './components/PhyloTreeViewer.jsx';
 import Heatmap from "./components/Heatmap.jsx";
@@ -55,9 +56,6 @@ import StructureViewer from './components/StructureViewer.jsx';
 import useElementSize from './hooks/useElementSize.js'
 import { useOmegaModel } from './hooks/useOmegaModel.js';
 
-
-const LABEL_WIDTH = 66;
-const CELL_SIZE = 24;
 
 function useIsVisible(ref) {
   const [isIntersecting, setIntersecting] = useState(false);
@@ -644,7 +642,7 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
       container &&
       !isScrollingRef.current // Don't auto-scroll while user is manually scrolling
     ) {
-      const colWidth = 24;
+      const colWidth = CELL_SIZE;
       const containerWidth = container.clientWidth;
       const currentScroll = container.scrollLeft;
       
@@ -678,7 +676,7 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
 
     // Constants for drawing, mirrored from Seqlogo.jsx
     const height = 200;
-    const colWidth = 24;
+    const colWidth = CELL_SIZE;
     const fontFamily = "monospace";
     const xAxisHeight = 30;
     const canvasHeight = height + xAxisHeight;
@@ -732,7 +730,7 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
       // Draw axis labels
       const label = String(i + 1);
       const len = label.length;
-      let fontSize = 12;
+      let fontSize = CELL_SIZE/2;
       if (len > 2) fontSize = (colWidth / len) * 1.2;
       ctx.font = `${fontSize}px monospace`;
       ctx.fillStyle = "#888";
@@ -848,7 +846,7 @@ const handleDownloadTSV = useCallback(() => {
   ], [handleDownloadFullImage, handleDownloadVisibleImage, handleDownloadTSV]);
 
   const seqLen = sequences[0]?.length || 0;
-  const totalWidth = seqLen * 24 - 14; // 24px per residue - 14px adjustment for last column
+  const totalWidth = seqLen * CELL_SIZE - 14; // CELL_SIZE px per residue - 14px adjustment for last column
 
   // Clean up RAF on unmount
   useEffect(() => {
@@ -1557,7 +1555,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedSequences, setSelectedSequences] = useState(new Set());
 
-  const [labelWidth, setLabelWidth] = useState(data.labelWidth ?? LABEL_WIDTH * 1.5);
+  const [labelWidth, setLabelWidth] = useState(data.labelWidth ?? LABEL_WIDTH);
 
   const [showReorderOptions, setShowReorderOptions] = useState(false);
   const reorderOptionsRef = useRef(null);

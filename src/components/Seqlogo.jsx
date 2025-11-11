@@ -1,6 +1,7 @@
 // Seqlogo.jsx
 import React, { useMemo, useRef, useEffect, useCallback } from "react";
 import { residueSvgColors } from "../constants/colors.js";
+import { CELL_SIZE } from '../constants/sizes.js';
 
 function log2(x) {
   return x <= 0 ? 0 : Math.log2(x);
@@ -18,7 +19,7 @@ export default React.memo(function SequenceLogoCanvas({
 }) {
   const canvasRef = useRef(null);
   const seqLen = sequences[0]?.length || 0;
-  const colWidth = 24;
+  const colWidth = CELL_SIZE;
   const xAxisHeight = 30;
   const canvasHeight = height + xAxisHeight;
 
@@ -124,7 +125,7 @@ export default React.memo(function SequenceLogoCanvas({
       // Draw axis labels
         const label = String(i + 1);
         const len = label.length;
-        let fontSize = 12;
+        let fontSize = CELL_SIZE/2;
         if (len > 2) fontSize = (colWidth / len) * 1.2;
         ctx.font = `${fontSize}px monospace`;
         ctx.fillStyle = "#888";
