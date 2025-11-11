@@ -466,8 +466,6 @@ function PanelContainer({
   hoveredPanelId,
   setHoveredPanelId,
   children,
-  //onDoubleClick,
-  isSelected = false,
   onSelect = () => {},
   isEligibleLinkTarget = false, 
   justLinkedPanels = [],
@@ -503,7 +501,6 @@ className={`border rounded-2xl overflow-hidden h-full flex flex-col bg-white
         setHoveredPanelId(null);
         setForceHideTooltip(true);
       }}
-      //onDoubleClick={onDoubleClick}
     >
       {children}
     </div>
@@ -696,11 +693,8 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
 
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     
-    // Background
     ctx.fillStyle = "#fff";
     ctx.fillRect(0, 0, fullWidth, canvasHeight);
-
-    // Drawing logic copied and adapted from Seqlogo.jsx
     ctx.textAlign = "center";
     ctx.textBaseline = "alphabetic";
     
@@ -923,9 +917,6 @@ const handleDownloadTSV = useCallback(() => {
     </PanelContainer>
   );
 });
-
-
-
 
 const HeatmapPanel = React.memo(function HeatmapPanel({
   id, data, onRemove, onDuplicate, onLinkClick, isLinkModeActive,isEligibleLinkTarget,
@@ -3817,7 +3808,7 @@ const assignPairColor = useCallback((a, b, currentPresent) => {
 }, [linkpalette, pairKey]);
 
   
-  // Resolve badge color (active=pair color, inactive=gray; falls back to hash if unseen)
+// Resolve badge color (active=pair color, inactive=gray; falls back to hash if unseen)
 const colorForLink = useCallback((selfId, partnerId, active) => {
   if (!active) return 'bg-gray-300';
   
