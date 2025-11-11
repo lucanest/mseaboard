@@ -87,6 +87,7 @@ function useIsVisible(ref) {
 }
 
 
+const subtooltipClass = "text-xs text-gray-600";
 
 const MemoizedButtonWithHover = React.memo(function ButtonWithHover({ name, children, handleEnter, handleLeave }) {
   return (
@@ -264,8 +265,8 @@ const PanelHeader = React.memo(function PanelHeader({
             const badge = linkBadges.find(b => b.partnerId === hoveredBadge);
             if (!badge) return hoveredBadge;
             return badge.active
-              ? (<>{badge.title}<br /><span className="text-xs text-gray-600">Click to disable link</span></>)
-              : (<>{badge.title}<br /><span className="text-xs text-gray-600">Click to restore link</span></>)
+              ? (<>{badge.title}<br /><span className={subtooltipClass}>Click to disable link</span></>)
+              : (<>{badge.title}<br /><span className={subtooltipClass}>Click to restore link</span></>)
           })()}
         </div>
       )}
@@ -1080,11 +1081,11 @@ const extraButtons = useMemo(() => {
             <PictureButton onClick={() => setShowDownloadOptions(s => !s)} />
           </div>
         ),
-        tooltip: (<>Download figure<br /><span className="text-xs text-gray-600"> (.pdf)</span></>)
+        tooltip: (<>Download figure<br /><span className={subtooltipClass}> (.pdf)</span></>)
       },
       { 
         element: <DownloadButton onClick={handleDownload} />,
-        tooltip: "Download matrix"
+        tooltip: (<>Download matrix<br /><span className={subtooltipClass}> (.tsv)</span></>)
       },
     ];
 
@@ -1100,7 +1101,7 @@ const extraButtons = useMemo(() => {
     if (isSquare) {
       buttons.push({ 
           element: <TreeButton onClick={() => onGenerateTree(id)} />,
-          tooltip: (<>Build tree from distances<br /><span className="text-xs text-gray-600">Neighbor-Joining</span></>)
+          tooltip: (<>Build tree from distances<br /><span className={subtooltipClass}>Neighbor-Joining</span></>)
       });
       buttons.push({ 
           element: diamondMode ? <DistanceMatrixButton onClick={handleDiamondToggle} /> : <DiamondButton onClick={handleDiamondToggle} />,
@@ -1929,24 +1930,24 @@ const onScroll = useMemo(() =>
         { element: <TranslateButton onClick={() => onDuplicateTranslate(id)} />, tooltip: "Translate to amino acids" },
         { 
             element: <OmegaButton onClick={() => onPredictOmega(id)} disabled={modelLoading} />, 
-            tooltip: modelLoading ? "Model is loading..." : <>Predict omega values <br /><span className="text-xs text-gray-600">Predict per-codon omega (dN/dS) values <br /> with DaNaiDeS (experimental)</span></> 
+            tooltip: modelLoading ? "Model is loading..." : <>Predict omega values <br /><span className={subtooltipClass}>Predict per-codon omega (dN/dS) values <br /> with DaNaiDeS (experimental)</span></> 
         },
-        { element: <TreeButton onClick={() => { setIsSelectionMode(false); setShowSearch(false); handleTreeClick(); }} />, tooltip: <>Build phylogenetic tree <br /> <span className="text-xs text-gray-600">FastME</span></> },
+        { element: <TreeButton onClick={() => { setIsSelectionMode(false); setShowSearch(false); handleTreeClick(); }} />, tooltip: <>Build phylogenetic tree <br /> <span className={subtooltipClass}>FastME</span></> },
         { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
-        { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, tooltip: <>Compute {codonMode ? "per-codon" : "per-site"} statistics<br /><span className="text-xs text-gray-600">Conservation and gap fraction</span></> },
-        { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)}/>, tooltip: <>Build distance matrix <br /><span className="text-xs text-gray-600">Normalized Hamming</span></> },
+        { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, tooltip: <>Compute {codonMode ? "per-codon" : "per-site"} statistics<br /><span className={subtooltipClass}>Conservation and gap fraction</span></> },
+        { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)}/>, tooltip: <>Build distance matrix <br /><span className={subtooltipClass}>Normalized Hamming</span></> },
         { element: <RadialToggleButton onClick={() => onCreateColorMatrix(id)} />, tooltip: "Create alignment color matrix"},
-        { element: <SubMSAButton onClick={() => { setShowSearch(false); handleToggleSelectionMode(); }} isActive={isSelectionMode} />, tooltip : <> Extract sequences <br /> <span className="text-xs text-gray-600">Choose a subset to create a new panel </span> </> },
+        { element: <SubMSAButton onClick={() => { setShowSearch(false); handleToggleSelectionMode(); }} isActive={isSelectionMode} />, tooltip : <> Extract sequences <br /> <span className={subtooltipClass}>Choose a subset to create a new panel </span> </> },
         { element: <div ref={shuffleButtonWrapperRef}><ShuffleButton onClick={() => setShowReorderOptions(s => !s)} /></div>, tooltip: "Reorder sequences" },
         { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
     ] : [
         { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowModelPicker(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
-        { element: <TreeButton onClick={() => { setIsSelectionMode(false); setShowSearch(false); handleTreeClick(); }} />, tooltip: <>Build phylogenetic tree <br /> <span className="text-xs text-gray-600">FastME</span></> },
+        { element: <TreeButton onClick={() => { setIsSelectionMode(false); setShowSearch(false); handleTreeClick(); }} />, tooltip: <>Build phylogenetic tree <br /> <span className={subtooltipClass}>FastME</span></> },
         { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
-        { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, tooltip: <>Compute {codonMode ? "per-codon" : "per-site"} statistics<br /><span className="text-xs text-gray-600">Conservation and gap fraction</span></> },
-        { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)} />, tooltip: <>Build distance matrix <br /><span className="text-xs text-gray-600">Normalized Hamming</span></> },
+        { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, tooltip: <>Compute {codonMode ? "per-codon" : "per-site"} statistics<br /><span className={subtooltipClass}>Conservation and gap fraction</span></> },
+        { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)} />, tooltip: <>Build distance matrix <br /><span className={subtooltipClass}>Normalized Hamming</span></> },
         { element: <RadialToggleButton onClick={() => onCreateColorMatrix(id)} />, tooltip: "Create alignment color matrix"},
-        { element: <SubMSAButton onClick={() => { setShowSearch(false); handleToggleSelectionMode(); }} isActive={isSelectionMode} />, tooltip : <> Extract sequences <br /> <span className="text-xs text-gray-600">Choose a subset to create a new panel </span> </> },
+        { element: <SubMSAButton onClick={() => { setShowSearch(false); handleToggleSelectionMode(); }} isActive={isSelectionMode} />, tooltip : <> Extract sequences <br /> <span className={subtooltipClass}>Choose a subset to create a new panel </span> </> },
         { element: <div ref={shuffleButtonWrapperRef}><ShuffleButton onClick={() => setShowReorderOptions(s => !s)} /></div>, tooltip: "Reorder sequences" },
         { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" },
         
@@ -2486,7 +2487,7 @@ const TreePanel = React.memo(function TreePanel({
       tooltip: (
         <>
           Compute leaf statistics<br />
-          <span className="text-xs text-gray-600">Distance to root and average distance to others</span>
+          <span className={subtooltipClass}>Distance to root and average distance to others</span>
         </>
       )
     },
@@ -2494,18 +2495,18 @@ const TreePanel = React.memo(function TreePanel({
      tooltip: (
       <>
       Build distance matrix <br />
-      <span className="text-xs text-gray-600">Patristic distance</span>
+      <span className={subtooltipClass}>Patristic distance</span>
       </>
      )
     },
     { element: <PruneButton onClick={handlePruneToggle} isActive={pruneMode} />, tooltip: pruneMode ? "Exit prune mode" : 
       (
-        <>Prune tree <br /> <span className="text-xs text-gray-600">Remove branches and their descendants</span></>
-      ) 
+        <>Prune tree <br /> <span className={subtooltipClass}>Remove branches and their descendants</span></>
+      )
     },
-    { 
-      element: <TreeButton onClick={handleExtractToggle} isActive={extractMode} />, 
-      tooltip: <>Extract subtree<br /><span className="text-xs text-gray-600">Choose a subset of leaves to create a new tree</span></>
+    {
+      element: <TreeButton onClick={handleExtractToggle} isActive={extractMode} />,
+      tooltip: <>Extract subtree<br /><span className={subtooltipClass}>Choose a subset of leaves to create a new tree</span></>
     },
     { element: <PictureButton onClick={handleDownloadPNG} />, 
       tooltip: "Download image (.png)" },
@@ -2849,7 +2850,7 @@ const HistogramPanel = React.memo(function HistogramPanel({
           <>
             Switch indexing base for linking
             <br />
-            <span className="text-xs text-gray-600">Current: {indexingMode === '1-based' ? '1-based (site 1 is first)' : '0-based (site 0 is first)'}</span>
+            <span className={subtooltipClass}>Current: {indexingMode === '1-based' ? '1-based (site 1 is first)' : '0-based (site 0 is first)'}</span>
           </>
         )
     },
@@ -2858,7 +2859,7 @@ const HistogramPanel = React.memo(function HistogramPanel({
         tooltip: (
           <>
             Compute correlation matrix<br />
-            <span className="text-xs text-gray-600">Pearson</span>
+            <span className={subtooltipClass}>Pearson</span>
           </>
         )
     }] : []),
