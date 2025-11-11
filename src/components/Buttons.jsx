@@ -1,7 +1,9 @@
 // Buttons.jsx
 import { LinkIcon, MagnifyingGlassIcon,ScissorsIcon, ChartBarIcon , Squares2X2Icon, DocumentDuplicateIcon,
    XMarkIcon, Bars3Icon, EyeIcon, LanguageIcon, CodeBracketIcon, PhotoIcon,
-    ArrowDownTrayIcon, SwatchIcon } from '@heroicons/react/24/outline';
+    ArrowDownTrayIcon, SwatchIcon, ArrowUpTrayIcon,
+    ArrowUpOnSquareIcon, ArrowUturnLeftIcon, ArrowUturnRightIcon } from '@heroicons/react/24/outline';
+    
 
 export function ColorButton({ onClick }) {
   return (
@@ -579,6 +581,78 @@ export function GitHubButton() {
         {/* <div className="absolute top-full mb-2 left-1/2 -translate-x-1/2 translate-y-12 bg-blue-200 text-black text-xs px-1 py-1 rounded-lg-md opacity-0 group-hover:opacity-80 transition-opacity duration-300 pointer-events-none whitespace-nowrap z-50">
         GitHub: <br /> - Read <br /> &nbsp; docs <br />  - Run <br /> &nbsp; locally <br /> - Report <br /> &nbsp; issues <br /> - Request <br /> &nbsp; features <br /> - Help to <br /> &nbsp; improve
       </div> */}
+    </div>
+  );
+}
+
+export function UndoButton({ onClick, disabled }) {
+  return (
+    <div className="w-12 h-12 flex items-center justify-center">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition"
+      >
+        <ArrowUturnLeftIcon className="w-6 h-6" />
+      </button>
+    </div>
+  );
+}
+
+export function RedoButton({ onClick, disabled }) {
+  return (
+    <div className="w-12 h-12 flex items-center justify-center">
+      <button
+        type="button"
+        onClick={onClick}
+        disabled={disabled}
+        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition"
+      >
+        <ArrowUturnRightIcon className="w-6 h-6" />
+      </button>
+    </div>
+  );
+}
+
+export function SaveBoardButton({ onClick }) {
+  return (
+    <div className="w-12 h-12 flex items-center justify-center">
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center transition"
+      >
+        <ArrowDownTrayIcon className="w-6 h-6" />
+      </button>
+    </div>
+  );
+}
+
+export function LoadBoardButton({ onClick }) {
+  return (
+    <div className="w-12 h-12 flex items-center justify-center">
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center transition"
+      >
+        <ArrowUpTrayIcon className="w-6 h-6" />
+      </button>
+    </div>
+  );
+}
+
+export function ShareButton({ onClick }) {
+  return (
+    <div className="w-12 h-12 flex items-center justify-center">
+      <button
+        type="button"
+        onClick={onClick}
+        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center transition"
+      >
+        <ArrowUpOnSquareIcon className="w-6 h-6" />
+      </button>
     </div>
   );
 }
