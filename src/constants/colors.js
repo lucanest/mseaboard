@@ -7,7 +7,6 @@ export const residueColors = {
   '-': 'bg-white'
 };
 
-
 export const logoColors = {
   A: 'bg-green-200', C: 'bg-yellow-200', D: 'bg-red-200', E: 'bg-cyan-200',
   F: 'bg-purple-200', G: 'bg-gray-200', H: 'bg-pink-200', I: 'bg-blue-200',
@@ -67,3 +66,11 @@ export const colorPalette = [
   '#BFDBFE', '#99F6E4', '#FECACA', '#DCFCE7', '#D8B4FE',
   '#BBF7D0', '#E5E7EB', '#f781bf', '#FEF08A', '#FBCFE8'
 ];
+
+// Colors for the tree viewer
+export const WHITE_COLOR = "#fff";
+export const LIGHT_GRAY_COLOR = "#ccc";
+export const DARK_GRAY_COLOR = "#555";
+export const MAGENTA_COLOR = "#cc0066";
+export const HIGH_COLOR = '#db0404ff';
+export const LOW_COLOR = '#34a2f7ff';

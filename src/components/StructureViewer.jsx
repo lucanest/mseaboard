@@ -3,6 +3,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Stack, Slider, IconButton, Button, Tooltip, Box, Chip } from '@mui/material';
 import { Cog6ToothIcon } from '@heroicons/react/24/outline';
 import { threeToOne, hslToHex } from './Utils.jsx';
+import { tooltipStyle } from '../constants/styles.js';
 import { residueColorHex, chainColors } from '../constants/colors.js';
 import { SurfaceGlyph } from './Buttons.jsx';
 import { secondaryStructureColors, atomColors } from '../constants/colors.js';  
@@ -58,6 +59,7 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
   const [isHovering, setIsHovering] = useState(false);
   const didInitOpacity = useRef(false);
   const [showControls, setShowControls] = useState(false);
+  const [showTooltip, setShowTooltip] = useState(true);
   
   // Initialize state from data prop safely
   const [colorScheme, setColorScheme] = useState(data?.colorScheme || 'residue');
@@ -121,6 +123,7 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
     }
   }, [panelId, data?.opacity]);
 
+
   // Restore other settings from data.
   useEffect(() => {
     if (!data) return;
@@ -135,6 +138,15 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
   // StructureTooltip
   const [tooltip, setStructureTooltip] = useState(null);
   const tooltipRef = useRef(null);
+
+  // Show/hide structure tooltip whether it's content is not empty
+  useEffect(() => {
+    if (tooltip) {
+      setShowTooltip(true);
+    } else {
+      setShowTooltip(false);
+    }
+  }, [tooltip]);
 
   // Perf controls
   const [perfMode, setPerfMode] = useState(false);
@@ -203,7 +215,7 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
     if (!v || !atom) return null;
     const sh = v.addSphere({
       center: { x: atom.x, y: atom.y, z: atom.z },
-      radius: 1.8,
+      radius: 1.6,
       color: 'red',
       opacity: 1
     });
@@ -438,7 +450,7 @@ const setupHoverStructureTooltip = () => {
 
     hoverShapeRef.current = v.addSphere({
       center: { x: atom.x, y: atom.y, z: atom.z },
-      radius: 1.8,
+      radius: 1.6,
       color: 'red',
       opacity: 1
     });
@@ -725,6 +737,8 @@ const setupHoverStructureTooltip = () => {
   useEffect(() => {
     lastSentHighlightRef.current = null;
   }, [data?.linkedChainId]);
+
+
 
   return (
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
@@ -1023,26 +1037,22 @@ const setupHoverStructureTooltip = () => {
       )}
 
       {/* Structure Tooltip */}
+      { showTooltip && (
       <div
         ref={tooltipRef}
         style={{
-          position: 'absolute',
-          right: '10px',
-          bottom: '10px',
-          background: 'rgba(0,0,0,0.3)',
-          color: '#fff',
-          padding: '4px 8px',
-          borderRadius: '10px',
-          pointerEvents: 'none',
-          fontSize: '12px',
-          zIndex: 10,
-          maxWidth: '90%',
-          textAlign: 'center',
-          display: perfMode ? 'none' : 'block'
+          ...tooltipStyle,
+        right: '10px',
+        bottom: '4px',
+        display: perfMode ? 'none' : 'block',
+        maxWidth: '120px',
+        fontWeight: '600',
         }}
+        
       >
         {tooltip}
       </div>
+      )}
 
       {/* Toggle Controls Button (when hidden) */}
       {!showControls && (

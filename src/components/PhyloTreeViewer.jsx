@@ -3,14 +3,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { parseNewick } from './Utils';
 import * as d3 from 'd3';
+import { tooltipStyle } from '../constants/styles'; 
+import { WHITE_COLOR, LIGHT_GRAY_COLOR, DARK_GRAY_COLOR, MAGENTA_COLOR, HIGH_COLOR, LOW_COLOR } from '../constants/colors';
 import { Box, Button, Chip, IconButton, Slider, Stack, Switch, FormControlLabel } from '@mui/material';
 
-const BLACK_COLOR = "#fff";
-const LIGHT_GRAY_COLOR = "#ccc";
-const DARK_GRAY_COLOR = "#555";
-const MAGENTA_COLOR = "#cc0066";
-const HIGH_COLOR = '#db0404ff';
-const LOW_COLOR = '#34a2f7ff';
 
 const PhyloTreeViewer = ({
   id,
@@ -598,7 +594,7 @@ const fieldStats = nhxFieldStats[colorField];
       })
       .attr('stroke', d => {
         const { isHighlight, isPersistentHighlight } = getHighlightState(d);
-        return isHighlight ? DARK_GRAY_COLOR : (isPersistentHighlight ? MAGENTA_COLOR : BLACK_COLOR);
+        return isHighlight ? DARK_GRAY_COLOR : (isPersistentHighlight ? MAGENTA_COLOR : WHITE_COLOR);
       })
       .attr('stroke-width', d => {
         const { isHighlight, isPersistentHighlight } = getHighlightState(d);
@@ -639,7 +635,7 @@ const fieldStats = nhxFieldStats[colorField];
           })
           .attr('stroke', d => {
             const { isHighlight, isPersistentHighlight } = getHighlightState(d);
-            return isHighlight ? DARK_GRAY_COLOR : (isPersistentHighlight ? MAGENTA_COLOR : BLACK_COLOR);
+            return isHighlight ? DARK_GRAY_COLOR : (isPersistentHighlight ? MAGENTA_COLOR : WHITE_COLOR);
           })
           .attr('stroke-width', d => {
             const { isHighlight, isPersistentHighlight } = getHighlightState(d);
@@ -841,7 +837,6 @@ const fieldStats = nhxFieldStats[colorField];
 
                 setColorbarTooltip({
                     visible: true,
-                    // Replicate Heatmap.jsx logic for x and y
                     x: barRect.left - containerRect.left + relX,
                     y: barRect.bottom - containerRect.top + 11,
                     value: value,
@@ -1175,18 +1170,11 @@ const handleColorFieldChange = (field) => {
       <div
         className="tooltip"
         style={{
-          position: 'absolute',
-          bottom: '10px',
+          ...tooltipStyle,
           left: '10px',
-          background: 'white',
-          color: `${DARK_GRAY_COLOR}`,
-          border: `1px solid ${DARK_GRAY_COLOR}`,
-          padding: '4px 8px',
-          borderRadius: '8px',
-          pointerEvents: 'none',
-          fontSize: '12px',
+          bottom: '10px',
+          maxWidth: '300px',
           display: tooltipContent ? 'block' : 'none',
-          zIndex: 10,
         }}
         dangerouslySetInnerHTML={{ __html: tooltipContent }}
       />

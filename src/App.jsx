@@ -30,6 +30,7 @@ import html2canvas from 'html2canvas';
 import * as d3 from 'd3'; 
 import { useDistanceMatrixWorker } from './hooks/useDistanceMatrixWorker.js';
 import { createMatrixView } from './components/MatrixView.js';
+import { subtooltipClass } from './constants/styles.js';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SiteStatsButton, LogYButton,
 SeqlogoButton, SequenceButton, DistanceMatrixButton, ZeroOneButton,
@@ -85,9 +86,6 @@ function useIsVisible(ref) {
 
   return isIntersecting;
 }
-
-
-const subtooltipClass = "text-xs text-gray-600";
 
 const MemoizedButtonWithHover = React.memo(function ButtonWithHover({ name, children, handleEnter, handleLeave }) {
   return (
