@@ -57,6 +57,7 @@ const PhyloTreeViewer = ({
     branchWidth = 1,
     treeRadius = 1, // Specific to radial, but we can safely destructure
     rightMargin = 100, // Specific to rectangular
+    colorLabels = false,
   } = currentViewSettings;
 
 
@@ -245,6 +246,7 @@ const PhyloTreeViewer = ({
       }
     }
 
+    
 
     const svg = d3.select(container)
       .append('svg')
@@ -706,6 +708,10 @@ const fieldStats = nhxFieldStats[colorField];
         if (extractMode && selectedLeaves.has(d.data.name)) {
             return '#2563EB'; // Blue for selected
         }
+        if (colorLabels) {
+            const val = d.data.nhx?.[colorField];
+            return val != null ? colorValueFunction(val) : DARK_GRAY_COLOR;
+        }
         return isHighlight ? DARK_GRAY_COLOR : (isPersistentHighlight ? MAGENTA_COLOR : DARK_GRAY_COLOR);
       })
       .style('font-weight', d => {
@@ -741,7 +747,10 @@ const fieldStats = nhxFieldStats[colorField];
                 return { ...prev, [id]: { ...current, highlightedNodes: updated } };
             });
         }
-      })
+      }
+    )
+
+
 
 
     // Dynamic legend and colorbar rendering
@@ -876,7 +885,7 @@ const fieldStats = nhxFieldStats[colorField];
     setDebugInfo(`Tree rendered successfully. Found ${Object.keys(colorMap).length} different ${colorField} values.`);
   }, [newickStr, isNhx, size, linkedTo, highlightOrigin, onHoverTip, highlightedNodes, linkedHighlights, radial, useBranchLengths,
      pruneMode, id, setPanelData, toNewick, nhxColorField, labelSize, nodeRadius, branchWidth,
-      treeRadius, rightMargin,extractMode, selectedLeaves, onLeafSelect, onCountLeaves]);
+      treeRadius, rightMargin,extractMode, selectedLeaves, onLeafSelect, onCountLeaves, colorLabels,]);
 
   useEffect(() => {
     function handleDocumentMouseMove(e) {
@@ -1154,13 +1163,26 @@ const handleColorFieldChange = (field) => {
                                     />
                                 }
                                 label={<span style={{ fontSize: '12px', color: DARK_GRAY_COLOR }}>Treat as continuous</span>}
-                                sx={{ ml: 1, display: 'flex', justifyContent: 'center' }}
+                                sx={{ ml: 1, mt: 1, display: 'flex', justifyContent: 'left' }}
                             />
                         )}
                     </div>
                  )
               }) : <div style={{ fontSize: 12, color: DARK_GRAY_COLOR, padding: '4px' }}>No NHX fields found</div>}
             </Stack>
+          {nhxColorField && (
+                <FormControlLabel
+                    control={
+                        <Switch
+                            size="small"
+                            checked={!!colorLabels}
+                            onChange={(e) => handleSettingChange('colorLabels', e.target.checked)}
+                        />
+                    }
+                    label={<span style={{ fontSize: '12px', color: DARK_GRAY_COLOR }}>Color labels</span>}
+                    sx={{ mt: 0, ml: 1, display: 'flex', justifyContent: 'left' }}
+                />
+            )}
           </Box>
           )}
         </Box>
