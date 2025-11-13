@@ -19,7 +19,8 @@
 // App.jsx
 import 'react-grid-layout/css/styles.css';
 import 'react-resizable/css/styles.css';
-import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
+import 'katex/dist/katex.min.css';
+import React, { useState, useRef, useEffect, useCallback, useMemo,useLayoutEffect  } from 'react';
 import throttle from 'lodash.throttle'
 import debounce from 'lodash.debounce';
 import GridLayout from 'react-grid-layout';
@@ -31,12 +32,18 @@ import * as d3 from 'd3';
 import { useDistanceMatrixWorker } from './hooks/useDistanceMatrixWorker.js';
 import { createMatrixView } from './components/MatrixView.js';
 import { subtooltipClass } from './constants/styles.js';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SiteStatsButton, LogYButton,
 SeqlogoButton, SequenceButton, DistanceMatrixButton, ZeroOneButton,
  DownloadButton, GitHubButton, SearchButton, TreeButton, ColorButton,
  DiamondButton, BranchLengthsButton, PruneButton, SubMSAButton,
- TableChartButton, OmegaButton, PictureButton, ShuffleButton, 
+ TableChartButton, OmegaButton, PictureButton, ShuffleButton, MarkdownButton,
 UndoButton, RedoButton, SaveBoardButton, LoadBoardButton, ShareButton 
  } from './components/Buttons.jsx';
 import { PencilSquareIcon } from '@heroicons/react/24/outline';
@@ -45,7 +52,7 @@ newickToDistanceMatrix, detectFileType, toFasta, toPhylip, computeSiteStats, bui
 computeNormalizedHammingMatrix, pickAlignedSeqForChain, chainIdFromSeqId, residueIndexToMsaCol, 
 reorderHeatmapByLeafOrder, reorderMsaByLeafOrder, msaColToResidueIndex,
 parsePdbChains, mkDownload, baseName, msaToPhylip, computeCorrelationMatrix, uint8ArrayToBase64, base64ToUint8Array,
-computeTreeStats, parseTsvMatrix, parseNewick, toNewick, detectIndexingMode
+computeTreeStats, parseTsvMatrix, parseNewick, toNewick, detectIndexingMode, sanitizeSchema,
 } from './components/Utils.jsx';
 import { residueColors, logoColors, linkpalette, residueSvgColors } from './constants/colors.js';
 import { CELL_SIZE, LABEL_WIDTH } from './constants/sizes.js';
@@ -2658,22 +2665,120 @@ const NotepadPanel = React.memo(function NotepadPanel({
   id, data, onRemove, onDuplicate, hoveredPanelId, panelLinks,
   setHoveredPanelId, setPanelData,isEligibleLinkTarget, justLinkedPanels,
 }) {
-  const [filenameInput, setFilenameInput] = useState(data.filename || "Notes");
-  const [text, setText] = useState(data.text || "");
+  const [isEditing, setIsEditing] = useState(false);
+  const textInputRef = useRef(null);
+  const renderedViewRef = useRef(null);
+  const scrollRatioRef = useRef(0);
+
+  const { filename = "Notes", text = "", markdownMode = false } = data;
+
   const handleDownload = useCallback(() => {
-    const base = baseName(filenameInput, 'notes');
-    mkDownload(base, text || '', 'txt')();
-  }, [filenameInput, text]);
+    const fileExtension = markdownMode ? 'md' : 'txt';
+    const base = baseName(filename, `notes`);
+    mkDownload(base, text || '', fileExtension)();
+  }, [filename, text, markdownMode]);
 
-  const extraButtons = useMemo(() => [  
-    { element: <DownloadButton onClick={handleDownload} />,
-      tooltip: "Download txt" }
-  ], [handleDownload]);
+  const handleToggleMarkdown = useCallback(() => {
+    setPanelData(prev => ({ ...prev, [id]: { ...prev[id], markdownMode: !markdownMode } }));
+    setIsEditing(false);
+  }, [id, setPanelData, markdownMode]);
 
-  useEffect(() => {
-    setText(data.text || "");
-    setFilenameInput(data.filename || "Notes");
-  }, [data.text, data.filename]);
+  const extraButtons = useMemo(() => [
+    { 
+      element: (
+        <MarkdownButton onClick={handleToggleMarkdown} isActive={markdownMode} />
+      ),
+      tooltip: markdownMode ? "Turn off Markdown rendering" : "Render as Markdown"
+    },
+    { 
+      element: <DownloadButton onClick={handleDownload} />,
+      tooltip: `Download ${markdownMode ? 'markdown (.md)' : 'text (.txt)'}` 
+    }
+  ], [handleDownload, handleToggleMarkdown, markdownMode]);
+
+  const storeScrollRatio = (element) => {
+    if (!element) return;
+    const { scrollTop, scrollHeight, clientHeight } = element;
+    const effectiveScrollHeight = scrollHeight - clientHeight;
+    scrollRatioRef.current = effectiveScrollHeight > 0 ? scrollTop / effectiveScrollHeight : 0;
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Escape') {
+      storeScrollRatio(textInputRef.current);
+      setIsEditing(false);
+    }
+  };
+
+  const handleBlur = () => {
+    storeScrollRatio(textInputRef.current);
+    setIsEditing(false);
+  };
+  
+  const handleDoubleClick = () => {
+    storeScrollRatio(renderedViewRef.current);
+    setIsEditing(true);
+  };
+
+  useLayoutEffect(() => {
+    if (markdownMode) {
+      if (isEditing && textInputRef.current) {
+        const { scrollHeight, clientHeight } = textInputRef.current;
+        textInputRef.current.scrollTop = scrollRatioRef.current * (scrollHeight - clientHeight);
+        textInputRef.current.focus();
+      } else if (!isEditing && renderedViewRef.current) {
+        const { scrollHeight, clientHeight } = renderedViewRef.current;
+        renderedViewRef.current.scrollTop = scrollRatioRef.current * (scrollHeight - clientHeight);
+      }
+    }
+  }, [isEditing, markdownMode, text]);
+
+  const renderContent = () => {
+    if (!markdownMode) {
+      return (
+        <textarea
+          className="w-full h-full p-2 border rounded-xl resize-none font-mono tracking-normal"
+          value={text}
+          onChange={e => setPanelData(prev => ({ ...prev, [id]: { ...prev[id], text: e.target.value } }))}
+          placeholder="Write your notes here..."
+          spellCheck={false} wrap="soft"
+          style={{ minHeight: 120, tabSize: 2, fontVariantLigatures: 'none' }}
+        />
+      );
+    }
+
+    if (isEditing) {
+      return (
+        <textarea
+          ref={textInputRef}
+          className="w-full h-full p-2 border rounded-xl resize-none font-mono tracking-normal"
+          value={text}
+          onChange={e => setPanelData(prev => ({ ...prev, [id]: { ...prev[id], text: e.target.value } }))}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          placeholder="Write your markdown here..."
+          spellCheck={false} wrap="soft"
+          style={{ minHeight: 120, tabSize: 2, fontVariantLigatures: 'none' }}
+        />
+      );
+    } else {
+      return (
+        <div
+          ref={renderedViewRef}
+          className="w-full h-full prose prose-sm max-w-none p-3 overflow-y-auto cursor-text select-text"
+          onDoubleClick={handleDoubleClick}
+        >
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm, remarkMath]}
+            // Pass our custom schema to the sanitizer
+            rehypePlugins={[rehypeRaw, rehypeKatex, [rehypeSanitize, sanitizeSchema]]}
+          >
+            {text || "*Empty note. Double-click to edit.*"}
+          </ReactMarkdown>
+        </div>
+      );
+    }
+  };
 
   return (
     <PanelContainer
@@ -2687,32 +2792,14 @@ const NotepadPanel = React.memo(function NotepadPanel({
       <PanelHeader
         id={id}
         prefix=""
-        filename={filenameInput}
+        filename={filename}
         setPanelData={setPanelData}
         onDuplicate={onDuplicate}
         onRemove={onRemove}
         extraButtons={extraButtons}
       />
-      <div className="flex-1 p-2">
-<textarea
-  className="w-full h-full border rounded-xl p-2 resize-none font-mono tracking-normal"
-  value={text}
-  onChange={e => {
-    setText(e.target.value);
-    setPanelData(prev => ({
-      ...prev,
-      [id]: { ...prev[id], text: e.target.value }
-    }));
-  }}
-  placeholder="Write your notes here..."
-  spellCheck={false}
-  wrap="soft"
-  style={{
-    minHeight: 120,
-    tabSize: 2,                 
-    fontVariantLigatures: 'none'
-  }}
-/>
+      <div className="flex-1 p-2 bg-white overflow-hidden">
+        {renderContent()}
       </div>
     </PanelContainer>
   );
@@ -5506,7 +5593,7 @@ const rehydrateBoardState = (board) => {
 
   // Gist Sharing with Token Auth and Compression
   const handleShareBoard = useCallback(async (token) => {
-    const tokenToUse = token || githubToken;
+    const tokenToUse = githubToken;
     if (!tokenToUse) {
       setShowTokenModal(true);
       return;
@@ -5522,7 +5609,6 @@ const rehydrateBoardState = (board) => {
             'description': 'MSEABOARD State',
             'compressed_base64': base64
         });
-        
         const response = await fetch('https://api.github.com/gists', {
             method: 'POST',
             headers: {
