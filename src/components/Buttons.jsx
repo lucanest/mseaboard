@@ -222,6 +222,24 @@ export function SequenceButton({ onClick }) {
   );
 }
 
+export function MarkdownButton({ onClick, isActive }) {
+  return (
+    <button
+      type="button"
+      className="p-0.5"
+      onClick={onClick}
+    >
+        <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
+        ${isActive ? 'bg-green-100' : 'bg-gray-100'}
+        border border-gray-400
+        hover:bg-green-200`}>
+        <CodeBracketIcon className="w-4 h-4 text-green-700 flex-shrink-0 -translate-y-[0px]" />
+      </span>
+    </button>
+  );
+}
+
+
 export function DistanceMatrixButton({ onClick, title = "Build distance matrix from tree" }) {
   return (
     <button
