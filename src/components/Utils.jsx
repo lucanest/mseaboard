@@ -1,5 +1,7 @@
 // Utils.jsx
 
+import {defaultSchema} from 'rehype-sanitize';
+
 export const threeToOne = {
   'ALA': 'A', 'ARG': 'R', 'ASN': 'N', 'ASP': 'D', 'CYS': 'C',
   'GLN': 'Q', 'GLU': 'E', 'GLY': 'G', 'HIS': 'H', 'ILE': 'I',
@@ -1282,4 +1284,33 @@ export const detectIndexingMode = (xValues) => {
   }
   // Otherwise, default to the more common 1-based convention.
   return '1-based';
+};
+
+// Define custom schema for rehype-sanitize, we extend the default schema to allow 'style' attributes
+// as well as SVG elements and their attributes.
+export const sanitizeSchema = {
+...defaultSchema,
+  // Add all the SVG tags we use to the list of allowed tags.
+  tagNames: [
+    ...defaultSchema.tagNames,
+    'svg', 'g', 'path', 'text', 'rect'
+  ],
+  // Define which attributes are allowed on which tags.
+  attributes: {
+    // Keep all the default safe attributes.
+    ...defaultSchema.attributes,
+    // Add our previous rule to allow 'style' on any element and className for katex rendering.
+    '*': [...(defaultSchema.attributes['*'] || []), 'style','className'],
+    // Add the specific attributes needed for our SVG icons.
+    'svg': [
+        'viewBox', 'fill', 'stroke', 'stroke-width', 'stroke-linecap',
+        'stroke-linejoin', 'aria-hidden', 'xmlns', 'transform'
+    ],
+    'g': ['transform', 'fill'],
+    'path': ['d', 'fill-rule', 'fill', 'stroke', 'stroke-width'],
+    'text': ['x', 'y', 'fill', 'font-size', 'font-weight'],
+    'rect': [
+        'x', 'y', 'width', 'height', 'rx', 'transform', 'fill', 'stroke', 'stroke-width'
+    ]
+  }
 };
