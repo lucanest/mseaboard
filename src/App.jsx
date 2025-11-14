@@ -1077,6 +1077,8 @@ const handleDownload = useCallback(() => {
     },
     [id, setPanelData]
   );
+
+const downloadFormat = isSquare && !data.isMsaColorMatrix ? '.phy' : '.tsv';
   
 const extraButtons = useMemo(() => {
     const commonButtons = [
@@ -1090,7 +1092,7 @@ const extraButtons = useMemo(() => {
       },
       { 
         element: <DownloadButton onClick={handleDownload} />,
-        tooltip: (<>Download matrix<br /><span className={subtooltipClass}> (.tsv)</span></>)
+        tooltip: (<>Download matrix<br /><span className={subtooltipClass}> ({downloadFormat})</span></>)
       },
     ];
 
