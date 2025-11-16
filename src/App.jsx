@@ -6295,45 +6295,29 @@ const handleRestoreSession = useCallback(() => {
       }}
     >
       </div>
-            <div className="text-2xl font-bold mb-4 text-gray-700">
-              Drag and drop files, use the upload buttons above,
+            <div className="text-2xl font-bold mb-4 text-gray-400">
+              <div className='text-center'>Welcome to MSEABOARD</div>
+              Drag and drop files or use the upload buttons above
             </div>
 <div className="flex items-center gap-2 mt-2">
+<div className="flex items-center gap-2 mt-20 mr-6">
 
-  <span className="text-2xl font-bold text-gray-700 mr-2 ">or</span>
   <button
     className="bg-gray-200 hover:bg-gray-300 text-gray-700 text-2xl font-semibold px-4 py-4 rounded-xl shadow-xl transition text-center"
-    onClick={async () => {
-      try {
-        const resp = await fetch('/mseaboard-example.txt');
-        if (!resp.ok) throw new Error('Example file not found');
-        const exampleText = await resp.text();
-        const compressed = base64ToUint8Array(exampleText);
-        const jsonString = pako.inflate(compressed, { to: 'string' });
-        const parsedBoard = JSON.parse(jsonString);
-        const board = rehydrateBoardState(parsedBoard);
-
-    
-        setHistory({
-            past: [],
-            present: {
-                panels: board.panels || [],
-                layout: board.layout || [],
-                panelData: board.panelData || {},
-                panelLinks: board.panelLinks || {},
-                panelLinkHistory: buildHistory(board),
-                linkColors: board.linkColors || {},
-            },
-            future: [],
-        });
-        setTitleFlipKey(Date.now());
-      } catch (err) {
-        alert('Failed to load example board.');
-      }
-    }}
+    onClick={() => window.open('https://www.mseaboard.com/?board=ddbcd607cbe8cfec3736521433f4ead8', '_self')}
   >
-    Load an example
+    Manual, showcase <br /> and example boards
   </button>
+</div>
+<div className="flex items-center gap-2 mt-20">
+
+  <button
+    className="bg-gray-200 hover:bg-gray-300 text-gray-700 text-2xl font-semibold px-4 py-4 rounded-xl shadow-xl transition text-center"
+    onClick={() => window.open('https://www.mseaboard.com/?board=219ab0d7eb433c94d548179b37b6a432', '_self')}
+  >
+    Load an example <br /> directly
+  </button>
+</div>
 </div>
 {/* Restore Session Button */}
 {showRestoreButton && (
