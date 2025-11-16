@@ -3369,12 +3369,50 @@ const PanelWrapper = React.memo(({
 
 const TopBar = React.memo(function TopBar({
   canUndo, undo, canRedo, redo, handleSaveBoard, fileInputRefBoard, handleLoadBoard,
-  handleShareBoard, addPanel, triggerUpload, fileInputRef, handleFileUpload
+  handleShareBoard, addPanel, triggerUpload, fileInputRef, handleFileUpload, handleFetchPdb
 }) {
   const [hoveredBtn, setHoveredBtn] = useState(null);
   const [showTooltip, setShowTooltip] = useState(false);
   const showTimer = useRef();
   const hideTimer = useRef();
+  
+  //  Additions for PDB Search UI
+  const [showStructureOptions, setShowStructureOptions] = useState(false);
+  const [isSearchingPdb, setIsSearchingPdb] = useState(false);
+  const [pdbSearchQuery, setPdbSearchQuery] = useState('');
+  const structureBtnRef = useRef(null);
+  
+  useEffect(() => {
+    if (!showStructureOptions) return;
+
+    function handleClickOutside(event) {
+      if (structureBtnRef.current && !structureBtnRef.current.contains(event.target)) {
+        setShowStructureOptions(false);
+        setIsSearchingPdb(false);
+        setPdbSearchQuery('');
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [showStructureOptions]);
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      if (pdbSearchQuery.trim()) {
+        handleFetchPdb(pdbSearchQuery.trim());
+        setShowStructureOptions(false);
+        setIsSearchingPdb(false);
+        setPdbSearchQuery('');
+      }
+    } else if (e.key === 'Escape') {
+       setShowStructureOptions(false);
+       setIsSearchingPdb(false);
+       setPdbSearchQuery('');
+    }
+  };
 
   const clearAllTooltips = useCallback(() => {
     clearTimeout(showTimer.current);
@@ -3394,13 +3432,17 @@ const TopBar = React.memo(function TopBar({
     hideTimer.current = setTimeout(clearAllTooltips, 10); 
   }, [clearAllTooltips]);
 
-  const handleEnter = useCallback((name) => {
+const handleEnter = useCallback((name) => {
+    // If the structure options are open, disable the tooltip for the main structure button.
+    if (name === 'structure' && showStructureOptions) {
+      return;
+    }
     clearTimeout(hideTimer.current);
     showTimer.current = setTimeout(() => {
       setHoveredBtn(name);
       setShowTooltip(true);
     }, 125);
-  }, []);
+  }, [showStructureOptions]);
 
   const tooltipMap = {
     undo: <><b>Undo</b><br />Undo the last action</>,
@@ -3413,7 +3455,7 @@ const TopBar = React.memo(function TopBar({
     tree: <><b>Upload Tree</b><br />Upload a phylogenetic tree<br />in Newick format (.nwk/.nhx)</>,
     data: <><b>Upload Data</b><br />Upload tabular data (.tsv/.csv)<br />or a list of numbers (.txt)</>,
     matrix: <><b>Upload Matrix</b><br />Upload a distance matrix in PHYLIP format<br />(.phy/.phylip/.dist)<br />or an arbitrary matrix in tabular format (.tsv/.csv)</>,
-    structure: <><b>Upload Structure</b><br />Upload a molecular structure<br />in PDB format (.pdb)</>,
+    structure: <><b>Upload Structure</b><br />Upload a molecular structure<br />in PDB format (.pdb) <br /> ---------- <br />Load it from PDB's database <br /> with its identifier</>,
   };
 
   const Tooltip = ({ name }) => {
@@ -3489,9 +3531,55 @@ const TopBar = React.memo(function TopBar({
             <button onClick={() => triggerUpload('heatmap')}  className={`${uploadBtnClass} bg-red-200 hover:bg-red-300`}>Matrix</button>
             <Tooltip name="matrix" />
           </div>
-          <div className="relative" onMouseEnter={() => handleEnter('structure')} onMouseLeave={handleLeave}>
-            <button onClick={() => triggerUpload('structure')} className={`${uploadBtnClass} bg-purple-200 hover:bg-purple-300`}>Structure</button>
+<div ref={structureBtnRef} className="relative" onMouseEnter={() => handleEnter('structure')} onMouseLeave={handleLeave}>
+            <button
+                onClick={() => {
+                  clearAllTooltips();
+                  const nextState = !showStructureOptions;
+                  setShowStructureOptions(nextState);
+                  if (!nextState) {
+                    setIsSearchingPdb(false);
+                    setPdbSearchQuery('');
+                  }
+                }}
+                className={`${uploadBtnClass} bg-purple-200 hover:bg-purple-300`}
+              >
+                Structure
+              </button>
             <Tooltip name="structure" />
+            {showStructureOptions && (
+              <div className="absolute top-full mt-2 w-full flex flex-col items-center gap-2">
+                {isSearchingPdb ? (
+                  <input
+                    type="text"
+                    autoFocus
+                    value={pdbSearchQuery}
+                    onChange={(e) => setPdbSearchQuery(e.target.value)}
+                    onKeyDown={handleSearchKeyDown}
+                    placeholder=" PDB ID "
+                    className="w-full text-black px-2 py-2 rounded-xl shadow-lg border-2 border-purple-400 focus:outline-none"
+                  />
+                ) : (
+                  <>
+                    <button
+                      onClick={() => {
+                        triggerUpload('structure');
+                        setShowStructureOptions(false);
+                      }}
+                      className={`${uploadBtnClass} !w-full bg-purple-200 hover:bg-purple-300`}
+                    >
+                      Upload PDB
+                    </button>
+                    <button
+                      onClick={() => setIsSearchingPdb(true)}
+                      className={`${uploadBtnClass} !w-full bg-purple-200 hover:bg-purple-300`}
+                    >
+                      Search PDB
+                    </button>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           <GitHubButton />
@@ -5450,6 +5538,31 @@ const handleFileUpload = async (e) => {
     if (fileInputRef.current) fileInputRef.current.value = null;
 };
 
+const handleFetchPdb = useCallback(async (pdbId) => {
+    if (!pdbId) return;
+    const sanitizedId = pdbId.trim().toUpperCase();
+    setTransientMessage(`Fetching ${sanitizedId}...`);
+
+    try {
+      const response = await fetch(`https://files.rcsb.org/download/${sanitizedId}.pdb`);
+      if (!response.ok) {
+        throw new Error(`PDB entry '${sanitizedId}' not found or failed to load (Status: ${response.status})`);
+      }
+      const text = await response.text();
+
+      addPanel({
+        type: 'structure',
+        data: { pdb: text, filename: `${sanitizedId}.pdb` },
+        layoutHint: { w: 4, h: 20 }
+      });
+      setTransientMessage(''); // Clear message on success
+    } catch (error) {
+      console.error("PDB Fetch Error:", error);
+      alert(error.message);
+      setTransientMessage(''); // Clear message on error
+    }
+  }, [addPanel]);
+
   const removePanel = useCallback((id) => {
     setState(present => {
         const newPanelData = { ...present.panelData };
@@ -6144,6 +6257,7 @@ const handleRestoreSession = useCallback(() => {
         triggerUpload={triggerUpload}
         fileInputRef={fileInputRef}
         handleFileUpload={handleFileUpload}
+        handleFetchPdb={handleFetchPdb} 
       />
 
         </div>
