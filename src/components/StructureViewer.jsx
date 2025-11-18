@@ -1,7 +1,7 @@
 // StructureViewer.jsx
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { Stack, Slider, IconButton, Button, Tooltip, Box, Chip } from '@mui/material';
-import { Cog6ToothIcon } from '@heroicons/react/24/outline';
+import {  Cog6ToothIcon, ArrowPathIcon } from '@heroicons/react/24/outline';
 import { threeToOne, hslToHex } from './Utils.jsx';
 import { tooltipStyle } from '../constants/styles.js';
 import { residueColorHex, chainColors } from '../constants/colors.js';
@@ -62,12 +62,15 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
   const [showTooltip, setShowTooltip] = useState(true);
   
   // Initialize state from data prop safely
-  const [colorScheme, setColorScheme] = useState(data?.colorScheme || 'residue');
+  const [colorScheme, setColorScheme] = useState(data?.colorScheme || 'chain');
   const [representation, setRepresentation] = useState(data?.representation || 'cartoon');
   const [showWaters, setShowWaters] = useState(data?.showWaters !== undefined ? data.showWaters : false);
   const [showHydrogens, setShowHydrogens] = useState(data?.showHydrogens !== undefined ? data.showHydrogens : false);
   const [showLabels, setShowLabels] = useState(data?.showLabels !== undefined ? data.showLabels : false);
   const [backgroundColor, setBackgroundColor] = useState(data?.backgroundColor || 'white');
+  const [surfaceType, setSurfaceType] = useState(data?.surfaceType || 'SAS');
+  const [surfaceColor, setSurfaceColor] = useState(data?.surfaceColor || 'chain');
+  const [isSpinning, setIsSpinning] = useState(false);
 
 
   const colorSchemes = {
@@ -133,7 +136,9 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
     if (data.showHydrogens !== undefined && data.showHydrogens !== showHydrogens) setShowHydrogens(data.showHydrogens);
     if (data.showLabels !== undefined && data.showLabels !== showLabels) setShowLabels(data.showLabels);
     if (data.backgroundColor && data.backgroundColor !== backgroundColor) setBackgroundColor(data.backgroundColor);
-  }, [data, colorScheme, representation, showWaters, showHydrogens, showLabels, backgroundColor]);
+    if (data.surfaceType && data.surfaceType !== surfaceType) setSurfaceType(data.surfaceType);
+    if (data.surfaceColor && data.surfaceColor !== surfaceColor) setSurfaceColor(data.surfaceColor);
+  }, [data, colorScheme, representation, showWaters, showHydrogens, showLabels, backgroundColor, surfaceType, surfaceColor, isSpinning]);
 
   // StructureTooltip
   const [tooltip, setStructureTooltip] = useState(null);
@@ -564,17 +569,25 @@ const setupHoverStructureTooltip = () => {
     };
   }, [data?.linkedResiduesByKey]);
 
+const surfaceColorSchemes = {
+    chain: (atom) => getChainColor(atom.chain),
+    element: (atom) => {
+      const elem = (atom.elem || '').toUpperCase();
+      return atomColors[elem] || '#EA80FC';
+    },
+    // The 'white' case now correctly returns a function
+    white: () => '#FFFFFF',
+  };
+
   const rebuildSurface = () => {
     const v = viewerRef.current;
     if (!v) return;
     v.removeAllSurfaces();
 
     if (surface) {
-      v.addSurface('SAS', {
+      v.addSurface(surfaceType, {
         opacity: opacity,
-        colorfunc: function (atom) {
-          return getChainColor(atom.chain);
-        }
+        colorfunc: surfaceColorSchemes[surfaceColor] || surfaceColorSchemes['chain'],
       });
     }
 
@@ -699,7 +712,19 @@ const setupHoverStructureTooltip = () => {
     if (viewerRef.current) {
       rebuildSurface();
     }
-  }, [surface, opacity]);
+  }, [surface, opacity, surfaceType, surfaceColor]);
+
+    // Effect hook to control the spin animation
+  useEffect(() => {
+    const v = viewerRef.current;
+    if (!v) return;
+
+    if (isSpinning) {
+      v.spin('y'); // Spins around the Y-axis
+    } else {
+      v.spin(false); // Stops the spin
+    }
+  }, [isSpinning]);
 
   // Persist opacity change when slider stops
   const handleOpacityCommit = useCallback((_, v) => {
@@ -792,11 +817,40 @@ const setupHoverStructureTooltip = () => {
                 boxShadow: 1,
               }}
             />
-      {/* Surface toggle button */}
-    <Tooltip
-      title={surface ? "Hide surface" : "Show surface"}
-      placement="right"
-      slotProps={{
+            {/* Container for right-aligned icons */}
+            <Box>
+              {/* Spin Button */}
+              <Tooltip title={isSpinning ? "Stop spin" : "Spin structure"} placement="top" slotProps={{
+                popper: {
+                  sx: {
+                    '& .MuiTooltip-tooltip': {
+                      backgroundColor: '#E5E7EB',
+                      color: 'black',
+                      fontSize: 10,
+                      fontWeight: 500,
+                      borderRadius: 2,
+                      boxShadow: 2,
+                    }
+                  }
+                }
+              }}>
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    const newValue = !isSpinning;
+                    setIsSpinning(newValue);
+                    persistSetting('isSpinning', newValue);
+                  }}
+                  sx={{
+                    ml: 0.5, mb: 0.5, background: 'transparent', transition: 'background 0.2s',
+                  }}
+                >
+                  <ArrowPathIcon style={{ width: 20, height: 20, color: '#333' }} />
+                </IconButton>
+              </Tooltip>
+
+              {/* Surface toggle button */}
+              <Tooltip title={surface ? "Hide surface" : "Show surface"} placement="top" slotProps={{
         popper: {
           sx: {
             '& .MuiTooltip-tooltip': {
@@ -809,27 +863,22 @@ const setupHoverStructureTooltip = () => {
             }
           }
         }
-      }}
-    >
-      <IconButton
-        size="small"
-        sx={{
-          ml: 1,
-          mb: 0.5,
-          background: 'transparent',
-          transition: 'background 0.2s',
-        }}
-        onClick={() => setPanelData(prev => ({
-          ...prev,
-          [panelId]: {
-            ...prev[panelId],
-            surface: !surface
-          }
-        }))}
-      >
-        <SurfaceGlyph style={{ width: 20, height: 20}} />
-      </IconButton>
-    </Tooltip>
+      }} >
+                <IconButton
+                  size="small"
+                  sx={{
+                    ml: 0.5,
+                    mb: 0.5, background: 'transparent', transition: 'background 0.2s',
+                  }}
+                  onClick={() => setPanelData(prev => ({
+                    ...prev, [panelId]: { ...prev[panelId], surface: !surface }
+                  }))}
+                >
+                  <SurfaceGlyph style={{ width: 20, height: 20}} />
+                </IconButton>
+              </Tooltip>
+            </Box>
+            {/*  */}
   </Box>
             <Stack spacing={0.4}>
               {Object.keys(colorSchemes).map(scheme => (
@@ -947,51 +996,62 @@ const setupHoverStructureTooltip = () => {
             </Stack>
           </Box>
 
-          {/* Surface Opacity Slider */}
+          {/* Surface Controls */}
           {surface && (
-            <Box sx={{ mb: 1 }}>
-              <Chip 
-                label={`Surface opacity: ${Math.round(opacity * 100)}%`} 
-                size="small" 
-                
-                sx={{ mb: 0.5 ,                bgcolor: '#E5E7EB',
-                color: 'black',
-                fontWeight: 300,
-                borderRadius: 1.5,
-                fontSize: 10,
-                px: 0.5,
-                boxShadow: 1}} 
-              />
-              <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
-                <Slider
-                  value={opacity}
-                  onChange={(_, v) => setOpacity(Array.isArray(v) ? v[0] : v)}
-                  onChangeCommitted={handleOpacityCommit}
-                  step={0.01}
-                  min={0.4}
-                  max={1}
-                  size="small"
-                  sx={{ 
-                    width: '90%',         
-                    maxWidth: 180,        
-                    color: 'rgba(0,0,0,0.87)',
-                    mx: 'auto',           
-                    '& .MuiSlider-track': { border: 'none' },
-                    '& .MuiSlider-thumb': {
-                      width: 16,
-                      height: 16,
-                      backgroundColor: '#fff',
-                '&::before': {
-                  boxShadow: '0 4px 8px rgba(0,0,0,0.4)',
-                },
-                '&:hover, &.Mui-focusVisible, &.Mui-active': {
-                  boxShadow: 'none',
-                },
-              },
-                  }}
-                />
+            <>
+              {/* Surface Type */}
+              <Box sx={{ mb: 1 }}>
+                <Chip label="Surface Type" size="small" sx={{ mb: 0.5, bgcolor: '#E5E7EB', color: 'black', fontWeight: 300, borderRadius: 1.5, fontSize: 10, px: 0.5, boxShadow: 1 }} />
+                <Stack spacing={0.4} direction="row">
+                  {['SAS', 'SES', 'VDW'].map(type => (
+                    <Button key={type} size="small" variant={surfaceType === type ? "contained" : "outlined"}
+                      onClick={() => {
+                        setSurfaceType(type);
+                        persistSetting('surfaceType', type);
+                      }}
+                      sx={{ flex: 1, textTransform: 'none', backgroundColor: surfaceType === type ? '#60a5fa' : 'inherit' }}
+                    >
+                      {type}
+                    </Button>
+                  ))}
+                </Stack>
               </Box>
-            </Box>
+
+              {/* Surface Color */}
+              <Box sx={{ mb: 1 }}>
+                <Chip label="Surface Color" size="small" sx={{ mb: 0.5, bgcolor: '#E5E7EB', color: 'black', fontWeight: 300, borderRadius: 1.5, fontSize: 10, px: 0.5, boxShadow: 1 }} />
+                <Stack spacing={0.4} direction="row">
+                  {['chain', 'element', 'white'].map(color => (
+                    <Button key={color} size="small" variant={surfaceColor === color ? "contained" : "outlined"}
+                      onClick={() => {
+                        setSurfaceColor(color);
+                        persistSetting('surfaceColor', color);
+                      }}
+                      sx={{ flex: 1, textTransform: 'none', backgroundColor: surfaceColor === color ? '#60a5fa' : 'inherit' }}
+                    >
+                      {color.charAt(0).toUpperCase() + color.slice(1)}
+                    </Button>
+                  ))}
+                </Stack>
+              </Box>
+
+              {/* Surface Opacity Slider */}
+              <Box sx={{ mb: 1 }}>
+                <Chip label={`Surface opacity: ${Math.round(opacity * 100)}%`} size="small" sx={{ mb: 0.5, bgcolor: '#E5E7EB', color: 'black', fontWeight: 300, borderRadius: 1.5, fontSize: 10, px: 0.5, boxShadow: 1 }} />
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+                  <Slider value={opacity} onChange={(_, v) => setOpacity(Array.isArray(v) ? v[0] : v)} onChangeCommitted={handleOpacityCommit} step={0.01} min={0.4} max={1} size="small"
+                    sx={{
+                      width: '90%',
+                      maxWidth: 180,
+                      color: '#61A6FB',
+                      mx: 'auto',
+                      '& .MuiSlider-track': { border: 'none' },
+                      '& .MuiSlider-thumb': { width: 16, height: 16, backgroundColor: '#fff', '&::before': { boxShadow: '0 4px 8px rgba(0,0,0,0.4)', }, '&:hover, &.Mui-focusVisible, &.Mui-active': { boxShadow: 'none', }, },
+                    }}
+                  />
+                </Box>
+              </Box>
+            </>
           )}
 
 {/* Background */}
