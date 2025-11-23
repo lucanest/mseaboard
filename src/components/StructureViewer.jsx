@@ -50,7 +50,7 @@ const representationStyles = {
 };
 
 function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onHighlight,
-  linkedPanelData, highlightOrigin }) {
+  linkedPanelData }) {
   const viewerDiv = useRef(null);
   const viewerRef = useRef(null);
   const appliedInitialViewRef = useRef(false);
@@ -479,7 +479,7 @@ const setupHoverStructureTooltip = () => {
   useEffect(() => {
     // If this panel is the source of the highlight, 
     // let the direct onHover/onUnhover logic handle it exclusively.
-    if (highlightOrigin === panelId) return;
+    if (isHovering) return;
     if (Array.isArray(data?.linkedResiduesByKey) && data.linkedResiduesByKey.length > 0) {
       return;
     }
@@ -508,7 +508,7 @@ const setupHoverStructureTooltip = () => {
 
     hideStructureTooltipText();
     scheduleHalo(null);
-  }, [data?.linkedResidueIndex, data?.linkedChainId, linkedPanelData, highlightOrigin, panelId]);
+  }, [data?.linkedResidueIndex, data?.linkedChainId, linkedPanelData, panelId]);
 
   useEffect(() => {
     const v = viewerRef.current;
