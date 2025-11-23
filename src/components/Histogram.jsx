@@ -39,7 +39,6 @@ function Histogram({
   panelId,
   onHighlight,
   highlightedSite,
-  highlightOrigin,
   linkedTo,
   height,
   setPanelData,
@@ -106,11 +105,8 @@ function Histogram({
     // Determine if this highlight event is relevant to this panel.
     const isLinkedHighlight =
       highlightedSite != null &&
-      Array.isArray(linkedTo) &&
-      linkedTo.includes(highlightOrigin) &&
-      panelId !== highlightOrigin;
+      Array.isArray(linkedTo);
 
-    // If it's not a relevant event, or we have no data, do nothing.
     if (!isLinkedHighlight || !xValues) {
       return [];
     }
@@ -145,7 +141,6 @@ function Histogram({
     }
   }, [
     highlightedSite, 
-    highlightOrigin, 
     linkedTo, 
     panelId, 
     xValues, 
@@ -268,8 +263,6 @@ function Histogram({
     const isLinkedTarget =
       mappedHighlightedIndices.length > 0 &&
       Array.isArray(linkedTo) &&
-      linkedTo.includes(highlightOrigin) &&
-      panelId !== highlightOrigin &&
       needScroll;
 
     if (!isLinkedTarget) return;
@@ -279,7 +272,7 @@ function Histogram({
       if (firstIndex != null) scrollBarIntoView(firstIndex);
     });
     return () => cancelAnimationFrame(id);
-  }, [mappedHighlightedIndices, highlightOrigin, linkedTo, panelId, needScroll, scrollBarIntoView]);
+  }, [mappedHighlightedIndices, linkedTo, panelId, needScroll, scrollBarIntoView]);
 
   const handleBarClick = useCallback((index) => {
     setPanelData((prev) => {
@@ -305,9 +298,7 @@ function Histogram({
     for (let i = 0; i < n; i++) {
       const isCurrentLinkedHighlight =
         mappedHighlightedIndicesSet.has(i) &&
-        Array.isArray(linkedTo) &&
-        linkedTo.includes(highlightOrigin) &&
-        panelId !== highlightOrigin;
+        Array.isArray(linkedTo);
 
       const isLocalHover = isLocalTooltipActive && hoverIndex === i;
       const isPersistentHighlight = highlightedSet.has(i);
@@ -329,7 +320,6 @@ function Histogram({
     data,
     getColor,
     linkedTo,
-    highlightOrigin,
     panelId,
     highlightedSet,
     isLocalTooltipActive,
@@ -376,8 +366,7 @@ function Histogram({
 
   const shouldMirror =
     highlightedSite !== null &&
-    Array.isArray(linkedTo) && linkedTo.includes(highlightOrigin) &&
-    panelId !== highlightOrigin &&
+    Array.isArray(linkedTo) &&
     !isLocalTooltipActive;
 
   const handleMouseLeaveChart = useCallback(() => {
