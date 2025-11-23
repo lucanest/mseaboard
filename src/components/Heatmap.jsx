@@ -1,3 +1,4 @@
+// Heatmap.jsx
 import React, { useRef, useEffect, useState, useMemo } from "react";
 import { residueColorHex } from "../constants/colors";
 
@@ -446,13 +447,13 @@ const handleColorbarMouseMove = (e) => {
     // Handle both cell and column highlighting from linked panels
     if (linkedHighlightCellIdx) {
         if (linkedHighlightCellIdx.row !== undefined && linkedHighlightCellIdx.col !== undefined) {
-            strokeSel(linkedHighlightCellIdx.row, linkedHighlightCellIdx.col, "rgb(13,245,241)");
+            strokeSel(linkedHighlightCellIdx.row, linkedHighlightCellIdx.col, "rgba(0, 0, 0, 1)");
         } else if (linkedHighlightCellIdx.col !== undefined) {
-            strokeCol(linkedHighlightCellIdx.col, "rgb(13,245,241)");
+            strokeCol(linkedHighlightCellIdx.col, "rgba(0, 0, 0, 1)");
         }
     }
 
-    if (hoverCell && showHoverHighlight)  strokeSel(hoverCell.row, hoverCell.col, "rgb(13,245,241)");
+    if (hoverCell && showHoverHighlight)  strokeSel(hoverCell.row, hoverCell.col, "rgba(0, 0, 0, 1)");
   }, [isDiamondView, matrix, gridWidth, gridHeight, cellSize, nRows, nCols, min, max,
      hoverCell, highlightedCells, linkedHighlightCellIdx, showGridLines,threshold,showHoverHighlight, lowColor, highColor, isMsaColorMatrix]);
 
