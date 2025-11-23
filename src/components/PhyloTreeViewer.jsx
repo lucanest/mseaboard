@@ -15,7 +15,6 @@ const PhyloTreeViewer = ({
   isNhx = false,
   onHoverTip,
   linkedTo,
-  highlightOrigin,
   radial = false,
   linkedHighlights = [],
   useBranchLengths = false,
@@ -883,7 +882,7 @@ const fieldStats = nhxFieldStats[colorField];
     }
 
     setDebugInfo(`Tree rendered successfully. Found ${Object.keys(colorMap).length} different ${colorField} values.`);
-  }, [newickStr, isNhx, size, linkedTo, highlightOrigin, onHoverTip, highlightedNodes, linkedHighlights, radial, useBranchLengths,
+  }, [newickStr, isNhx, size, linkedTo, onHoverTip, highlightedNodes, linkedHighlights, radial, useBranchLengths,
      pruneMode, id, setPanelData, toNewick, nhxColorField, labelSize, nodeRadius, branchWidth,
       treeRadius, rightMargin,extractMode, selectedLeaves, onLeafSelect, onCountLeaves, colorLabels,]);
 
