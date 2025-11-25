@@ -6,7 +6,7 @@ import { threeToOne, hslToHex } from './Utils.jsx';
 import { tooltipStyle } from '../constants/styles.js';
 import { residueColorHex, chainColors } from '../constants/colors.js';
 import { SurfaceGlyph } from './Buttons.jsx';
-import { secondaryStructureColors, atomColors } from '../constants/colors.js';  
+import { secondaryStructureColors, atomColors, hydrophobicityColors } from '../constants/colors.js';  
 
 function ensure3Dmol(cb) {
   if (window.$3Dmol) return cb();
@@ -49,6 +49,7 @@ const representationStyles = {
   line: { line: {} }
 };
 
+
 function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onHighlight,
   linkedPanelData }) {
   const viewerDiv = useRef(null);
@@ -79,6 +80,10 @@ function StructureViewer({ pdb, panelId, surface = true, data, setPanelData, onH
         const resn = (atom.resn || '').trim().toUpperCase();
         const one = threeToOne[resn] || '-';
         return residueColorHex[one] || '#FFFFFF';
+      },
+      hydrophobicity: (atom) => {
+        const resn = (atom.resn || '').trim().toUpperCase();
+        return hydrophobicityColors[resn] || '#CCCCCC';
       },
       element: (atom) => {
         const elem = (atom.elem || '').toUpperCase();
@@ -575,7 +580,10 @@ const surfaceColorSchemes = {
       const elem = (atom.elem || '').toUpperCase();
       return atomColors[elem] || '#EA80FC';
     },
-    // The 'white' case now correctly returns a function
+    hydrophobicity: (atom) => {
+        const resn = (atom.resn || '').trim().toUpperCase();
+        return hydrophobicityColors[resn] || '#CCCCCC';
+    },
     white: () => '#FFFFFF',
   };
 
@@ -802,7 +810,7 @@ const surfaceColorSchemes = {
 
           {/* Color Scheme */}
           <Box sx={{ mb: 1 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
             <Chip
               label="Colors"
               size="small"
@@ -902,7 +910,7 @@ const surfaceColorSchemes = {
 
           {/* Representation */}
           <Box sx={{ mb: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 0.5 }}>
             <Chip
               label="Representation"
               size="small"
@@ -940,7 +948,7 @@ const surfaceColorSchemes = {
 
           {/* Options */}
           <Box sx={{ mb: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 1 }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-start', mb: 0.5 }}>
             <Chip
               label="Options"
               size="small"
@@ -1001,9 +1009,9 @@ const surfaceColorSchemes = {
             <>
               {/* Surface Type */}
               <Box sx={{ mb: 1 }}>
-                <Chip label="Surface Type" size="small" sx={{ mb: 0.5, bgcolor: '#E5E7EB', color: 'black', fontWeight: 300, borderRadius: 1.5, fontSize: 10, px: 0.5, boxShadow: 1 }} />
-                <Stack spacing={0.4} direction="row">
-                  {['SAS', 'SES', 'VDW'].map(type => (
+                <Chip label="Surface Type" size="small" sx={{ mb: 1, bgcolor: '#E5E7EB', color: 'black', fontWeight: 300, borderRadius: 1.5, fontSize: 10, px: 0.5, boxShadow: 1 }} />
+                <Stack spacing={0.4}>
+                  {['Solvent accessible', 'Solvent excluded', 'Van der Waals'].map(type => (
                     <Button key={type} size="small" variant={surfaceType === type ? "contained" : "outlined"}
                       onClick={() => {
                         setSurfaceType(type);
@@ -1019,9 +1027,9 @@ const surfaceColorSchemes = {
 
               {/* Surface Color */}
               <Box sx={{ mb: 1 }}>
-                <Chip label="Surface Color" size="small" sx={{ mb: 0.5, bgcolor: '#E5E7EB', color: 'black', fontWeight: 300, borderRadius: 1.5, fontSize: 10, px: 0.5, boxShadow: 1 }} />
-                <Stack spacing={0.4} direction="row">
-                  {['chain', 'element', 'white'].map(color => (
+                <Chip label="Surface Color" size="small" sx={{ mb: 1, bgcolor: '#E5E7EB', color: 'black', fontWeight: 300, borderRadius: 1.5, fontSize: 10, px: 0.5, boxShadow: 1 }} />
+                <Stack spacing={0.4}>
+                  {['chain', 'element', 'hydrophobicity', 'white'].map(color => (
                     <Button key={color} size="small" variant={surfaceColor === color ? "contained" : "outlined"}
                       onClick={() => {
                         setSurfaceColor(color);
