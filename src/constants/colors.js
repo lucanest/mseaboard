@@ -46,6 +46,17 @@ export const secondaryStructureColors = {
   bridge: '#06B6D4' // Cyan
 };
 
+export const hydrophobicityColors = {
+  // Strongly Hydrophobic (Red)
+  ILE: '#FF0000', VAL: '#FF0000', LEU: '#FF0000', PHE: '#FF0000', MET: '#FF0000',
+  // Hydrophobic (Light Red/Orange)
+  ALA: '#FF6060', GLY: '#FF6060', CYS: '#FF6060', TRP: '#FF6060', TYR: '#FF6060', PRO: '#FF6060',
+  // Neutral/Polar (White/Light Grey)
+  THR: '#DDDDDD', SER: '#DDDDDD', HIS: '#DDDDDD',
+  // Hydrophilic/Charged (Blue)
+  GLU: '#0000FF', GLN: '#0000FF', ASP: '#0000FF', ASN: '#0000FF', LYS: '#0000FF', ARG: '#0000FF'
+};
+
 export const residueSvgColors = {
   A: '#22c55e', C: '#facc15', D: '#ef4444', E: '#ef4444',
   F: '#a855f7', G: '#6b7280', H: '#ec4899', I: '#3b82f6',
