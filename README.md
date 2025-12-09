@@ -1,13 +1,12 @@
 <img src="public/logo.png"/>
 
-**MSEABOARD** is an interactive web application for visualizing genetic sequences, multiple sequence alignments (MSA), phylogenetic trees, matrices (such as distance matrices or any data that can be visualized as a 2D heatmap), sequence logos, protein structures, and tabular or numeric datasets.  With a customizable layout, the tool enables visualizing different data types in different panels, these can also be linked to each other allowing for interactive and interconnected visualizations, some examples include:
+**MSEABOARD** is an interactive web application for visualizing genetic sequences, multiple sequence alignments (MSA), phylogenetic trees, matrices (such as distance matrices or any data that can be visualized as a 2D heatmap), sequence logos, protein structures, and tabular or numeric datasets.  With a customizable layout, the tool enables visualizing different data types in different panels, these can be linked to each other allowing for interactive and interconnected visualizations, some examples include:
 
 - An MSA can be linked to  a corresponding phylogenetic tree, then when hovering over a sequence in the MSA panel the corresponding leaf in the tree will be highlighted and vice-versa. 
 - A distance matrix can be linked to an MSA, a tree or a protein structure, hovering over a cell in the matrix will then highlight the two corresponding sequences/tree nodes/residues in the 3D structure.
 
 The full set of features and linking functionalities is described below (☝️ Note that not everything in the manual may be correctly rendered in this README, a complete version can be found [here](https://www.mseaboard.com/?board=ddbcd607cbe8cfec3736521433f4ead8) ).
 
- **No installation required**
 - Available online at [https://mseaboard.com](https://mseaboard.com)
 
 # Usage
@@ -325,8 +324,24 @@ Once linked, a colored **Link Badge** appears in the top-left corner of both pan
 </div>
 
 
+# Example boards
 
-## Local setup
+  <div style="flex: 1; border-left: 1px solid #ddd; padding-left: 20px;">
+    <h4><a href="https://www.mseaboard.com/?board=6330d81c0e1992b045b88f5db8bd9c12">Nucleotide alignment, codon statistics, leaf statistics, tree and patristic distance matrix</a></h4>
+    <img src="https://raw.githubusercontent.com/lucanest/mseaboard-showcase/main/images/nucexample.png" alt="MSA nuc codon Panel" style="width: 100%; border-radius: 4px;"/>
+  </div>
+
+  <div style="flex: 1; border-left: 1px solid #ddd; padding-left: 20px;">
+    <h4><a href="https://www.mseaboard.com/?board=219ab0d7eb433c94d548179b37b6a432">Protein alignment, tree and model predictions</a></h4>
+    <img src="https://raw.githubusercontent.com/lucanest/mseaboard-showcase/main/images/aaexample.png" alt="MSA nuc codon Panel" style="width: 100%; border-radius: 4px;"/>
+  </div>
+    <div style="flex: 1; border-left: 1px solid #ddd; padding-left: 20px;">
+    <h4><a href="https://mseaboard.com/?board=e37f97be033914ec936fd20d5e773d3d">Protein structure, distance/contact map and chain sequences</a></h4>
+    <img src="https://raw.githubusercontent.com/lucanest/mseaboard-showcase/main/images/protein.png" alt="MSA nuc codon Panel" style="width: 100%; border-radius: 4px;"/>
+  </div>
+
+
+# Local setup
 
 Run the app locally:
 
@@ -337,7 +352,7 @@ npm run start
 
 Visit `http://localhost:3000` and upload your files.
 
-## Project structure
+# Project structure
 
 ```bash
 ├── LICENSE
@@ -384,7 +399,7 @@ Visit `http://localhost:3000` and upload your files.
 ```
 
 
-## License
+# License
 
 MSEABOARD is free software: you can redistribute it and/or modify it under the terms of the **GNU Affero General Public License (AGPLv3)** as published by the Free Software Foundation.
 
