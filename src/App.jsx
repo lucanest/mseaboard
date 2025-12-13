@@ -1516,7 +1516,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [showSearch, setShowSearch] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const searchInputRef = useRef(null);
-  const [showModelPicker, setShowModelPicker] = React.useState(false);
+  const [ShowFastMEOptions, setShowFastMEOptions] = React.useState(false);
 
   const [isSelectionMode, setIsSelectionMode] = useState(false);
   const [selectedSequences, setSelectedSequences] = useState(new Set());
@@ -1685,12 +1685,11 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [isSyncScrolling, setIsSyncScrolling] = useState(false);
   const isNuc = useMemo(() => isNucleotide(msaData), [msaData]);
 
-  const pickerItems = React.useMemo(() => {
-    const items = [];
-    if (isNuc) items.push('p-distance', 'RY-symmetric', 'RY', 'JC69', 'K2P', 'F81', 'F84', 'TN93', 'LogDet');
-    if (!isNuc) items.push('p-distance', 'F81', 'LG', 'WAG', 'JTT', 'Dayhoff', 'DCMut', 'CpRev', 'MtREV', 'RtREV', 'HIVb', 'HIVw', 'FLU');
-    return items;
-  }, [isNuc]);
+  const [fastMEOptions, setFastMEOptions] = useState({});
+
+  const methodOptions = ['NJ', 'BIONJ','UNJ', 'TaxAdd_BalME', 'TaxAdd_OLSME'];
+  const dnaModels = ['p-distance', 'RY', 'JC69', 'K2P', 'F81', 'F84', 'TN93', 'LogDet'];
+  const proteinModels = ['p-distance','F81', 'LG', 'WAG', 'JTT', 'Dayhoff', 'DCMut', 'CpRev', 'MtREV', 'RtREV', 'HIVb', 'HIVw', 'FLU'];
 
   useEffect(() => {
     const handleGlobalMouseMove = (e) => {
@@ -1704,15 +1703,27 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   }, [id, highlightOrigin, onHighlight]);
 
   const handleTreeClick = React.useCallback(() => {
-    if (!msaData || msaData.length  < 4) { alert('At least 4 sequences are required to reconstruct a tree.'); return; }
-    if (msaData.length > 120 && !window.confirm(`This alignment has ${msaData.length} sequences. Reconstructing a tree may take a long time and could crash your browser. Proceed?`)) {
-      return;
-    }
-    setShowModelPicker(true);
-  }, [msaData]);
+      if (!msaData || msaData.length  < 4) { alert('At least 4 sequences are required.'); return; }
+      
+      const isProtein = !isNuc;
+      setFastMEOptions(prev => ({
+          ...prev,
+          model: isProtein ? 'LG' : 'F84',
+          method: 'BIONJ',
+          spr: false,
+          nni: false,
+          gamma: '',
+          bootstrap: 0
+      }));
+      
+      setShowFastMEOptions(true);
+  }, [msaData, isNuc]);
 
-  const pickModel = React.useCallback((choice) => { onFastME(id, choice); setShowModelPicker(false); }, [id, onFastME]);
-  const handleModelSelect = React.useCallback((item) => { pickModel(item); }, [pickModel]);
+  const handleFastMESubmit = () => {
+    onFastME(id, fastMEOptions);
+    setShowFastMEOptions(false);
+  };
+
   const handleDownload = useCallback(() => { mkDownload(baseName(data?.filename, 'alignment'), toFasta(data?.data || []), 'fasta')(); }, [data]);
 
   const rangesFromMask = useCallback((mask) => {
@@ -1928,7 +1939,7 @@ const onScroll = useMemo(() =>
   
   const extraButtons = useMemo(() => (
     isNuc ? [ 
-        { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowModelPicker(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
+        { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowFastMEOptions(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
         { element: <CodonToggleButton onClick={() => setCodonMode(m => !m)} isActive={codonMode} />, tooltip: "Toggle codon mode" },
         { element: <TranslateButton onClick={() => onDuplicateTranslate(id)} />, tooltip: "Translate to amino acids" },
         { 
@@ -1944,7 +1955,7 @@ const onScroll = useMemo(() =>
         { element: <div ref={shuffleButtonWrapperRef}><ShuffleButton onClick={() => setShowReorderOptions(s => !s)} /></div>, tooltip: "Reorder sequences" },
         { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
     ] : [
-        { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowModelPicker(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
+        { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowFastMEOptions(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
         { element: <TreeButton onClick={() => { setIsSelectionMode(false); setShowSearch(false); handleTreeClick(); }} />, tooltip: <>Build phylogenetic tree <br /> <span className={subtooltipClass}>FastME</span></> },
         { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
         { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, tooltip: <>Compute {codonMode ? "per-codon" : "per-site"} statistics<br /><span className={subtooltipClass}>Conservation and gap fraction</span></> },
@@ -2064,7 +2075,7 @@ const handleGridMouseMove = useMemo(() =>
             id={id}
             filename={filename} 
             setPanelData={setPanelData} 
-            forceHideTooltip={showSearch || isSelectionMode || showReorderOptions || showModelPicker} 
+            forceHideTooltip={showSearch || isSelectionMode || showReorderOptions || ShowFastMEOptions} 
             extraButtons={extraButtons}
             onDuplicate={onDuplicate}
             onLinkClick={onLinkClick} 
@@ -2092,24 +2103,118 @@ const handleGridMouseMove = useMemo(() =>
             </button>
           </div>
         )}
-        {showModelPicker && ( 
-        <div className="absolute inset-0 z-[1000] bg-black/40 flex items-center justify-center rounded-2xl"
-         onClick={() => setShowModelPicker(false)}> 
-          <div className="py-12 max-w-lg w-[min(90vw,36rem)] h-full flex flex-col items-center justify-center"
-            onClick={(e) => e.stopPropagation()}
-            style={{overflowY: 'auto'}}> 
-            <div className="text-3xl font-bold text-white mb-4 flex-shrink-0 text-center"
-            >Choose substitution model for tree reconstruction
-            </div> 
-            <div className="flex-1 flex items-center justify-center w-full max-w-xs"> 
-              <AnimatedList 
-              items={pickerItems} 
-              onItemSelect={handleModelSelect} 
-              itemClassName="text-center font-semibold !py-3" 
-              className="h-full" maxHeight={viewportSize.height - 150} />
-            </div> 
-          </div> 
-        </div>)}
+        {ShowFastMEOptions && ( 
+    <div className="absolute inset-0 z-[1000] bg-black/40 flex items-center justify-center rounded-2xl"
+         onClick={() => setShowFastMEOptions(false)}> 
+      <div className="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full flex flex-col gap-4 text-sm"
+           onClick={(e) => e.stopPropagation()}> 
+        
+        <h3 className="text-xl font-bold text-gray-800 border-b pb-2">FastME Options</h3>
+
+        {/* --- Substitution Model --- */}
+        <div className="flex flex-col gap-1">
+            <label className="font-semibold text-gray-600">Substitution Model</label>
+            <select 
+                className="border rounded-md px-2 py-1 bg-gray-50"
+                value={fastMEOptions.model}
+                onChange={e => setFastMEOptions({...fastMEOptions, model: e.target.value})}
+            >
+                {(isNuc ? dnaModels : proteinModels).map(m => (
+                    <option key={m} value={m}>{m}</option>
+                ))}
+            </select>
+        </div>
+
+        {/* --- Inference Method --- */}
+        <div className="flex flex-col gap-1">
+            <label className="font-semibold text-gray-600">Tree Inference Method</label>
+            <select 
+                className="border rounded-md px-2 py-1 bg-gray-50"
+                value={fastMEOptions.method}
+                onChange={e => setFastMEOptions({...fastMEOptions, method: e.target.value})}
+            >
+                {methodOptions.map(m => (
+                    <option key={m} value={m}>{m}</option>
+                ))}
+            </select>
+        </div>
+
+        {/* --- Gamma Rate Variation --- */}
+        <div className="flex flex-col gap-1">
+            <label className="font-semibold text-gray-600">
+                Gamma Parameter (Alpha)
+                <span className="text-gray-400 font-normal ml-2 text-xs">(Empty = none)</span>
+            </label>
+            <input 
+                type="number" 
+                step="0.1" 
+                min="0"
+                placeholder="e.g. 1.0"
+                className="border rounded-md px-2 py-1"
+                value={fastMEOptions.gamma}
+                onChange={e => setFastMEOptions({...fastMEOptions, gamma: e.target.value})}
+            />
+        </div>
+
+        {/* --- Topology Search (Checkboxes) --- */}
+        <div className="flex flex-col gap-1">
+            <label className="font-semibold text-gray-600">Topology Optimization</label>
+            <div className="flex gap-4 mt-1">
+                <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                        type="checkbox" 
+                        checked={fastMEOptions.nni}
+                        onChange={e => setFastMEOptions({...fastMEOptions, nni: e.target.checked})}
+                    />
+                    NNI
+                </label>
+                <label className="flex items-center gap-2 cursor-pointer">
+                    <input 
+                        type="checkbox" 
+                        checked={fastMEOptions.spr}
+                        onChange={e => setFastMEOptions({...fastMEOptions, spr: e.target.checked})}
+                    />
+                    SPR
+                </label>
+            </div>
+        </div>
+
+        {/* --- Bootstrap --- */}
+         <div className="flex flex-col gap-1">
+            <label className="font-semibold text-gray-600">
+                Bootstraps
+                <span className="text-gray-400 font-normal ml-2 text-xs">(0 = none)</span>
+            </label>
+            <input 
+                type="number" 
+                step="1" 
+                min="0"
+                max="1000"
+                className="border rounded-md px-2 py-1"
+                value={fastMEOptions.bootstrap}
+                onChange={e => setFastMEOptions({...fastMEOptions, bootstrap: e.target.value})}
+            />
+        </div>
+
+        {/* --- Buttons --- */}
+        <div className="flex justify-end gap-2 mt-2 pt-3 border-t">
+            <button 
+                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                onClick={() => setShowFastMEOptions(false)}
+            >
+                Cancel
+            </button>
+            <button 
+                className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg font-semibold shadow-md"
+                onClick={handleFastMESubmit}
+            >
+                Build Tree
+            </button>
+        </div>
+
+      </div> 
+    </div>
+    )}
         {showSearch && (
         <div className="absolute right-3 top-10 z-[1100] bg-white border rounded-xl shadow p-2 flex items-center gap-2" 
         onMouseEnter={() => setIsUiElementHovered(true)} 
@@ -2175,7 +2280,7 @@ const handleGridMouseMove = useMemo(() =>
         
         {/* --- Unified Tooltip Logic --- */}
         {(() => {
-          if (showModelPicker || isUiElementHovered || hoveredRow != null && hoveredCol == null) return null;
+          if (ShowFastMEOptions || isUiElementHovered || hoveredRow != null && hoveredCol == null) return null;
           const isLocalHover = tooltipSite != null && hoveredPanelId === id;
           const isExternalHighlight = (finalHighlightedSite != null && Number.isInteger(finalHighlightedSite) && finalHighlightedSite >= 0);
           if (!isVisible || (!isLocalHover && !isExternalHighlight)) return null;
@@ -4593,9 +4698,8 @@ async function loadFastMEWasm() {
     return fastme;
   }
 
-async function handleFastME(alignmentPanelId, evoModel) {
+async function handleFastME(alignmentPanelId, options) {
   try {
-
     const aln = panelData[alignmentPanelId]?.data;
     if (!Array.isArray(aln) || aln.length < 4) {
       alert('Need at least 4 sequences to build a tree.');
@@ -4608,77 +4712,99 @@ async function handleFastME(alignmentPanelId, evoModel) {
       return;
     }
 
-    console.log('Running FastME on', aln.length, 'sequences');
-
     try { fastme.FS.unlink('in.phy'); } catch {}
     try { fastme.FS.unlink('out.nwk'); } catch {}
     try { fastme.FS.unlink('in.seq.phy'); } catch {}
 
-    // Clean the alignment (requiring at least 2% valid data)
     const cleanAln = removeGappedSequences(aln, 0.02);
     const alnPhylip = msaToPhylip(cleanAln);
     fastme.FS.writeFile('in.seq.phy', alnPhylip);
+
+    // options = { model, method, gamma, nni, spr, bootstrap }
+    const isProtein = Array.isArray(aln) && !isNucleotide(aln);
     
-    try {
-      const test = fastme.FS.readFile('in.seq.phy', { encoding: 'utf8' });
-      console.log('PHYLIP alignment file written, length:', test.length);
-    } catch (e) {
-      console.error('Failed to write in.phy:', e);
-      alert('FastME input file was not written to WASM FS.');
-      return;
+    const argv = ['fastme', '-i', 'in.seq.phy', '-o', 'out.nwk'];
+
+    if (options.model) {
+        const flag = isProtein ? `--protein=${options.model}` : `--dna=${options.model}`;
+        argv.push(flag);
     }
 
-    const isProtein = Array.isArray(aln) && !isNucleotide(aln);
-    let flag = isProtein? '--protein' : '--dna';
-    flag += `=${evoModel}`;
+    if (options.method) {
+      // convert TaxAdd_BalME to B and Tax_Add_OLSME to O
+      if (options.method === 'TaxAdd_BalME') {
+          argv.push('--method=B');
+      } else if (options.method === 'TaxAdd_OLSME') {
+          argv.push('--method=O');
+      } else
+        argv.push('--method=' + options.method);
+    }
 
+    // -- Gamma Rates --
+    if (options.gamma && parseFloat(options.gamma) > 0) {
+        argv.push('-g');
+        argv.push(String(options.gamma));
+    }
+
+    // -- Topology Improvements --
+    if (options.nni) argv.push('-n');
+    if (options.spr) argv.push('-s');
     
-    // 3) Run FastME
-    const argv = ['fastme', '-i', 'in.seq.phy',flag  ,'-n','-s', '-o', 'out.nwk'];
+    // -- Bootstraps --
+    if (options.bootstrap && parseInt(options.bootstrap) > 0) {
+        argv.push('-b');
+        argv.push(String(options.bootstrap));
+    }
+
     console.log('FastME argv:', argv.join(' '));
+    
     const rc = fastme.callMain(argv);
     if (rc !== 0) {
       console.warn('FastME exited with code', rc);
     }
 
-    // 4) Fetch Newick and surface it as a new Tree panel
     let newick = '';
     try {
       newick = fastme.FS.readFile('out.nwk', { encoding: 'utf8' });
     } catch (e) {
-      alert('FastME did not produce a tree (out.nwk missing).');
+      alert('FastME did not produce a tree (out.nwk missing)..');
       return;
     }
+
     if (!newick?.trim()) {
       alert('FastME did not produce a tree (out.nwk was empty).');
       return;
     }
-    try {
+   try {
       const statTxt = fastme.FS.readFile('in.seq.phy_fastme_stat.txt', { encoding: 'utf8' });
       const trimmed = statTxt.split('\n').slice(14).join('\n').trim();
       console.log('FastME statistics:\n', trimmed);
     } catch (e) {
       console.warn('FastME statistics file not found.');
     }
-    
-    // 5) Add a new tree panel
+
     const srcName = panelData[alignmentPanelId]?.filename || 'alignment';
     const base = srcName.replace(/\.[^.]+$/, '');
+
+    // Add suffix to filename based on settings
+    //const suffix = `_${options.method}_${options.model}`;
+    const suffix = ''
+
     addPanel({
       type: 'tree',
       data: {
         data: convertFastMeToNhx(newick),
-        filename: `${base}_fastme.nwk`,
+        filename: `${base}${suffix}.nwk`,
         isNhx: true,
-        method: 'FastME',
+        method: `FastME (${options.method})`,
         sourceAlignment: alignmentPanelId,
       },
       basedOnId: alignmentPanelId,
-      layoutHint: { w: 4, h: 18 },
+      layoutHint: { w: 5, h: 18 },
       autoLinkTo: alignmentPanelId,
     });
 
-    // 6) Clean up FS
+    // Clean up FS
     try { fastme.FS.unlink('in.seq.phy'); } catch {}
     try { fastme.FS.unlink('out.nwk'); } catch {}
     try { fastme.FS.unlink('in.seq.phy_fastme_stat.txt'); } catch {}
