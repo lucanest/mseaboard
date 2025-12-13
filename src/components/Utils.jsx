@@ -294,6 +294,71 @@ export function toFasta(entries) {
     .join('\n');
 }
 
+/**
+ * Converts FastME Newick output to NHX format by moving node labels/bootstraps 
+ * into NHX tags.
+ * 
+ * Input:  ... (A:0.1, B:0.1)100:0.05 ...
+ * Output: ... (A:0.1, B:0.1):0.05[&&NHX:B=100] ...
+ * 
+ * @param {string} newick - The raw Newick string from FastME.
+ * @returns {string} - The string converted to NHX format.
+ */
+export function convertFastMeToNhx(newick) {
+  if (typeof newick !== 'string') return '';
+
+  // Regex explanation:
+  // \)           -> Matches the closing parenthesis of a clade
+  // (\d+)        -> Capture Group $1: Matches the integer (bootstrap/label)
+  // (:)          -> Capture Group $2: Matches the colon separator
+  // ([-\d.eE]+)  -> Capture Group $3: Matches the branch length (handles negatives & scientific notation)
+  const regex = /\)(\d+)(:)([-\d.eE]+)/g;
+
+  // Replacement:
+  // )            -> Restore closing parenthesis
+  // $2           -> Restore colon
+  // $3           -> Restore branch length
+  // [&&NHX:B=$1] -> Append the NHX tag with the captured bootstrap value
+  return newick.replace(regex, ')$2$3[&&NHX:B=$1]');
+}
+
+
+/** 
+ * Remove sequences that are all gaps or extremely sparse from an MSA. 
+ * 
+ * @param {Array} aln - The alignment array (strings or objects with .sequence).
+ * @param {number} minCoverage - (0.0 to 1.0) The fraction of non-gap characters required. 
+ *                               Default is 0.02 (2%).
+ */
+export function removeGappedSequences(aln, minCoverage = 0.02) {
+  if (!Array.isArray(aln) || aln.length === 0) return [];
+
+  return aln.filter(seq => {
+    // 1. Normalize sequence access
+    const s = typeof seq === 'string' ? seq : seq.sequence;
+
+    // 2. Safety check for empty/null strings
+    if (!s || s.trim() === '') return false;
+
+    // 3. Remove standard gap characters (-, ., ?, and spaces)
+    // We create a string of only 'valid' characters.
+    const nonGapStr = s.replace(/[-.?\s]/g, '');
+
+    // 4. Calculate coverage
+    const totalLength = s.length;
+    const validLength = nonGapStr.length;
+
+    // Avoid division by zero if totalLength is somehow 0
+    if (totalLength === 0) return false;
+
+    const coverage = validLength / totalLength;
+
+    // 5. Keep only if it meets the threshold
+    // If minCoverage is 0.02, it returns false (removed).
+    return coverage >= minCoverage;
+  });
+}
+
 /** MSA to PHYLIP format (sequential). */
 export function msaToPhylip(aln){
       const n = aln.length;
@@ -1084,46 +1149,100 @@ export function computeTreeStats(newickString) {
   }
 }
 
-/**
- * Sorts variant strings (e.g., "C82", "A83") based on their numeric residue index.
- * The leading letter is ignored for primary sorting.
- */
-function sortByResidueIndex(a, b) {
-  // Extract the numerical part from each string
-  const numA = parseInt(a.match(/\d+/)?.[0], 10);
-  const numB = parseInt(b.match(/\d+/)?.[0], 10);
-
-  // Handle rare cases where a string might not contain a number
-  if (isNaN(numA) || isNaN(numB)) {
-    return a.localeCompare(b);
-  }
-
-  // If the numbers are different, sort by number
-  if (numA !== numB) {
-    return numA - numB;
-  }
-  
-  // If numbers are identical, use the full string as a tie-breaker
-  return a.localeCompare(b);
-}
 
 /**
- * Parses a TSV or CSV formatted string into a matrix and its labels.
- * It robustly detects and handles two formats:
- * 1. A standard matrix where the first column is row labels and subsequent columns are numeric.
- *    It correctly handles "NaN" strings as valid data points in numeric columns.
- * 2. A "long" format for variant data (e.g., 'M1A'), which it pivots into a wide matrix.
+ * Parses a TSV, CSV, Semicolon-delimited, or Space-separated string into a matrix and its labels.
+ * It handles:
+ * 1. Coupling/Gremlin format: "123 K 124 G 0 0.79" (Space separated).
+ * 2. Annotated CSV/TSV with comments (#): Handles "mutant;linear;log" formats.
+ * 3. Variant "long" format: Pivots "M1A" (or G126A) columns into a wide matrix.
+ * 4. Standard matrix: Row labels in col 1, numeric data in subsequent columns.
  *
  * @param {string} text The raw text content of the file.
  * @returns {{rowLabels: string[], colLabels: string[], matrix: number[][], isSquare: boolean}}
  */
 export function parseTsvMatrix(text) {
-  const lines = text.trim().split(/\r?\n/).filter(line => line.trim() !== '');
-  if (lines.length < 2) {
-    throw new Error("Matrix file must have at least a header row and one data row.");
+  // 1. Clean data: Split lines, trim, and remove comments (#)
+  const lines = text.trim().split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(line => line !== '' && !line.startsWith('#'));
+
+  if (lines.length === 0) {
+    throw new Error("File is empty or contains only comments.");
   }
 
-  const delimiter = lines[0].includes('\t') ? '\t' : ',';
+  // --- 2. Detection Logic for Coupling/Gremlin Format (Space Separated) ---
+  // Pattern: Int AA Int AA Int Float (e.g., "123 K 124 G 0 0.796611")
+  // We check the first line to see if it matches the specific topology of coupling files.
+  const couplingRegex = /^\d+\s+[A-Z]\s+\d+\s+[A-Z]\s+\d+\s+-?\d+(\.\d+)?/i;
+  
+  if (couplingRegex.test(lines[0])) {
+    const dataMap = new Map();
+    const labelSet = new Set();
+    
+    lines.forEach(line => {
+      const parts = line.split(/\s+/);
+      if (parts.length < 6) return;
+
+      const i = parts[0];
+      const i_aa = parts[1];
+      const j = parts[2];
+      const j_aa = parts[3];
+      const score = parseFloat(parts[5]); 
+
+      if (isNaN(score)) return;
+
+      const label1 = `${i} ${i_aa}`;
+      const label2 = `${j} ${j_aa}`;
+
+      labelSet.add(label1);
+      labelSet.add(label2);
+
+      if (!dataMap.has(label1)) dataMap.set(label1, new Map());
+      if (!dataMap.has(label2)) dataMap.set(label2, new Map());
+
+      // Symmetrize
+      dataMap.get(label1).set(label2, score);
+      dataMap.get(label2).set(label1, score);
+    });
+
+    // Sort numerically by index
+    const sortedLabels = Array.from(labelSet).sort((a, b) => parseInt(a) - parseInt(b));
+    
+    const matrix = sortedLabels.map(rowLabel => {
+      return sortedLabels.map(colLabel => {
+        if (rowLabel === colLabel) return NaN;
+        return dataMap.get(rowLabel)?.get(colLabel) ?? NaN;
+      });
+    });
+
+    return {
+      rowLabels: sortedLabels,
+      colLabels: sortedLabels,
+      matrix: matrix,
+      isSquare: true
+    };
+  }
+
+  // ==========================================================
+  // STANDARD TABULAR PARSING (CSV, TSV, Semicolon)
+  // ==========================================================
+
+  // 3. Detect Delimiter (Tab, Semicolon, or Comma)
+  const headerLine = lines[0];
+  const delimiters = ['\t', ';', ','];
+  let delimiter = ',';
+  let maxCount = 0;
+
+  for (const d of delimiters) {
+      // Count occurrences of the delimiter in the header
+      const count = headerLine.split(d).length - 1;
+      if (count > maxCount) {
+          maxCount = count;
+          delimiter = d;
+      }
+  }
+
   const header = lines[0].split(delimiter).map(h => h.trim());
   const rows = lines.slice(1).map(line => {
       const values = line.split(delimiter);
@@ -1134,12 +1253,14 @@ export function parseTsvMatrix(text) {
       return rowObj;
   });
 
-  // --- Generalized Detection Logic for "long" variant format ---
+  // --- 4. Generalized Detection Logic for "long" variant format ---
+  // We look for a column that looks like "M1A", "G126A", etc.
   let variantColumnHeader = null;
   let valueColumnHeader = null;
   const variantRegex = /^[A-Z]\d+[A-Z]$/i;
   const detectionThreshold = 0.8; 
 
+  // Find the column containing variants
   for (const h of header) {
     const nonEmptyRows = rows.filter(row => row[h] !== '');
     if (nonEmptyRows.length === 0) continue;
@@ -1150,6 +1271,7 @@ export function parseTsvMatrix(text) {
     }
   }
 
+  // Find the first valid numeric column (excluding the variant column)
   if (variantColumnHeader) {
     for (const h of header) {
       if (h === variantColumnHeader) continue; 
@@ -1158,25 +1280,29 @@ export function parseTsvMatrix(text) {
       const numericCount = nonEmptyRows.filter(row => !isNaN(parseFloat(row[h]))).length;
       if (numericCount / nonEmptyRows.length >= detectionThreshold) {
         valueColumnHeader = h;
-        break; 
+        break; // We pick the first valid numeric column
       }
     }
   }
 
-  // --- Pivot Logic (if variant format was successfully detected) ---
+  // --- 5. Pivot Logic ---
   if (variantColumnHeader && valueColumnHeader) {
       const aminoAcids = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y'];
       const dataMap = new Map();
       const colLabelSet = new Set();
 
       rows.forEach(row => {
-          const variant = row[variantColumnHeader].toUpperCase();
+          const variant = row[variantColumnHeader].toUpperCase(); // e.g., "G126A"
           const valueStr = row[valueColumnHeader];
           if (!variantRegex.test(variant) || valueStr === '') return;
+          
           const value = parseFloat(valueStr);
           if (isNaN(value)) return;
+
+          // Parse "G126A" -> WT: G, Site: 126, Mutant: A
           const mutant = variant.slice(-1);
-          const siteAndWT = variant.slice(0, -1);
+          const siteAndWT = variant.slice(0, -1); // "G126"
+
           colLabelSet.add(siteAndWT);
           if (!dataMap.has(siteAndWT)) {
               dataMap.set(siteAndWT, new Map());
@@ -1184,7 +1310,14 @@ export function parseTsvMatrix(text) {
           dataMap.get(siteAndWT).set(mutant, value);
       });
 
-      const colLabels = Array.from(colLabelSet).sort(sortByResidueIndex);
+      // Sort columns by residue index (e.g., G126 comes before G127)
+      const localSortByResidue = (a, b) => {
+        const numA = parseInt(a.match(/\d+/)?.[0] || "0");
+        const numB = parseInt(b.match(/\d+/)?.[0] || "0");
+        return numA - numB;
+      };
+
+      const colLabels = Array.from(colLabelSet).sort(localSortByResidue);
       const rowLabels = aminoAcids;
 
       const matrix = rowLabels.map(mutant =>
@@ -1201,7 +1334,8 @@ export function parseTsvMatrix(text) {
       };
   }
 
-  // --- Fallback Logic for Standard Tabular Matrices ---
+  // --- 6. Fallback Logic for Standard Matrices ---
+  // (Standard CSV where first col is labels, others are numbers)
   const originalHeaderCols = lines[0].split(delimiter).slice(1).map(label => label.trim());
   const dataRowsAsCols = lines.slice(1).map(line => line.split(delimiter).slice(1));
 
@@ -1210,11 +1344,9 @@ export function parseTsvMatrix(text) {
     let isColumnNumeric = true;
     for (let j = 0; j < dataRowsAsCols.length; j++) {
       const val = dataRowsAsCols[j][i]?.trim();
-      if (val) { // Only check non-empty cells
-        // A cell is considered non-numeric if it cannot be parsed as a number
-        // and it is not the literal string "NaN".
+      if (val) { 
         const isParsableAsNumber = !isNaN(parseFloat(val));
-        const isNaNString = val.toLowerCase() === 'nan' || val == "N/A" || val == "NA" || val == "-";
+        const isNaNString = val.toLowerCase() === 'nan' || val === "N/A" || val === "NA" || val === "-";
         if (!isParsableAsNumber && !isNaNString) {
           isColumnNumeric = false;
           break;
@@ -1237,7 +1369,6 @@ export function parseTsvMatrix(text) {
     return numericColumnIndices.map(index => {
       const val = row[index];
       const parsed = parseFloat(val);
-      // parseFloat will correctly parse "NaN" into the NaN value.
       return isNaN(parsed) ? NaN : parsed;
     });
   });
