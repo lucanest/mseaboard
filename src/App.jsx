@@ -51,7 +51,7 @@ import { translateNucToAmino, isNucleotide, parsePhylipDistanceMatrix, parseFast
 newickToDistanceMatrix, detectFileType, toFasta, toPhylip, computeSiteStats, buildTreeFromDistanceMatrix,
 computeNormalizedHammingMatrix, pickAlignedSeqForChain, chainIdFromSeqId, residueIndexToMsaCol, 
 reorderHeatmapByLeafOrder, reorderMsaByLeafOrder, msaColToResidueIndex,
-parsePdbChains, mkDownload, baseName, msaToPhylip, computeCorrelationMatrix, uint8ArrayToBase64, base64ToUint8Array,
+parsePdbChains, mkDownload, baseName, removeGappedSequences, convertFastMeToNhx, msaToPhylip, computeCorrelationMatrix, uint8ArrayToBase64, base64ToUint8Array,
 computeTreeStats, parseTsvMatrix, parseNewick, toNewick, detectIndexingMode, sanitizeSchema,
 } from './components/Utils.jsx';
 import { residueColors, logoColors, linkpalette, residueSvgColors } from './constants/colors.js';
@@ -4614,7 +4614,9 @@ async function handleFastME(alignmentPanelId, evoModel) {
     try { fastme.FS.unlink('out.nwk'); } catch {}
     try { fastme.FS.unlink('in.seq.phy'); } catch {}
 
-    const alnPhylip = msaToPhylip(aln);
+    // Clean the alignment (requiring at least 2% valid data)
+    const cleanAln = removeGappedSequences(aln, 0.02);
+    const alnPhylip = msaToPhylip(cleanAln);
     fastme.FS.writeFile('in.seq.phy', alnPhylip);
     
     try {
@@ -4632,7 +4634,7 @@ async function handleFastME(alignmentPanelId, evoModel) {
 
     
     // 3) Run FastME
-    const argv = ['fastme', '-i', 'in.seq.phy',flag  ,'-n','-s', '-o', 'out.nwk'];
+    const argv = ['fastme', '-i', 'in.seq.phy',flag  ,'-n','-s','-b 20', '-o', 'out.nwk'];
     console.log('FastME argv:', argv.join(' '));
     const rc = fastme.callMain(argv);
     if (rc !== 0) {
@@ -4658,15 +4660,16 @@ async function handleFastME(alignmentPanelId, evoModel) {
     } catch (e) {
       console.warn('FastME statistics file not found.');
     }
+    
     // 5) Add a new tree panel
     const srcName = panelData[alignmentPanelId]?.filename || 'alignment';
     const base = srcName.replace(/\.[^.]+$/, '');
     addPanel({
       type: 'tree',
       data: {
-        data: newick,
+        data: convertFastMeToNhx(newick),
         filename: `${base}_fastme.nwk`,
-        isNhx: false,
+        isNhx: true,
         method: 'FastME',
         sourceAlignment: alignmentPanelId,
       },
