@@ -68,6 +68,12 @@ const PhyloTreeViewer = ({
     setNhxColorField(initialNhxColorField);
   }, [initialNhxColorField]);
 
+  // Helper to identify fields that should default to continuous
+  const isBootstrapField = (name) => {
+    if (!name) return false;
+    const lower = name.toLowerCase();
+    return ['bootstrap', 'b', 'bp', 'support', 'conf'].includes(lower);
+  };
 
   const minFontSize = 4;
   const maxFontSize = 24;
@@ -349,11 +355,17 @@ const PhyloTreeViewer = ({
     }
 
 
-const fieldStats = nhxFieldStats[colorField];
-    const isContinuous = fieldStats && (
-        (fieldStats.isNumeric && fieldStats.hasFloat) ||
-        (nhxContinuousFields && nhxContinuousFields[colorField])
+    const fieldStats = nhxFieldStats[colorField];
+    
+    // Determine default behavior: Continuous if Float or (Numeric & Bootstrap-like)
+    const isDefaultContinuous = fieldStats && fieldStats.isNumeric && (
+        fieldStats.hasFloat || isBootstrapField(colorField)
     );
+
+    // Check for user override, override takes precedence, otherwise use default
+    const userOverride = nhxContinuousFields?.[colorField];
+    const isContinuous = userOverride !== undefined ? userOverride : isDefaultContinuous;
+
     const threshold = nhxThresholds?.[colorField];
     let colorValueFunction;
     let colorMap = {};
@@ -943,11 +955,10 @@ const handleColorFieldChange = (field) => {
     setPanelData(prev => {
         const currentPanelData = prev[id] || {};
         const continuousFields = { ...(currentPanelData.nhxContinuousFields || {}) };
-        if (isContinuous) {
-            continuousFields[field] = true;
-        } else {
-            delete continuousFields[field];
-        }
+        
+        // Explicitly set true or false to allow overriding defaults (e.g. turning off bootstrap gradient)
+        continuousFields[field] = isContinuous; 
+        
         return {
             ...prev,
             [id]: {
@@ -1157,7 +1168,11 @@ const handleColorFieldChange = (field) => {
                                 control={
                                     <Switch
                                         size="small"
-                                        checked={!!(nhxContinuousFields && nhxContinuousFields[field])}
+                                        checked={(() => {
+                                            const override = nhxContinuousFields?.[field];
+                                            if (override !== undefined) return override;
+                                            return isBootstrapField(field);
+                                        })()}
                                         onChange={(e) => handleContinuousToggle(field, e.target.checked)}
                                     />
                                 }
