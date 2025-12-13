@@ -2064,7 +2064,7 @@ const handleGridMouseMove = useMemo(() =>
             id={id}
             filename={filename} 
             setPanelData={setPanelData} 
-            forceHideTooltip={showSearch || isSelectionMode || showReorderOptions} 
+            forceHideTooltip={showSearch || isSelectionMode || showReorderOptions || showModelPicker} 
             extraButtons={extraButtons}
             onDuplicate={onDuplicate}
             onLinkClick={onLinkClick} 
@@ -2175,7 +2175,7 @@ const handleGridMouseMove = useMemo(() =>
         
         {/* --- Unified Tooltip Logic --- */}
         {(() => {
-          if (isUiElementHovered || hoveredRow != null && hoveredCol == null) return null;
+          if (showModelPicker || isUiElementHovered || hoveredRow != null && hoveredCol == null) return null;
           const isLocalHover = tooltipSite != null && hoveredPanelId === id;
           const isExternalHighlight = (finalHighlightedSite != null && Number.isInteger(finalHighlightedSite) && finalHighlightedSite >= 0);
           if (!isVisible || (!isLocalHover && !isExternalHighlight)) return null;
