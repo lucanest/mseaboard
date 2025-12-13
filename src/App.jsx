@@ -4634,7 +4634,7 @@ async function handleFastME(alignmentPanelId, evoModel) {
 
     
     // 3) Run FastME
-    const argv = ['fastme', '-i', 'in.seq.phy',flag  ,'-n','-s','-b 20', '-o', 'out.nwk'];
+    const argv = ['fastme', '-i', 'in.seq.phy',flag  ,'-n','-s', '-o', 'out.nwk'];
     console.log('FastME argv:', argv.join(' '));
     const rc = fastme.callMain(argv);
     if (rc !== 0) {
