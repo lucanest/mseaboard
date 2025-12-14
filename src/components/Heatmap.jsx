@@ -488,9 +488,7 @@ const handleColorbarMouseMove = (e) => {
           </strong>
         </div>
         <div>
-          <strong>
             {Number.isFinite(linkedVal) ? Number(linkedVal).toFixed(4) : String(linkedVal)}
-          </strong>
         </div>
       </div>
     );
