@@ -1489,7 +1489,8 @@ const useVirtualization = (scrollTop, scrollLeft, viewportWidth, viewportHeight,
 const AlignmentPanel = React.memo(function AlignmentPanel({
   id,
   data,
-  onRemove, onDuplicate, onDuplicateTranslate, onCreateSeqLogo, onCreateSiteStatsHistogram, onGenerateDistance,
+  onRemove, onDuplicate, onDuplicateTranslate, onCreateSeqLogo,
+  onCreateSiteStatsHistogram, onGenerateDistance, onGenerateFastMEDistance,
   onLinkClick, isLinkModeActive, isEligibleLinkTarget, linkedTo,
   highlightOrigin, onHighlight, externalScrollLeft, onFastME, panelLinks,
   highlightedSequenceId, setHighlightedSequenceId,
@@ -1526,6 +1527,8 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [showReorderOptions, setShowReorderOptions] = useState(false);
   const reorderOptionsRef = useRef(null);
   const shuffleButtonWrapperRef = useRef(null);
+
+
 
    // Store original order of IDs if it doesn't exist yet
   useEffect(() => {
@@ -1685,11 +1688,32 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const [isSyncScrolling, setIsSyncScrolling] = useState(false);
   const isNuc = useMemo(() => isNucleotide(msaData), [msaData]);
 
+  const [showDistOptions, setShowDistOptions] = useState(false);
+  const distOptionsRef = useRef(null);
+  const distButtonWrapperRef = useRef(null);
+
+  useEffect(() => {
+    if (!showDistOptions) return;
+    const closeOnClickOutside = (e) => {
+      if (
+        distOptionsRef.current &&
+        !distOptionsRef.current.contains(e.target) &&
+        (!distButtonWrapperRef.current || !distButtonWrapperRef.current.contains(e.target))
+      ) {
+        setShowDistOptions(false);
+      }
+    };
+    document.addEventListener('mousedown', closeOnClickOutside);
+    return () => document.removeEventListener('mousedown', closeOnClickOutside);
+  }, [showDistOptions]);
+
+
   const [fastMEOptions, setFastMEOptions] = useState({});
 
   const methodOptions = ['NJ', 'BIONJ','UNJ', 'TaxAdd_BalME', 'TaxAdd_OLSME'];
   const dnaModels = ['p-distance', 'RY', 'JC69', 'K2P', 'F81', 'F84', 'TN93', 'LogDet'];
   const proteinModels = ['p-distance','F81', 'LG', 'WAG', 'JTT', 'Dayhoff', 'DCMut', 'CpRev', 'MtREV', 'RtREV', 'HIVb', 'HIVw', 'FLU'];
+  const availableModels = isNuc ? dnaModels : proteinModels;
 
   useEffect(() => {
     const handleGlobalMouseMove = (e) => {
@@ -1723,6 +1747,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
     onFastME(id, fastMEOptions);
     setShowFastMEOptions(false);
   };
+  
 
   const handleDownload = useCallback(() => { mkDownload(baseName(data?.filename, 'alignment'), toFasta(data?.data || []), 'fasta')(); }, [data]);
 
@@ -1949,7 +1974,14 @@ const onScroll = useMemo(() =>
         { element: <TreeButton onClick={() => { setIsSelectionMode(false); setShowSearch(false); handleTreeClick(); }} />, tooltip: <>Build phylogenetic tree <br /> <span className={subtooltipClass}>FastME</span></> },
         { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
         { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, tooltip: <>Compute {codonMode ? "per-codon" : "per-site"} statistics<br /><span className={subtooltipClass}>Conservation and gap fraction</span></> },
-        { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)}/>, tooltip: <>Build distance matrix <br /><span className={subtooltipClass}>Normalized Hamming</span></> },
+        { 
+            element: (
+                <div ref={distButtonWrapperRef}>
+                    <DistanceMatrixButton onClick={() => setShowDistOptions(s => !s)} />
+                </div>
+            ), 
+            tooltip: "Build distance matrix"
+        },
         { element: <RadialToggleButton onClick={() => onCreateColorMatrix(id)} />, tooltip: "Create alignment color matrix"},
         { element: <SubMSAButton onClick={() => { setShowSearch(false); handleToggleSelectionMode(); }} isActive={isSelectionMode} />, tooltip : <> Extract sequences <br /> <span className={subtooltipClass}>Choose a subset to create a new panel </span> </> },
         { element: <div ref={shuffleButtonWrapperRef}><ShuffleButton onClick={() => setShowReorderOptions(s => !s)} /></div>, tooltip: "Reorder sequences" },
@@ -1959,7 +1991,14 @@ const onScroll = useMemo(() =>
         { element: <TreeButton onClick={() => { setIsSelectionMode(false); setShowSearch(false); handleTreeClick(); }} />, tooltip: <>Build phylogenetic tree <br /> <span className={subtooltipClass}>FastME</span></> },
         { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
         { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, tooltip: <>Compute {codonMode ? "per-codon" : "per-site"} statistics<br /><span className={subtooltipClass}>Conservation and gap fraction</span></> },
-        { element: <DistanceMatrixButton onClick={() => onGenerateDistance(id)} />, tooltip: <>Build distance matrix <br /><span className={subtooltipClass}>Normalized Hamming</span></> },
+        { 
+            element: (
+                <div ref={distButtonWrapperRef}>
+                    <DistanceMatrixButton onClick={() => setShowDistOptions(s => !s)} />
+                </div>
+            ), 
+            tooltip: "Build distance matrix" 
+        },
         { element: <RadialToggleButton onClick={() => onCreateColorMatrix(id)} />, tooltip: "Create alignment color matrix"},
         { element: <SubMSAButton onClick={() => { setShowSearch(false); handleToggleSelectionMode(); }} isActive={isSelectionMode} />, tooltip : <> Extract sequences <br /> <span className={subtooltipClass}>Choose a subset to create a new panel </span> </> },
         { element: <div ref={shuffleButtonWrapperRef}><ShuffleButton onClick={() => setShowReorderOptions(s => !s)} /></div>, tooltip: "Reorder sequences" },
@@ -2075,7 +2114,7 @@ const handleGridMouseMove = useMemo(() =>
             id={id}
             filename={filename} 
             setPanelData={setPanelData} 
-            forceHideTooltip={showSearch || isSelectionMode || showReorderOptions || ShowFastMEOptions} 
+            forceHideTooltip={showSearch || isSelectionMode || showReorderOptions || ShowFastMEOptions || showDistOptions} 
             extraButtons={extraButtons}
             onDuplicate={onDuplicate}
             onLinkClick={onLinkClick} 
@@ -2089,7 +2128,9 @@ const handleGridMouseMove = useMemo(() =>
 
         {/* --- Overlays --- */}
         {showReorderOptions && (
-          <div ref={reorderOptionsRef} className="absolute top-11 right-3 z-50 bg-white border border-gray-300 rounded-xl shadow px-1 py-1 flex flex-col items-stretch space-y-1">
+          <div ref={reorderOptionsRef} className="absolute top-11 right-3 z-50 bg-white border border-gray-300 rounded-xl shadow px-1 py-1 flex flex-col items-stretch space-y-1"
+          onMouseEnter={() => setIsUiElementHovered(true)} 
+          onMouseLeave={() => setIsUiElementHovered(false)}>
             {isOrderChanged && (
               <button onClick={restoreOriginalOrder} className="text-sm text-left px-3 py-1 rounded-lg hover:bg-gray-200 whitespace-nowrap">
                 Restore original order
@@ -2215,6 +2256,41 @@ const handleGridMouseMove = useMemo(() =>
       </div> 
     </div>
     )}
+    {/* Distance matrix options */}
+        {showDistOptions && (
+        <div 
+            ref={distOptionsRef}
+            className="absolute top-11 right-3 z-50 bg-white border border-gray-300 rounded-xl shadow px-1 py-1 flex flex-col items-stretch space-y-1"
+            onMouseEnter={() => setIsUiElementHovered(true)} 
+            onMouseLeave={() => setIsUiElementHovered(false)}
+            style={{ maxHeight: '60vh', overflowY: 'auto' }} // Safety for many protein models
+        >
+          {/* Normalized Hamming */}
+          <button 
+            onClick={() => { onGenerateDistance(id); setShowDistOptions(false); }} 
+            className="text-sm text-left px-3 py-1 rounded-lg hover:bg-gray-200 whitespace-nowrap font-semibold border-b border-gray-100"
+          >
+            Normalized Hamming
+          </button>
+
+          {/* Header for FastME */}
+          <div className="px-3 py-1 text-xs text-gray-400 font-bold uppercase tracking-wider">
+            FastME Models
+          </div>
+
+          {/* FastME Options */}
+          {availableModels.map(model => (
+            <button 
+                key={model}
+                onClick={() => { onGenerateFastMEDistance(id, model); setShowDistOptions(false); }} 
+                className="text-sm text-left px-3 py-1 rounded-lg hover:bg-gray-200 whitespace-nowrap"
+            >
+                {model}
+            </button>
+          ))}
+        </div>
+      )}
+
         {showSearch && (
         <div className="absolute right-3 top-10 z-[1100] bg-white border rounded-xl shadow p-2 flex items-center gap-2" 
         onMouseEnter={() => setIsUiElementHovered(true)} 
@@ -2258,7 +2334,9 @@ const handleGridMouseMove = useMemo(() =>
               onClick={closeSearch} 
               title="Close search">✕</button> </div> )}
               {isSelectionMode && (
-                <div className="absolute right-3 top-10 z-[1100] bg-white border rounded-xl shadow p-2 flex items-center gap-2"> 
+                <div className="absolute right-3 top-10 z-[1100] bg-white border rounded-xl shadow p-2 flex items-center gap-2"
+                onMouseEnter={() => setIsUiElementHovered(true)} 
+                onMouseLeave={() => setIsUiElementHovered(false)}> 
                 <input type="text" style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }} 
                 autoFocus 
                 onKeyDown={(e) => { if (e.key === 'Enter') handleGoClick(); if (e.key === 'Escape') handleCancelSelection(); }} 
@@ -3320,6 +3398,7 @@ const PanelWrapper = React.memo(({
   handleTreeToDistance,
   handleHeatmapToTree,
   handleFastME,
+  handleFastMEDistance,
   handleCreateSequenceFromStructure,
   handleStructureDistanceMatrix,
   handleGenerateCorrelationMatrix,
@@ -3379,6 +3458,7 @@ const PanelWrapper = React.memo(({
       onCreateSeqLogo: handleCreateSeqLogo,
       onCreateSiteStatsHistogram: handleCreateSiteStatsHistogram,
       onGenerateDistance: handleAlignmentToDistance,
+      onGenerateFastMEDistance: handleFastMEDistance,
       onFastME: handleFastME,
       onCreateColorMatrix: onCreateColorMatrix,
       onCreateSubsetMsa: onCreateSubsetMsa,
@@ -4697,6 +4777,7 @@ async function loadFastMEWasm() {
     __fastmeModulePromise = fastme;
     return fastme;
   }
+ 
 
 async function handleFastME(alignmentPanelId, options) {
   try {
@@ -4817,6 +4898,136 @@ async function handleFastME(alignmentPanelId, options) {
     alert(`FastME failed: ${err?.message || err}`);
   }
 }
+
+const handleFastMEDistance = useCallback(async (id, model) => {
+  const data = panelData[id];
+  if (!data || !Array.isArray(data.data) || data.data.length < 2) {
+    alert('Need at least two sequences to build a distance matrix.');
+    return;
+  }
+
+  const fastme = await loadFastMEWasm();
+    if (!fastme || !fastme.FS || typeof fastme.FS.writeFile !== 'function') {
+      console.error('FastME WASM module did not export FS. Check your build flags and WASM glue.');
+      return;
+  }
+
+  try { fastme.FS.unlink('in.dist.phy'); } catch {}
+  try { fastme.FS.unlink('out.matrix'); } catch {}
+
+  const cleanAln = removeGappedSequences(data.data, 0.02);
+  
+  if (cleanAln.length < 2) {
+      alert("After removing gapped sequences, fewer than 2 sequences remain. Cannot compute matrix.");
+      return;
+  }
+
+  const alnPhylip = msaToPhylip(cleanAln);
+  fastme.FS.writeFile('in.dist.phy', alnPhylip);
+
+  // Construct Arguments
+  // -c computes matrix, -O output_matrix
+  const argv = ['fastme', '-i', 'in.dist.phy', '-c', '-O', 'out.matrix'];
+  
+  const isProtein = !isNucleotide(data.data);
+  
+  if (model) {
+      if (isProtein) {
+          argv.push(`--protein=${model}`);
+      } else {
+          argv.push(`--dna=${model}`);
+      }
+  }
+
+  console.log('FastME Distance argv:', argv.join(' '));
+
+  // Run FastME
+  const rc = fastme.callMain(argv);
+  if (rc !== 0) {
+    console.warn('FastME exited with code', rc);
+  }
+
+  // Read Result
+  let matrixContent = '';
+  try {
+    matrixContent = fastme.FS.readFile('out.matrix', { encoding: 'utf8' });
+  } catch (e) {
+    alert('FastME did not produce a matrix file.');
+    return;
+  }
+
+  if (!matrixContent || !matrixContent.trim()) {
+      alert("FastME produced an empty matrix file.");
+      return;
+  }
+
+  // Parsing
+  try {
+
+    const lines = matrixContent.trim().split(/\r?\n/).filter(l => l.trim());
+    
+    // Parse header (N)
+    const headerParts = lines[0].trim().split(/\s+/);
+    const n = parseInt(headerParts[0], 10);
+    
+    if (isNaN(n) || n < 1) {
+        throw new Error("Invalid matrix header");
+    }
+
+    const labels = [];
+    const matrix = [];
+
+    // Parse rows (starts at line 1)
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i].trim();
+        // Split by whitespace
+        const parts = line.split(/\s+/);
+        
+        // parts[0] is the name, the rest are numbers
+        if (parts.length < 2) continue;
+
+        labels.push(parts[0]);
+        // Convert the rest to numbers
+        const row = parts.slice(1).map(val => parseFloat(val));
+        matrix.push(row);
+    }
+
+    // Validation
+    if (matrix.length !== n || labels.length !== n) {
+        console.warn(`FastME Parsing Warning: Expected ${n} rows, got ${matrix.length}`);
+    }
+
+    const base = (data.filename || 'alignment').replace(/\.[^.]+$/, '');
+    
+    addPanel({
+      type: 'heatmap',
+      data: { 
+        rowLabels: labels, 
+        colLabels: labels, 
+        isSquare: true, 
+        matrix, 
+        filename: `${base}_${model || 'dist'}.phy`,
+        minVal: 0
+      },
+      basedOnId: id,
+      layoutHint: { w: 4, h: 16 },
+      autoLinkTo: id,
+    });
+  } catch (e) {
+    console.error("Matrix Parsing Error:", e);
+    console.log("Raw Content:", matrixContent);
+    alert('Failed to parse the matrix. See console.');
+  }
+
+  // Cleanup
+  try { fastme.FS.unlink('in.dist.phy'); } catch {}
+  try { fastme.FS.unlink('out.matrix'); } catch {}
+
+  // clear cached module to save memory
+  __fastmeModulePromise = null;
+  try { delete window.FastME; } catch {}
+
+}, [panelData, addPanel]);
 
 const handleGenerateCorrelationMatrix = useCallback((id) => {
   const histogramData = panelData[id];
@@ -6394,6 +6605,7 @@ const handleRestoreSession = useCallback(() => {
         handleTreeToDistance={handleTreeToDistance}
         handleHeatmapToTree={handleHeatmapToTree}
         handleFastME={handleFastME}
+        handleFastMEDistance={handleFastMEDistance}
         handleCreateSequenceFromStructure={handleCreateSequenceFromStructure}
         handleStructureDistanceMatrix={handleStructureDistanceMatrix}
         handleCreateTreeStats={handleCreateTreeStats}
