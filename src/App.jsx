@@ -2263,7 +2263,7 @@ const handleGridMouseMove = useMemo(() =>
             className="absolute top-11 right-3 z-50 bg-white border border-gray-300 rounded-xl shadow px-1 py-1 flex flex-col items-stretch space-y-1"
             onMouseEnter={() => setIsUiElementHovered(true)} 
             onMouseLeave={() => setIsUiElementHovered(false)}
-            style={{ maxHeight: '60vh', overflowY: 'auto' }} // Safety for many protein models
+            style={{ maxHeight: 'min(60vh, calc(100%))', overflowY: 'auto' }} 
         >
           {/* Normalized Hamming */}
           <button 
