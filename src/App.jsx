@@ -5410,6 +5410,24 @@ const handleHighlight = useCallback((site, originId) => {
                 next[targetId] = { ...cur, linkedHighlightCell: nextCell };
             }
         }
+        // --- Alignment -> Heatmap ---
+        else if (S === 'alignment' && T === 'heatmap') {
+             if (cur.isMsaColorMatrix) {
+                 next[targetId] = { ...cur, highlightedSite: site };
+             }
+             else if (cur.colLabels) {
+                 const isCodon = !!prev[originId]?.codonMode;
+                 const colLabelToFind = isCodon ? (site + 1) * 3 - 2 : site + 1;
+                 const colIdx = cur.colLabels.findIndex(lbl => {
+                     const m = String(lbl).match(/(\d+)\s*$/);
+                     return m && parseInt(m[1], 10) === colLabelToFind;
+                 });
+              
+                 if (colIdx !== -1) {
+                     next[targetId] = { ...cur, highlightedSite: colIdx };
+                 }
+             }
+        }
         
         // --- Alignment/SeqLogo -> Histogram ---
         else if ((S === 'alignment' || S === 'seqlogo') && T === 'histogram') {
