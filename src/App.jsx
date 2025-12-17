@@ -2363,6 +2363,8 @@ const handleGridMouseMove = useMemo(() =>
           const isExternalHighlight = (finalHighlightedSite != null && Number.isInteger(finalHighlightedSite) && finalHighlightedSite >= 0);
           if (!isVisible || (!isLocalHover && !isExternalHighlight)) return null;
           const siteToDisplay = isLocalHover ? tooltipSite : finalHighlightedSite;
+          const maxIndex = codonMode ? Math.floor(colCount / 3) : colCount;
+          if (siteToDisplay >= maxIndex) return null;
           const siteLabel = codonMode ? `Codon ${siteToDisplay + 1}` : `Site ${siteToDisplay + 1}`;
           const panelBoundary = scrollContainerRef.current?.getBoundingClientRect();
           return (
