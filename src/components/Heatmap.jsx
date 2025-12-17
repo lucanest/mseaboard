@@ -102,6 +102,8 @@ function Heatmap({
   highColor,
   lowColor,
   isMsaColorMatrix,
+  highlightSite,
+  visibleWindow, 
 }) {
   const containerRef = useRef();
   const canvasRef = useRef();
@@ -453,9 +455,29 @@ const handleColorbarMouseMove = (e) => {
         }
     }
 
+    if (highlightSite != null && !isMsaColorMatrix) {
+      strokeCol(highlightSite, "rgba(0, 0, 0, 1)");
+    }
+
+if (visibleWindow && isMsaColorMatrix) {
+      ctx.save();
+      ctx.strokeStyle = "rgba(0, 0, 0, 1)";
+      ctx.lineWidth = 2;
+      
+      const x = Math.max(0, visibleWindow.startCol * cellSize -1);
+      const y = Math.max(0,visibleWindow.startRow * cellSize - 2);
+      const w = visibleWindow.colSpan * cellSize;
+      const h = Math.min(visibleWindow.rowSpan * cellSize, gridHeight - y);
+
+      ctx.strokeRect(x, y, w, h);
+      ctx.restore();
+    } else if (highlightSite != null) {
+      strokeCol(highlightSite, "rgba(0, 0, 0, 1)");
+    }
+
     if (hoverCell && showHoverHighlight)  strokeSel(hoverCell.row, hoverCell.col, "rgba(0, 0, 0, 1)");
   }, [isDiamondView, matrix, gridWidth, gridHeight, cellSize, nRows, nCols, min, max,
-     hoverCell, highlightedCells, linkedHighlightCellIdx, showGridLines,threshold,showHoverHighlight, lowColor, highColor, isMsaColorMatrix]);
+     hoverCell, highlightedCells, linkedHighlightCellIdx, showGridLines,threshold,showHoverHighlight, lowColor, highColor, isMsaColorMatrix, highlightSite]);
 
   let linkedTooltip = null;
   if (
