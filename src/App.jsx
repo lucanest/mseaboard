@@ -5425,6 +5425,8 @@ const handleHighlight = useCallback((site, originId) => {
               
                  if (colIdx !== -1) {
                      next[targetId] = { ...cur, highlightedSite: colIdx };
+                 } else {
+                     next[targetId] = { ...cur, highlightedSite: null };
                  }
              }
         }
