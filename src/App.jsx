@@ -535,6 +535,7 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
   }, [sequences, alphabet]);
 
   const scrollContainerRef = useRef(null);
+  const [scrollTop, setScrollTop] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [viewportWidth, setViewportWidth] = useState(0);
   const isScrollingRef = useRef(false);
@@ -574,6 +575,8 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
       isScrollingRef.current = false;
     });
   }, []);
+
+
 
 
 
@@ -896,15 +899,16 @@ const handleDownloadTSV = useCallback(() => {
 const HeatmapPanel = React.memo(function HeatmapPanel({
   id, data, onRemove, onDuplicate, onLinkClick, isLinkModeActive,isEligibleLinkTarget,
   hoveredPanelId, setHoveredPanelId, setPanelData, panelLinks,
-  onHighlight, justLinkedPanels,linkBadges, onRestoreLink, colorForLink, onUnlink, onGenerateTree
+  onHighlight, justLinkedPanels,linkBadges, onRestoreLink, colorForLink, onUnlink, onGenerateTree, onWindowDrag
 }) {
-  const { labels, rowLabels, colLabels, matrix, filename, threshold=null, minVal, maxVal } = data || {};
+  const { labels, rowLabels, colLabels, matrix, filename, threshold=null, minVal, maxVal, visibleWindow } = data || {};
   const [showColorModal, setShowColorModal] = useState(false);
   const colorModalRef = useRef(null);
   const [showDownloadOptions, setShowDownloadOptions] = useState(false);
   const downloadOptionsRef = useRef(null);
   const pictureButtonWrapperRef = useRef(null);
   const [containerRef, dims] = useElementSize({ debounceMs: 90 });
+  
 
   // Handler for Canvas-Only PDF Download
   const handleDownloadCanvasPDF = useCallback(() => {
@@ -1220,6 +1224,8 @@ const extraButtons = useMemo(() => {
           highColor={data.highColor}
           lowColor={data.lowColor}
           isMsaColorMatrix={data.isMsaColorMatrix}
+          visibleWindow={visibleWindow}
+          onWindowDrag={onWindowDrag}
         />
       ) : (
         <div className="flex-1 flex items-center justify-center text-gray-400">No data</div>
@@ -1492,12 +1498,11 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   onRemove, onDuplicate, onDuplicateTranslate, onCreateSeqLogo,
   onCreateSiteStatsHistogram, onGenerateDistance, onGenerateFastMEDistance,
   onLinkClick, isLinkModeActive, isEligibleLinkTarget, linkedTo,
-  highlightOrigin, onHighlight, externalScrollLeft, onFastME, panelLinks,
+  highlightOrigin, onHighlight, externalScrollLeft, externalScrollTop, onFastME, panelLinks,
   highlightedSequenceId, setHighlightedSequenceId,
   hoveredPanelId, setHoveredPanelId, setPanelData, justLinkedPanels,
   linkBadges, onRestoreLink, colorForLink, onUnlink, onCreateSubsetMsa,onCreateColorMatrix,
-  onPredictOmega,
-  modelLoading,
+  onPredictOmega, modelLoading,  onVisibleWindowChange, 
 }) {
   const msaData = useMemo(() => data.data, [data.data]);
   const filename = data.filename;
@@ -1644,7 +1649,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
     const delta = e.clientX - dragRef.current;
     dragRef.current = e.clientX;
     setLabelWidth(w => {
-      const clamped = Math.max(40, Math.min(300, w + delta));
+      const clamped = Math.max(40, Math.min(400, w + delta));
       setPanelData(prev => ({ ...prev, [id]: { ...prev[id], labelWidth: clamped } }));
       return clamped;
     });
@@ -1779,6 +1784,8 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const finalHighlightedSite = data.linkedSiteHighlight ?? data.highlightedSite;
 
   const handleScrollEnd = useMemo(() => debounce(() => { setIsSyncScrolling(false); }, 1), []);
+  
+
   const throttledHighlight = useMemo(() => throttle((col, originId) => onHighlight(col, originId), 90, { leading: true, trailing: true }), [onHighlight]);
 
 const onScroll = useMemo(() => 
@@ -1842,6 +1849,15 @@ const onScroll = useMemo(() =>
       const targetStart = externalScrollLeft;
       const targetEnd = targetStart + itemWidth;
 
+
+      if (externalScrollTop !== undefined && externalScrollTop !== null) {
+       // Direct set mode (from Heatmap Window Drag)
+       scroller.scrollLeft = externalScrollLeft;
+       scroller.scrollTop = externalScrollTop;
+       setIsSyncScrolling(true);
+       return;
+    }
+
       let targetScroll = null;
 
       // Condition 1: The target is off the left side of the viewport (or inside the margin)
@@ -1867,7 +1883,7 @@ const onScroll = useMemo(() =>
               left: clampedScroll,
           });
       }
-  }, [externalScrollLeft, codonMode, labelWidth, viewportSize.width]);
+  }, [externalScrollLeft, externalScrollTop, codonMode, labelWidth, viewportSize.width]);
 
 
   useEffect(() => {
@@ -2093,6 +2109,46 @@ const handleGridMouseMove = useMemo(() =>
       CELL_SIZE,
       CELL_SIZE
   );
+
+  useEffect(() => {
+      if (!onVisibleWindowChange) return;
+
+      const itemWidth = CELL_SIZE;
+      const visibleWidth = viewportSize.width - labelWidth;
+      const visibleHeight = viewportSize.height - RULER_HEIGHT;
+
+      // Calculate strictly visible start indices (no overscan)
+      const startRow = Math.floor(scrollTop / CELL_SIZE);
+      const startCol = Math.floor(scrollLeft / itemWidth);
+
+      // Calculate spans based on viewport size
+      const visibleRows = Math.ceil(visibleHeight / CELL_SIZE);
+      const visibleCols = Math.ceil(visibleWidth / itemWidth);
+
+      // Clamp against actual data bounds
+      const clampedRowSpan = Math.min(visibleRows, rowCount - startRow);
+      const clampedColSpan = Math.min(visibleCols, colCount - startCol);
+
+      const windowData = {
+          startRow: Math.max(0, startRow),
+          rowSpan: Math.max(0, clampedRowSpan),
+          startCol: Math.max(0, startCol),
+          colSpan: Math.max(0, clampedColSpan)
+      };
+
+      onVisibleWindowChange(id, windowData);
+  }, [
+      id, 
+      onVisibleWindowChange, 
+      scrollTop, 
+      scrollLeft, 
+      viewportSize, 
+      labelWidth, 
+      rowCount, 
+      colCount, 
+      codonMode
+  ]);
+
 
   // Optimization: Create lightweight arrays of indices to map over in JSX
   const rowIndices = useMemo(() => Array.from({ length: lastRow - firstRow }, (_, i) => firstRow + i), [firstRow, lastRow]);
@@ -3411,6 +3467,8 @@ const PanelWrapper = React.memo(({
   setPanelData,
   onPredictOmega,
   modelLoading,
+  handleVisibleWindowChange,
+  handleWindowDrag,
 }) => {
   const commonProps = usePanelProps(panel.i, {
     linkMode,
@@ -3432,6 +3490,8 @@ const PanelWrapper = React.memo(({
     canLink
   });
 
+  
+
   const data = panelData[panel.i];
   if (!data) return null;
 
@@ -3448,12 +3508,20 @@ const PanelWrapper = React.memo(({
       .filter(d => d && d.type === 'alignment');
       
   }, [panel.type, panel.i, panelLinks, panelData]);
+
+  // Resolve scroll positions (handle both simple number and object {left, top})
+  const sp = scrollPositions[panel.i];
+  const extScrollLeft = (sp && typeof sp === 'object') ? sp.left : sp;
+  const extScrollTop = (sp && typeof sp === 'object') ? sp.top : null;
+
+
   // Add panel-specific props
   const additionalProps = {
     setPanelData,
     justLinkedPanels,
     ...(panel.type === 'alignment' && {
-      externalScrollLeft: scrollPositions[panel.i],
+       externalScrollLeft: extScrollLeft,
+      externalScrollTop: extScrollTop,
       highlightedSequenceId,
       setHighlightedSequenceId,
       onDuplicateTranslate: handleDuplicateTranslate,
@@ -3466,6 +3534,7 @@ const PanelWrapper = React.memo(({
       onCreateSubsetMsa: onCreateSubsetMsa,
       onPredictOmega: onPredictOmega,
       modelLoading: modelLoading,
+      onVisibleWindowChange: handleVisibleWindowChange,
     }),
     ...(panel.type === 'tree' && {
       highlightedSequenceId,
@@ -3476,7 +3545,8 @@ const PanelWrapper = React.memo(({
     }),
     ...(panel.type === 'heatmap' && {
       onHighlight: handleHighlight,
-      onGenerateTree: handleHeatmapToTree 
+      onGenerateTree: handleHeatmapToTree,
+      onWindowDrag: (row, col) => handleWindowDrag(panel.i, row, col)
     }),
 ...(panel.type === 'histogram' && {
   onGenerateCorrelationMatrix: handleGenerateCorrelationMatrix
@@ -3525,7 +3595,8 @@ const PanelWrapper = React.memo(({
     prevProps.panelLinks[prevProps.panel.i] === nextProps.panelLinks[nextProps.panel.i] &&
     prevProps.hoveredPanelId === nextProps.hoveredPanelId &&
     prevProps.justLinkedPanels.join() === nextProps.justLinkedPanels.join() &&
-    prevProps.scrollPositions[prevProps.panel.i] === nextProps.scrollPositions[nextProps.panel.i] &&
+    // Deep compare scrollPositions to avoid unnecessary re-renders if content is same
+    JSON.stringify(prevProps.scrollPositions[prevProps.panel.i]) === JSON.stringify(nextProps.scrollPositions[nextProps.panel.i]) &&
     prevProps.highlightedSequenceId === nextProps.highlightedSequenceId
   );
 });
@@ -4089,6 +4160,27 @@ const colorForLink = useCallback((selfId, partnerId, active) => {
   return linkpalette[idx];
 }, [linkColors, pairKey, linkpalette]);
 
+const handleWindowDrag = useCallback((sourceId, row, col) => {
+    const linkedIds = panelLinks[sourceId] || [];
+    const targets = Array.isArray(linkedIds) ? linkedIds : [linkedIds];
+    const updates = {};
+    
+    targets.forEach(tid => {
+        const p = panels.find(pl => pl.i === tid);
+        if(p && p.type === 'alignment') {
+  
+             const x = col * CELL_SIZE;
+             const y = row * CELL_SIZE;
+             
+             updates[tid] = { left: x, top: y };
+        }
+    });
+    
+    if(Object.keys(updates).length > 0) {
+        setScrollPositions(prev => ({ ...prev, ...updates }));
+    }
+  }, [panelLinks, panels, panelData]);
+
 
 // Memoized cache for alignment <-> structure chain mapping
 const alignmentStructureChainCache = useMemo(() => {
@@ -4589,6 +4681,19 @@ const handleCreateSubtree = useCallback((id, selectedLeaves, quiet = false) => {
 
   const handleUnlink = useCallback((selfId, partnerId) => {
     setState(present => {
+      // update panelData to clear visibleWindow if applicable
+      const newPanelData = { ...present.panelData };
+
+      const clearWindowIfColorMatrix = (pid) => {
+          const pData = newPanelData[pid];
+          if (pData && pData.isMsaColorMatrix && pData.visibleWindow) {
+              newPanelData[pid] = { ...pData, visibleWindow: null };
+          }
+      };
+
+      clearWindowIfColorMatrix(selfId);
+      clearWindowIfColorMatrix(partnerId);
+
       const pl = { ...present.panelLinks };
       if (pl[selfId] && Array.isArray(pl[selfId])) {
         pl[selfId] = pl[selfId].filter(id => id !== partnerId);
@@ -4598,7 +4703,7 @@ const handleCreateSubtree = useCallback((id, selectedLeaves, quiet = false) => {
         pl[partnerId] = pl[partnerId].filter(id => id !== selfId);
         if (pl[partnerId].length === 0) delete pl[partnerId];
       }
-      return { ...present, panelLinks: pl };
+      return { ...present, panelLinks: pl , panelData: newPanelData };
     }, true); // This is an irreversible action so save it.
   }, [setState]);
 
@@ -5293,6 +5398,39 @@ const linkTypeCache = useMemo(() => {
     return cache;
   }, [panelLinks, dataSignature, panels, pairKey]);
 
+const handleVisibleWindowChange = useCallback((originId, windowData) => {
+    setPanelData(prev => {
+        const linkedIds = panelLinks[originId];
+        if (!linkedIds) return prev;
+
+        const targets = Array.isArray(linkedIds) ? linkedIds : [linkedIds];
+        let hasChanges = false;
+        const next = { ...prev };
+
+        targets.forEach(targetId => {
+            const targetData = next[targetId];
+            // Only update panels that are MSA Color Matrices
+            if (targetData && targetData.isMsaColorMatrix) {
+                
+                // Diff check to prevent infinite render loops
+                const currentWin = targetData.visibleWindow;
+                if (!currentWin ||
+                    currentWin.startRow !== windowData.startRow ||
+                    currentWin.rowSpan !== windowData.rowSpan ||
+                    currentWin.startCol !== windowData.startCol ||
+                    currentWin.colSpan !== windowData.colSpan) {
+                    
+                    next[targetId] = { ...targetData, visibleWindow: windowData };
+                    hasChanges = true;
+                }
+            }
+        });
+
+        return hasChanges ? next : prev;
+    });
+  }, [panelLinks, setPanelData]);
+
+
 const handleHighlight = useCallback((site, originId) => {
     // 1. Update Highlight Origin State
     setHighlightOrigin(prevOrigin => {
@@ -5375,19 +5513,20 @@ const handleHighlight = useCallback((site, originId) => {
                 if (labels && site.row != null && site.col != null) {
                     next[targetId] = { ...cur, linkedHighlights: [labels[site.row], labels[site.col]], linkedSiteHighlight: undefined };
                 }
-             } else {
+                } else {
                  let colIdx = sourceData.isMsaColorMatrix ? site.col : null;
                  if (!sourceData.isMsaColorMatrix && sourceData.colLabels) {
                      const match = String(sourceData.colLabels[site.col]).match(/(\d+)\s*$/);
                      if (match) colIdx = parseInt(match[1], 10) - 1;
                  }
-                 if (colIdx != null && colIdx >= 0) {
+                 if (colIdx != null && colIdx >= 0 && !sourceData.isMsaColorMatrix) {
                      next[targetId] = { ...cur, linkedSiteHighlight: colIdx, linkedHighlights: [] };
                      const isCodon = !!cur.codonMode;
                      setScrollPositions(prevSP => ({ ...prevSP, [targetId]: colIdx * (isCodon ? 3 : 1) * CELL_SIZE }));
                  }
              }
         }
+
         
         // --- Heatmap -> Structure ---
         else if (S === 'heatmap' && T === 'structure') {
@@ -5772,6 +5911,22 @@ const handleFetchPdb = useCallback(async (pdbId) => {
   const removePanel = useCallback((id) => {
     setState(present => {
         const newPanelData = { ...present.panelData };
+
+        const currentLinks = present.panelLinks[id];
+        if (currentLinks) {
+            const partners = Array.isArray(currentLinks) ? currentLinks : [currentLinks];
+            partners.forEach(partnerId => {
+                const pData = newPanelData[partnerId];
+                // If the partner is an MSA Color Matrix, clear its window
+                if (pData && pData.isMsaColorMatrix && pData.visibleWindow) {
+                    newPanelData[partnerId] = { 
+                        ...pData, 
+                        visibleWindow: null 
+                    };
+                }
+            });
+        }
+
         delete newPanelData[id];
         
         const newPanels = present.panels.filter(p => p.i !== id);
@@ -6637,6 +6792,8 @@ const handleRestoreSession = useCallback(() => {
         setPanelData={setPanelData}
         onPredictOmega={handlePredictOmega}
         modelLoading={modelLoading} // loading state to disable button
+        handleVisibleWindowChange={handleVisibleWindowChange}
+        handleWindowDrag={handleWindowDrag}
       />
     </div>
   );

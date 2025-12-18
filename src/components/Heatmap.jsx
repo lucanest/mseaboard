@@ -103,6 +103,7 @@ function Heatmap({
   lowColor,
   isMsaColorMatrix,
   highlightSite,
+  onWindowDrag,
   visibleWindow, 
 }) {
   const containerRef = useRef();
@@ -125,6 +126,7 @@ function Heatmap({
     content: null,
   });
 
+  
   // Handle both new and legacy label props for backward compatibility
   const rowLabels = rowLabelsProp || legacyLabels;
   const colLabels = colLabelsProp || legacyLabels;
@@ -182,7 +184,72 @@ function Heatmap({
   }
 
   const showGridLines = cellSize > 10;
-  const showHoverHighlight = cellSize > 6;
+  const showHoverHighlight = cellSize > 6 && !isMsaColorMatrix;
+
+  // Drag State
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragPos, setDragPos] = useState({ left: 0, top: 0 });
+  const dragStartOffset = useRef({ x: 0, y: 0 });
+
+  const handleTileMouseDown = (e) => {
+    e.stopPropagation();
+    e.preventDefault(); // Prevent text selection
+    setIsDragging(true);
+
+    const tileRect = e.currentTarget.getBoundingClientRect();
+    // Use canvasRef parent or container as relative base
+    const containerRect = containerRef.current.querySelector('.visible-window-tile').offsetParent.getBoundingClientRect();
+
+    const currentLeft = tileRect.left - containerRect.left;
+    const currentTop = tileRect.top - containerRect.top;
+
+    dragStartOffset.current = {
+      x: e.clientX - currentLeft,
+      y: e.clientY - currentTop
+    };
+    
+    setDragPos({ left: currentLeft, top: currentTop });
+  };
+
+  // Global Mouse Move/Up Handlers
+  useEffect(() => {
+    if (!isDragging) return;
+
+    const handleMouseMove = (e) => {
+      e.preventDefault();
+      
+      const newLeft = e.clientX - dragStartOffset.current.x;
+      const newTop = e.clientY - dragStartOffset.current.y;
+      
+      // Constraints
+      const maxLeft = gridWidth - (visibleWindow.colSpan * cellSize);
+      const maxTop = gridHeight - (visibleWindow.rowSpan * cellSize);
+      
+      const clampedLeft = Math.max(0, Math.min(newLeft, maxLeft));
+      const clampedTop = Math.max(0, Math.min(newTop, maxTop));
+      
+      setDragPos({ left: clampedLeft, top: clampedTop });
+      
+      // Calculate indices
+      const col = Math.round(clampedLeft / cellSize);
+      const row = Math.round(clampedTop / cellSize);
+      
+      if (onWindowDrag) {
+        onWindowDrag(row, col);
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging, gridWidth, gridHeight, visibleWindow, cellSize, onWindowDrag]);
 
 const { min, max } = useMemo(() => {
     if (isMsaColorMatrix) {
@@ -242,7 +309,7 @@ const { min, max } = useMemo(() => {
     const rect = containerRef.current?.getBoundingClientRect();
     if (rect && eventForTooltip) {
       setTooltip({
-        visible: true,
+        visible: !isMsaColorMatrix,
         x: eventForTooltip.clientX - rect.left + 10,
         y: eventForTooltip.clientY - rect.top - 10,
         content: {
@@ -281,7 +348,7 @@ const { min, max } = useMemo(() => {
 
   const handleGridClick = (event) => {
     const cell = computeCellFromEvent(event);
-    if (!cell) return;
+    if (!cell || isMsaColorMatrix ) return;
     onCellClick?.({ row: cell.row, col: cell.col }, id);
   };
 
@@ -459,21 +526,6 @@ const handleColorbarMouseMove = (e) => {
       strokeCol(highlightSite, "rgba(0, 0, 0, 1)");
     }
 
-if (visibleWindow && isMsaColorMatrix) {
-      ctx.save();
-      ctx.strokeStyle = "rgba(0, 0, 0, 1)";
-      ctx.lineWidth = 2;
-      
-      const x = Math.max(0, visibleWindow.startCol * cellSize -1);
-      const y = Math.max(0,visibleWindow.startRow * cellSize - 2);
-      const w = visibleWindow.colSpan * cellSize;
-      const h = Math.min(visibleWindow.rowSpan * cellSize, gridHeight - y);
-
-      ctx.strokeRect(x, y, w, h);
-      ctx.restore();
-    } else if (highlightSite != null) {
-      strokeCol(highlightSite, "rgba(0, 0, 0, 1)");
-    }
 
     if (hoverCell && showHoverHighlight)  strokeSel(hoverCell.row, hoverCell.col, "rgba(0, 0, 0, 1)");
   }, [isDiamondView, matrix, gridWidth, gridHeight, cellSize, nRows, nCols, min, max,
@@ -647,11 +699,39 @@ if (visibleWindow && isMsaColorMatrix) {
             marginTop: hideLabels? 0 : labelSpace,
             width: gridWidth,
             height: gridHeight,
-            cursor: "crosshair",
+            cursor: !isMsaColorMatrix ? "crosshair" : "default",
+            position: "relative",
           }}
         >
           <canvas ref={canvasRef} />
-        </div>
+
+        {/* Draggable Tile */}
+        {visibleWindow && isMsaColorMatrix && (
+          <div
+            className="visible-window-tile"
+            onMouseDown={handleTileMouseDown}
+            style={{
+              position: "absolute",
+              // Use Drag Pos if dragging, else use Props
+              left: isDragging ? dragPos.left : Math.max(0, visibleWindow.startCol * cellSize),
+              top: isDragging ? dragPos.top : Math.max(0, visibleWindow.startRow * cellSize),
+              
+              width: visibleWindow.colSpan * cellSize,
+              height: Math.min(visibleWindow.rowSpan * cellSize, gridHeight),
+              
+              backgroundColor: "rgba(255, 255, 255, 0.2)",
+              backdropFilter: "blur(1px) saturate(150%)",
+              WebkitBackdropFilter: "blur(1px) saturate(150%)",
+              border: "2px solid rgba(0, 0, 0, 0.35)",
+              borderRadius: "4px",
+              pointerEvents: "auto", // Allow interactions
+              cursor: isDragging ? "grabbing" : "grab",
+              zIndex: 10,
+              boxSizing: "border-box"
+            }}
+          />
+        )}
+      </div>
 
         {isDiamondView && (
           <>
