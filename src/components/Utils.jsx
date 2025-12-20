@@ -139,13 +139,21 @@ export function parseFasta(content) {
   return result;
 }
 
-export function getLeafOrderFromNewick(newick) {
-  // Simple regex to parse leaf names (assuming they do not contain parentheses, colons, commas, or semicolons)
-  return (newick.match(/[\w\.\-\|]+(?=[,\)\:])/g) || []);
-}
-
 // Strip NHX annotations like [&&NHX:foo=bar]
 const stripNhx = (s) => s.replace(/\[&&NHX[^\]]*\]/g, '');
+
+export function getLeafOrderFromNewick(newick) {
+  // robust parsing to handle special characters in leaf names and nhx annotations
+  const leaves = [];
+  const s = stripNhx(newick).trim().replace(/;$/, '');
+  const regex = /(?<name>[\w\.\-\|]+)(?=[,\)\:])/g;
+  let match;
+  while ((match = regex.exec(s)) !== null) {
+    leaves.push(match.groups.name);
+  }
+  return leaves;
+}
+
 
 // Very small Newick parser that preserves branch lengths
 export function parseNewickToTree(newickRaw) {
