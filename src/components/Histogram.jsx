@@ -345,8 +345,8 @@ function Histogram({
     const spaceRight = containerWidth - left;
     const spaceBottom = height - top;
 
-    const translateX = spaceRight < tooltipWidth ? '-120%' : '10%';
-    const translateY = spaceBottom < tooltipHeight ? '-110%' : '10%';
+    const translateX = spaceRight < tooltipWidth ? '-110%' : '10%';
+    const translateY = spaceBottom < tooltipHeight ? '-50%' : '10%';
 
     return {
       left,
