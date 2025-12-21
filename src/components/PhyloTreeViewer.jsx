@@ -16,6 +16,7 @@ const PhyloTreeViewer = ({
   onHoverTip,
   linkedTo,
   radial = false,
+  viewMode = 'radial',
   linkedHighlights = [],
   useBranchLengths = false,
   pruneMode = false,
@@ -45,18 +46,22 @@ const PhyloTreeViewer = ({
     nhxThresholds,
     radialSettings = {}, // Default to empty objects if not present
     rectangularSettings = {},
+    unrootedSettings = {},
   } = panelData || {};
 
+  const isUnrooted = viewMode === 'unrooted';
+
   // Determine the current view's settings.
-  // This allows us to have separate settings for radial and rectangular views.
-  const currentViewSettings = radial ? radialSettings : rectangularSettings;
+  const currentViewSettings = isUnrooted ? unrootedSettings : (radial ? radialSettings : rectangularSettings);
   const {
     labelSize = 1,
     nodeRadius = 1,
     branchWidth = 1,
-    treeRadius = 1, // Specific to radial, but we can safely destructure
-    rightMargin = 100, // Specific to rectangular
+    treeRadius = 1, 
+    rightMargin = 100, 
     colorLabels = false,
+    labelExtension = 30, 
+    rotation = 0,
   } = currentViewSettings;
 
 
@@ -108,9 +113,7 @@ const PhyloTreeViewer = ({
       }
     }
     document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showControls]);
 
   useEffect(() => {
@@ -174,9 +177,9 @@ const PhyloTreeViewer = ({
     const maxLabelLength = d3.max(root.leaves(), d => (d.data.name || '').length);
     const approxCharWidth = 4;
     const minMargin = 10;
-    const maxMargin = radial ? 140 : rightMargin;
+    const maxMargin = (radial || isUnrooted) ? 140 : rightMargin;
     const margin = Math.max(minMargin, Math.min(maxMargin, maxLabelLength * approxCharWidth));
-    const radius = (Math.min(size.width, size.height) / 2 - margin) * (radial ? treeRadius : 1);
+    const radius = (Math.min(size.width, size.height) / 2 - margin) * ((radial || isUnrooted) ? treeRadius : 1);
     const diameter = radius * 2;
     const maxRadius = radius - 30;
 
@@ -251,13 +254,11 @@ const PhyloTreeViewer = ({
       }
     }
 
-    
-
     const svg = d3.select(container)
       .append('svg')
       .attr('width', '100%')
       .attr('height', '100%')
-      .attr('viewBox', radial
+      .attr('viewBox', (radial && !isUnrooted)
         ? [0, 0, diameter + margin * 2, diameter + margin * 2]
         : [0, 0, size.width, size.height])
       .style('font', '10px sans-serif');
@@ -274,14 +275,81 @@ const PhyloTreeViewer = ({
     const legend = svg.append('g')
       .attr('transform', 'translate(20, 20)');
 
-    // Center the tree group
+    // Center the tree group and apply user rotation
     const g = svg.append('g')
-      .attr('transform', radial
-        ? `translate(${radius + margin},${radius + margin})`
-        : `translate(20, 20)`); // Adjust margin for rectangular
+      .attr('transform', radial && !isUnrooted
+        ? `translate(${radius + margin},${radius + margin}) rotate(${rotation})`
+        : isUnrooted 
+            ? `translate(${size.width / 2},${size.height / 2}) rotate(${rotation})`
+            : `translate(20, 20)`);
 
 
-    if (radial) {
+    if (isUnrooted) {
+      // Unrooted Layout: Equal Angle Algorithm
+      root.count(); 
+      
+      const layoutUnrooted = (node, startAngle, endAngle) => {
+        const totalAngle = endAngle - startAngle;
+        let currentAngle = startAngle;
+        
+        if (node.children) {
+          node.children.forEach(child => {
+            const childAngleWidth = totalAngle * (child.value / node.value);
+            const midAngle = currentAngle + childAngleWidth / 2;
+            
+            const branchLen = useBranchLengths ? (child.data.length || 0.1) : 1;
+            child.x = node.x + branchLen * Math.cos(midAngle);
+            child.y = node.y + branchLen * Math.sin(midAngle);
+            child.angle = midAngle; // Store angle for label orientation
+            
+            layoutUnrooted(child, currentAngle, currentAngle + childAngleWidth);
+            currentAngle += childAngleWidth;
+          });
+        }
+      };
+
+      // Special handling for the binary root: draw as one joined branch
+      if (root.children && root.children.length === 2) {
+        const [c1, c2] = root.children;
+        const totalVal = c1.value + c2.value;
+        
+        root.x = 0;
+        root.y = 0;
+        root.angle = 0;
+
+        const b1 = useBranchLengths ? (c1.data.length || 0.1) : 1;
+        const b2 = useBranchLengths ? (c2.data.length || 0.1) : 1;
+
+        c1.x = b1; c1.y = 0; c1.angle = 0;
+        c2.x = -b2; c2.y = 0; c2.angle = Math.PI;
+
+        const area1 = (c1.value / totalVal) * 2 * Math.PI;
+        const area2 = (c2.value / totalVal) * 2 * Math.PI;
+        
+        layoutUnrooted(c1, -area1 / 2, area1 / 2);
+        layoutUnrooted(c2, Math.PI - area2 / 2, Math.PI + area2 / 2);
+      } else {
+        root.x = 0;
+        root.y = 0;
+        root.angle = 0;
+        layoutUnrooted(root, 0, 2 * Math.PI);
+      }
+
+      // Normalize coordinates to fit panel
+      const nodes = root.descendants();
+      let maxD = 0;
+      nodes.forEach(d => {
+        const d_dist = Math.sqrt(d.x * d.x + d.y * d.y);
+        if (d_dist > maxD) maxD = d_dist;
+      });
+      const safeRadius = (Math.min(size.width, size.height) / 2 - margin - 10);
+      const multiplier = maxD > 0 ? (safeRadius * treeRadius) / maxD : 1;
+      nodes.forEach(d => {
+        d.x *= multiplier;
+        d.y *= multiplier;
+      });
+
+    } else if (radial) {
       // D3 layout for Radial mode (y = radius, x = angle)
       d3.tree().size([2 * Math.PI, maxRadius])(root);
 
@@ -399,7 +467,22 @@ const PhyloTreeViewer = ({
         colorValueFunction = (val) => colorMap[val] || DARK_GRAY_COLOR;
     }
 
-    const links = root.links();  // Each is { source, target }
+    // Generate links, each is { source, target }
+    let links = root.links();
+    // Intercept to join binary root branches in unrooted view
+    if (isUnrooted && root.children && root.children.length === 2) {
+      const [c1, c2] = root.children;
+      const joinedLink = {
+        source: c1,
+        target: c2,
+        isRootBranch: true,
+        data: {
+          length: (c1.data.length || 0) + (c2.data.length || 0)
+        }
+      };
+      links = links.filter(l => l.source !== root);
+      links.push(joinedLink);
+    }
 
 
     const classicRadialLinkGenerator = (link) => {
@@ -425,7 +508,9 @@ const PhyloTreeViewer = ({
       .x(d => d.y)
       .y(d => d.x);
 
-    const linkPathGen = radial ? classicRadialLinkGenerator : classicRectangularLinkGenerator;
+    const unrootedLinkGenerator = (d) => `M${d.source.x},${d.source.y} L${d.target.x},${d.target.y}`;
+
+    const linkPathGen = isUnrooted ? unrootedLinkGenerator : (radial ? classicRadialLinkGenerator : classicRectangularLinkGenerator);
 
     // Visible branches
     const branchPaths = g.append('g')
@@ -461,7 +546,7 @@ const PhyloTreeViewer = ({
           }
         }
 
-        const length = event?.target?.data?.length;
+        const length = event.isRootBranch ? (event.data?.length) : (event?.target?.data?.length);
         if (pruneMode) {
           setTooltipContent(`<strong>Click to prune this branch</strong>`);
         } else {
@@ -525,8 +610,8 @@ const PhyloTreeViewer = ({
         }));
       });
 
-    // Add dotted lines for label alignment (if using branch lengths)
-    if (useBranchLengths) {
+    // Add dotted lines for label alignment (Radial or Unrooted mode)
+    if (useBranchLengths || isUnrooted) {
       const leaves = root.leaves();
       const maxDimension = radial ? maxRadius : size.width - margin - rightMargin;
 
@@ -540,8 +625,13 @@ const PhyloTreeViewer = ({
         .attr('stroke-dasharray', '2,2')
         .style('pointer-events', 'none')
         .attr('d', d => {
+          if (isUnrooted) {
+            const ex = d.x + labelExtension * Math.cos(d.angle);
+            const ey = d.y + labelExtension * Math.sin(d.angle);
+            return `M ${d.x},${d.y} L ${ex},${ey}`;
+          }
           if (radial) {
-            if (d.y >= maxDimension) return null; // Don't draw if already at the edge
+            if (d.y >= maxDimension) return null; 
             const angle = d.x - Math.PI / 2;
             const sx = d.y * Math.cos(angle);
             const sy = d.y * Math.sin(angle);
@@ -556,7 +646,7 @@ const PhyloTreeViewer = ({
     }
 
 
-    if (radial) {
+    if (radial && !isUnrooted) {
       const leaves = root.leaves();
       const angleStep = (2 * Math.PI) / leaves.length;
       const outerRadius = radius + Math.max(minMargin, Math.min(maxMargin, minLabelLength * approxCharWidth));
@@ -594,11 +684,14 @@ const PhyloTreeViewer = ({
 
     g.append('g')
       .selectAll('circle')
-      .data(root.descendants())
+      .data(root.descendants().filter(d => isUnrooted ? d !== root : true)) // Don't draw binary root in unrooted view
       .join('circle')
-      .attr('transform', d => radial ? `rotate(${(d.x * 180 / Math.PI - 90)}) translate(${d.y},0)` : null)
-      .attr('cx', d => radial ? null : d.y) //  y is horizontal
-      .attr('cy', d => radial ? null : d.x) //  x is vertical
+      .attr('transform', d => {
+        if (isUnrooted) return `translate(${d.x},${d.y})`;
+        return radial ? `rotate(${(d.x * 180 / Math.PI - 90)}) translate(${d.y},0)` : null;
+      })
+      .attr('cx', d => (radial || isUnrooted) ? null : d.y) 
+      .attr('cy', d => (radial || isUnrooted) ? null : d.x) 
       .attr('r', d => Math.max(minNodeRadius, Math.min(maxNodeRadius, 3 * scaleFactor)) * nodeRadius)
       .style('cursor', extractMode ? 'pointer' : 'default')
       .attr('fill', d => {
@@ -626,7 +719,7 @@ const PhyloTreeViewer = ({
               .join('')
           );
         d3.select(this)
-          // set a black border on hover
+        // set a black border on hover
           .attr('stroke', 'black')
           .attr('stroke-width', 2);
         
@@ -667,7 +760,6 @@ const PhyloTreeViewer = ({
             const name = event.data?.name;
             const isLeaf = event.height === 0;
             if (!isLeaf || !name) return;
-            // Original highlighting logic for when extractMode is off
             setPanelData(prev => {
               const current = prev[id] || {};
               const prevHighlights = current.highlightedNodes || [];
@@ -686,26 +778,63 @@ const PhyloTreeViewer = ({
       .data(root.descendants().filter(d => !d.children && d.data && typeof d.data.name !== 'undefined'))
       .join('text')
       .attr('transform', d => {
+        if (isUnrooted) {
+            const ex = d.x + labelExtension * Math.cos(d.angle);
+            const ey = d.y + labelExtension * Math.sin(d.angle);
+            let branchRotation = d.angle * 180 / Math.PI;
+            // Calculate total screen angle to determine if flip is needed
+            let screenAngle = (branchRotation + rotation) % 360;
+            if (screenAngle < 0) screenAngle += 360;
+            const isFlipped = screenAngle > 90 && screenAngle < 270;
+            if (isFlipped) branchRotation += 180;
+            return `translate(${ex},${ey}) rotate(${branchRotation})`;
+        }
         if (!radial) return null;
         const labelRadius = (useBranchLengths && d.y < maxRadius) ? maxRadius : d.y;
-        return `rotate(${(d.x * 180 / Math.PI - 90)}) translate(${labelRadius},0) rotate(${d.x >= Math.PI ? 180 : 0})`;
+        let branchRotation = (d.x * 180 / Math.PI - 90);
+        let screenAngle = (branchRotation + rotation) % 360;
+        if (screenAngle < 0) screenAngle += 360;
+        const isFlipped = screenAngle > 90 && screenAngle < 270;
+        const flipRotation = isFlipped ? 180 : 0;
+        return `rotate(${branchRotation}) translate(${labelRadius},0) rotate(${flipRotation})`;
       })
       .attr('x', d => {
-        if (radial) return d.x < Math.PI ? 6 : -6;
+        if (isUnrooted) {
+            let screenAngle = (d.angle * 180 / Math.PI + rotation) % 360;
+            if (screenAngle < 0) screenAngle += 360;
+            return (screenAngle > 90 && screenAngle < 270) ? -6 : 6;
+        }
+        if (radial) {
+            let screenAngle = (d.x * 180 / Math.PI - 90 + rotation) % 360;
+            if (screenAngle < 0) screenAngle += 360;
+            return (screenAngle > 90 && screenAngle < 270) ? -6 : 6;
+        }
         const drawWidth = size.width - margin - rightMargin;
         const labelPos = useBranchLengths ? drawWidth : d.y;
         return labelPos + 6;
       })
-      .attr('y', d => radial ? null : d.x) // y is vertical
-      .attr('text-anchor', d => radial ? (d.x < Math.PI ? 'start' : 'end') : 'start')
-      .attr('dy', radial ? '0.35em' : null)
-      .attr('dominant-baseline', radial ? 'auto' : 'middle')
+      .attr('y', d => (radial || isUnrooted) ? null : d.x) 
+      .attr('text-anchor', d => {
+        if (isUnrooted) {
+            let screenAngle = (d.angle * 180 / Math.PI + rotation) % 360;
+            if (screenAngle < 0) screenAngle += 360;
+            return (screenAngle > 90 && screenAngle < 270) ? 'end' : 'start';
+        }
+        if (radial) {
+            let screenAngle = (d.x * 180 / Math.PI - 90 + rotation) % 360;
+            if (screenAngle < 0) screenAngle += 360;
+            return (screenAngle > 90 && screenAngle < 270) ? 'end' : 'start';
+        }
+        return 'start';
+      })
+      .attr('dy', (radial || isUnrooted) ? '0.35em' : null)
+      .attr('dominant-baseline', (radial || isUnrooted) ? 'auto' : 'middle')
       .text(d => (d.data && typeof d.data.name !== 'undefined') ? d.data.name : '')
       .style('font-size', d => {
         const { isHighlight, isPersistentHighlight } = getHighlightState(d);
         let baseSize = 12 * fontScale;
-        if (radial && maxLabelLength > 0) {
-          const availableWidth = margin - 12; // Buffer space
+        if (radial && !isUnrooted && maxLabelLength > 0) {
+          const availableWidth = margin - 12; 
           const fontSizeToFit = availableWidth / (maxLabelLength * 0.35); // Using 0.35 as a character width heuristic
           baseSize = Math.min(baseSize, fontSizeToFit);
         }
@@ -744,12 +873,10 @@ const PhyloTreeViewer = ({
         setHighlightedNode(null);
       })
     .on('click', (event, d) => {
-        // Pass the entire d3 node object up
         if (extractMode) {
             onLeafSelect?.(event);
         } else {
             const name = event.data?.name;
-            // Original highlighting logic for when extractMode is off
             setPanelData(prev => {
                 const current = prev[id] || {};
                 const prevHighlights = current.highlightedNodes || [];
@@ -770,7 +897,7 @@ const PhyloTreeViewer = ({
 
     // Case 1: The selected field is continuous
     if (isContinuous && fieldStats) {
-        // Add colorbar title
+        // Colorbar title
         legend.append('text')
             .attr('x', 0)
             .attr('y', (_, i) => i * 20 + 12 -14)
@@ -779,12 +906,11 @@ const PhyloTreeViewer = ({
             .style('fill', DARK_GRAY_COLOR)
             .style('font-weight', '350');
 
-        // render the colorbar for continuous data
-        const colorbarY = radial ? 26 : 26;
+        const colorbarY = 26;
         const colorbarX = 20
         const colorbar = svg.append('g')
             .attr('class', 'colorbar-group')
-            .attr('transform', `translate(${colorbarX}, ${colorbarY})`); // Set fixed top-left position
+            .attr('transform', `translate(${colorbarX}, ${colorbarY})`); // fixed top-left position
         const gradientID = `tree-gradient-${id}`;
         const defs = colorbar.append('defs');
         const linearGradient = defs.append('linearGradient').attr('id', gradientID);
@@ -823,11 +949,8 @@ const PhyloTreeViewer = ({
             .call(d3.axisBottom(xScale).ticks(5));
         
 
-        // Remove the horizontal axis line
-        axis.select(".domain").remove();
-
-        // Remove the vertical tick lines
-        axis.selectAll(".tick line").remove();
+        axis.select(".domain").remove(); // Remove the horizontal axis line
+        axis.selectAll(".tick line").remove(); // Remove the vertical tick lines
 
         colorbar.append('rect')
             .attr('width', barWidth)
@@ -851,7 +974,7 @@ const PhyloTreeViewer = ({
             })
           .on('mousemove', function() { 
                 const containerRect = containerRef.current.getBoundingClientRect();
-                const barRect = this.getBoundingClientRect(); // Get the colorbar's own position
+                const barRect = this.getBoundingClientRect(); // Get the colorbar's position
                 const relX = d3.mouse(this)[0];
                 const value = xScale.invert(relX);
 
@@ -894,9 +1017,9 @@ const PhyloTreeViewer = ({
     }
 
     setDebugInfo(`Tree rendered successfully. Found ${Object.keys(colorMap).length} different ${colorField} values.`);
-  }, [newickStr, isNhx, size, linkedTo, onHoverTip, highlightedNodes, linkedHighlights, radial, useBranchLengths,
+  }, [newickStr, isNhx, size, linkedTo, onHoverTip, highlightedNodes, linkedHighlights, radial, viewMode, useBranchLengths,
      pruneMode, id, setPanelData, toNewick, nhxColorField, labelSize, nodeRadius, branchWidth,
-      treeRadius, rightMargin,extractMode, selectedLeaves, onLeafSelect, onCountLeaves, colorLabels,]);
+      treeRadius, rightMargin, labelExtension, rotation, extractMode, selectedLeaves, onLeafSelect, onCountLeaves, colorLabels,]);
 
   useEffect(() => {
     function handleDocumentMouseMove(e) {
@@ -921,7 +1044,7 @@ const PhyloTreeViewer = ({
 
     // Create a generic handler to update settings for the current view
     const handleSettingChange = (setting, value) => {
-        const viewSettingsKey = radial ? 'radialSettings' : 'rectangularSettings';
+        const viewSettingsKey = isUnrooted ? 'unrootedSettings' : (radial ? 'radialSettings' : 'rectangularSettings');
         setPanelData(prev => {
             const currentPanelData = prev[id] || {};
             const currentViewSettings = currentPanelData[viewSettingsKey] || {};
@@ -955,7 +1078,6 @@ const handleColorFieldChange = (field) => {
     setPanelData(prev => {
         const currentPanelData = prev[id] || {};
         const continuousFields = { ...(currentPanelData.nhxContinuousFields || {}) };
-        
         // Explicitly set true or false to allow overriding defaults (e.g. turning off bootstrap gradient)
         continuousFields[field] = isContinuous; 
         
@@ -982,8 +1104,6 @@ const handleColorFieldChange = (field) => {
         setTooltipContent('');
       }}
     >
-      {/* The SVG is appended here by the useEffect hook */}
-
       {/* Control Panel */}
       {showControls && (
         <Box
@@ -1075,8 +1195,8 @@ const handleColorFieldChange = (field) => {
                 />
               </Box>
             </Box>
-            {/* Tree Radius Slider (Radial Mode Only) */}
-            {radial && (
+            {/* Tree Radius Slider (Radial and Unrooted Mode) */}
+            {(radial || isUnrooted) && (
               <Box sx={{ mb: 1 }}>
                 <Chip
                   label={`Tree radius: ${Math.round(treeRadius * 100)}%`}
@@ -1096,8 +1216,50 @@ const handleColorFieldChange = (field) => {
                 </Box>
               </Box>
             )}
+            {/* Rotation Slider (Radial and Unrooted Mode) */}
+            {(radial || isUnrooted) && (
+              <Box sx={{ mb: 1 }}>
+                <Chip
+                  label={`Rotation: ${rotation}°`}
+                  size="small"
+                  sx={{ mb: 0.5, bgcolor: '#E5E7EB', color: 'black', fontWeight: 300, borderRadius: 1.5, fontSize: 9, px: 0.5, boxShadow: 1 }}
+                />
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+                  <Slider
+                    value={rotation}
+                    onChange={(_, v) => handleSettingChange('rotation', v)}
+                    step={1}
+                    min={0}
+                    max={360}
+                    size="small"
+                    sx={{ width: '90%', maxWidth: 180, color: 'rgba(0,0,0,0.47)', mx: 'auto', '& .MuiSlider-track': { border: 'none' }, '& .MuiSlider-thumb': { width: 16, height: 16, backgroundColor: '#fff', '&::before': { boxShadow: '0 4px 8px rgba(0,0,0,0.4)' }, '&:hover, &.Mui-focusVisible, &.Mui-active': { boxShadow: 'none' } } }}
+                  />
+                </Box>
+              </Box>
+            )}
+            {/* Label Extension Slider (Unrooted Mode Only) */}
+            {isUnrooted && (
+              <Box sx={{ mb: 1 }}>
+                <Chip
+                  label={`Label extension: ${labelExtension}px`}
+                  size="small"
+                  sx={{ mb: 0.5, bgcolor: '#E5E7EB', color: 'black', fontWeight: 300, borderRadius: 1.5, fontSize: 9, px: 0.5, boxShadow: 1 }}
+                />
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+                  <Slider
+                    value={labelExtension}
+                    onChange={(_, v) => handleSettingChange('labelExtension', v)}
+                    step={1}
+                    min={0}
+                    max={200}
+                    size="small"
+                    sx={{ width: '90%', maxWidth: 180, color: 'rgba(0,0,0,0.47)', mx: 'auto', '& .MuiSlider-track': { border: 'none' }, '& .MuiSlider-thumb': { width: 16, height: 16, backgroundColor: '#fff', '&::before': { boxShadow: '0 4px 8px rgba(0,0,0,0.4)' }, '&:hover, &.Mui-focusVisible, &.Mui-active': { boxShadow: 'none' } } }}
+                  />
+                </Box>
+              </Box>
+            )}
             {/* Right Margin Slider (Rectangular Mode Only) */}
-            {!radial && (
+            {!radial && !isUnrooted && (
               <Box sx={{ mb: 1 }}>
                 <Chip
                   label={`Right margin: ${rightMargin}px`}

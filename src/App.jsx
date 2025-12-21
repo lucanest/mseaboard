@@ -2580,22 +2580,40 @@ const TreePanel = React.memo(function TreePanel({
   setHoveredPanelId, setPanelData,justLinkedPanels,
   linkBadges, onRestoreLink, colorForLink, onUnlink, onCreateTreeStats, onCreateSubtree,
 }) {
-  const { filename, isNhx, RadialMode= true, drawBranchLengths=false, pruneMode = false } = data || {};
+  const { filename, isNhx, viewMode = data.RadialMode !== false ? 'radial' : 'rectangular', drawBranchLengths=false, pruneMode = false } = data || {};
+  
+  const [showViewOptions, setShowViewOptions] = useState(false);
+  const viewOptionsRef = useRef(null);
+  const viewButtonWrapperRef = useRef(null);
+
+  // Handle click outside to close dropdown
+  useEffect(() => {
+    if (!showViewOptions) return;
+    const closeOnClickOutside = (e) => {
+      if (viewOptionsRef.current && !viewOptionsRef.current.contains(e.target) &&
+          (!viewButtonWrapperRef.current || !viewButtonWrapperRef.current.contains(e.target))) {
+        setShowViewOptions(false);
+      }
+    };
+    document.addEventListener('mousedown', closeOnClickOutside);
+    return () => document.removeEventListener('mousedown', closeOnClickOutside);
+  }, [showViewOptions]);
+
+  const setViewMode = (mode) => {
+    setPanelData(pd => ({
+      ...pd,
+      [id]: { ...pd[id], viewMode: mode, RadialMode: mode === 'radial' } // RadialMode kept for backward compatibility
+    }));
+    setShowViewOptions(false);
+  };
+
+
+
   const [extractMode, setExtractMode] = useState(false);
   const [selectedLeaves, setSelectedLeaves] = useState(new Set());
   const treeContainerRef = useRef(null);
 
   const [totalLeaves, setTotalLeaves] = useState(0);
-
-  const handleRadialToggle = useCallback(() => {
-    setPanelData(pd => ({
-      ...pd,
-      [id]: {
-        ...pd[id],
-        RadialMode: !RadialMode
-      }
-    }));
-  }, [id, setPanelData, RadialMode]);
 
   const handleBranchLengthsToggle = useCallback(() => {
     setPanelData(pd => ({
@@ -2723,8 +2741,14 @@ const TreePanel = React.memo(function TreePanel({
   // Memoize extraButtons to prevent re-render loops.
   const extraButtons = useMemo(() => [
     { element: <BranchLengthsButton onClick={handleBranchLengthsToggle} isActive={drawBranchLengths} />, tooltip: !drawBranchLengths ? "Draw using branch lengths" : "Draw ignoring branch lengths" },
-    { element: <RadialToggleButton onClick={handleRadialToggle} isActive={RadialMode}  />,
-     tooltip: RadialMode ? "Switch to rectangular view" : "Switch to radial view" },
+    { 
+      element: (
+        <div ref={viewButtonWrapperRef}>
+          <RadialToggleButton onClick={() => setShowViewOptions(s => !s)} isActive={showViewOptions} />
+        </div>
+      ), 
+      tooltip: "Select tree view mode" 
+    },
     { 
       element: <SiteStatsButton onClick={() => onCreateTreeStats(id)} />,
       tooltip: (
@@ -2755,7 +2779,7 @@ const TreePanel = React.memo(function TreePanel({
       tooltip: "Download image (.png)" },
     { element: <DownloadButton onClick={handleDownload} />,
      tooltip: "Download tree" }
-  ], [id, drawBranchLengths, RadialMode, pruneMode, extractMode, handleBranchLengthsToggle, handleRadialToggle, onCreateTreeStats, onGenerateDistance, handlePruneToggle, handleDownload, handleDownloadPNG, handleExtractToggle]);
+  ], [id, drawBranchLengths, pruneMode, extractMode, handleBranchLengthsToggle, onCreateTreeStats, onGenerateDistance, handlePruneToggle, handleDownload, handleDownloadPNG, handleExtractToggle]);
 
   // Dynamic version of the panel data.
   // This lets us merge stored highlights (from clicks) with live highlights (from hovers).
@@ -2795,7 +2819,7 @@ const TreePanel = React.memo(function TreePanel({
       isEligibleLinkTarget={isEligibleLinkTarget}
       isLinkModeActive={isLinkModeActive}
       extraButtons={extraButtons}
-      forceHideTooltip={extractMode} 
+      forceHideTooltip={extractMode || showViewOptions} 
       linkBadges={linkBadges}
       onRestoreLink={onRestoreLink}
       onUnlink={onUnlink}
@@ -2818,6 +2842,20 @@ const TreePanel = React.memo(function TreePanel({
               </button>
           </div>
       )}
+      {/* Styled Dropdown Menu */}
+      {showViewOptions && (
+        <div ref={viewOptionsRef} className="absolute top-11 right-32 z-50 bg-white border border-gray-300 rounded-xl shadow px-1 py-1 flex flex-col items-stretch space-y-1">
+          {['radial', 'rectangular', 'unrooted'].map((mode) => (
+            <button 
+              key={mode}
+              onClick={() => setViewMode(mode)} 
+              className={`text-sm text-left px-3 py-1 rounded-lg hover:bg-gray-200 capitalize ${viewMode === mode ? 'bg-blue-100' : ''}`}
+            >
+              {mode}
+            </button>
+          ))}
+        </div>
+      )}
       <div ref={treeContainerRef} className="w-full h-full flex-1 overflow-auto flex items-center justify-center">
           <PhyloTreeViewer
             // Pass the entire data object. It contains the newick string,
@@ -2829,9 +2867,9 @@ const TreePanel = React.memo(function TreePanel({
             onHoverTip={onHoverTip}
             linkedTo={linkedTo}
             toNewick={toNewick}
-            
             isNhx={isNhx}
-            radial={RadialMode}
+            radial={viewMode === 'radial'}
+            viewMode={viewMode}
             useBranchLengths={drawBranchLengths}
             pruneMode={pruneMode}
             extractMode={extractMode}
