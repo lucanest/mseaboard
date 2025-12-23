@@ -12,7 +12,6 @@ const PhyloTreeViewer = ({
   id,
   panelData, // All data and settings are in this object
   setPanelData, // Function to update the parent's state
-  isNhx = false,
   onHoverTip,
   linkedTo,
   radial = false,
@@ -28,7 +27,6 @@ const PhyloTreeViewer = ({
 }) => {
   const containerRef = useRef();
   const [size, setSize] = useState({ width: 0, height: 0 });
-  const [debugInfo, setDebugInfo] = useState('');
   const [highlightedNode, setHighlightedNode] = useState(null);
   const [highlightedLink, setHighlightedLink] = useState(null);
   const [showControls, setShowControls] = useState(false);
@@ -121,13 +119,11 @@ const PhyloTreeViewer = ({
 
     const container = containerRef.current;
     d3.select(container).selectAll('svg').remove();
-    setDebugInfo(`Processing: ${newickStr.slice(0, 100)}...`);
 
     let parsed;
     try {
       parsed = parseNewick(newickStr);
     } catch (err) {
-      setDebugInfo(`Parse error: ${err.message}`);
       return;
     }
 
@@ -138,7 +134,7 @@ const PhyloTreeViewer = ({
     };
 
     const extractNhxData = (nameWithNhx) => {
-      if (!nameWithNhx || !isNhx) return { name: nameWithNhx || '', nhx: {} };
+      if (!nameWithNhx) return { name: nameWithNhx || '', nhx: {} };
       const nhxMatch = nameWithNhx.match(/\[&&NHX:([^\]]+)\]/);
       if (!nhxMatch) return { name: nameWithNhx, nhx: {} };
       const nhxString = nhxMatch[1];
@@ -1016,8 +1012,7 @@ const PhyloTreeViewer = ({
         .style('font-weight', '400');
     }
 
-    setDebugInfo(`Tree rendered successfully. Found ${Object.keys(colorMap).length} different ${colorField} values.`);
-  }, [newickStr, isNhx, size, linkedTo, onHoverTip, highlightedNodes, linkedHighlights, radial, viewMode, useBranchLengths,
+  }, [newickStr, size, linkedTo, onHoverTip, highlightedNodes, linkedHighlights, radial, viewMode, useBranchLengths,
      pruneMode, id, setPanelData, toNewick, nhxColorField, labelSize, nodeRadius, branchWidth,
       treeRadius, rightMargin, labelExtension, rotation, extractMode, selectedLeaves, onLeafSelect, onCountLeaves, colorLabels,]);
 
