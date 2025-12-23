@@ -3701,14 +3701,20 @@ const TopBar = React.memo(function TopBar({
   const showTimer = useRef();
   const hideTimer = useRef();
   
-  //  Additions for PDB Search UI
+  // Tree Upload UI
+  const [showTreeOptions, setShowTreeOptions] = useState(false);
+  const [isPastingTree, setIsPastingTree] = useState(false);
+  const [treePasteQuery, setTreePasteQuery] = useState('');
+  const treeBtnRef = useRef(null);
+
+  // PDB Search UI
   const [showStructureOptions, setShowStructureOptions] = useState(false);
   const [isSearchingPdb, setIsSearchingPdb] = useState(false);
   const [pdbSearchQuery, setPdbSearchQuery] = useState('');
   const structureBtnRef = useRef(null);
   
   useEffect(() => {
-    if (!showStructureOptions) return;
+    if (!showStructureOptions && !showTreeOptions) return;
 
     function handleClickOutside(event) {
       if (structureBtnRef.current && !structureBtnRef.current.contains(event.target)) {
@@ -3716,12 +3722,18 @@ const TopBar = React.memo(function TopBar({
         setIsSearchingPdb(false);
         setPdbSearchQuery('');
       }
+      // Tree check
+      if (treeBtnRef.current && !treeBtnRef.current.contains(event.target)) {
+        setShowTreeOptions(false);
+        setIsPastingTree(false);
+        setTreePasteQuery('');
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => {
       document.removeEventListener("mousedown", handleClickOutside);
     };
-  }, [showStructureOptions]);
+  }, [showStructureOptions, showTreeOptions]);
 
   const handleSearchKeyDown = (e) => {
     if (e.key === 'Enter') {
@@ -3758,8 +3770,8 @@ const TopBar = React.memo(function TopBar({
   }, [clearAllTooltips]);
 
 const handleEnter = useCallback((name) => {
-    // If the structure options are open, disable the tooltip for the main structure button.
-    if (name === 'structure' && showStructureOptions) {
+    // If the structure or tree options are open, disable the tooltip for the main structure/tree button.
+    if ((name === 'structure' && showStructureOptions) || (name === 'tree' && showTreeOptions)) {
       return;
     }
     clearTimeout(hideTimer.current);
@@ -3767,7 +3779,7 @@ const handleEnter = useCallback((name) => {
       setHoveredBtn(name);
       setShowTooltip(true);
     }, 125);
-  }, [showStructureOptions]);
+  }, [showStructureOptions, showTreeOptions]);
 
   const tooltipMap = {
     undo: <><b>Undo</b><br />Undo the last action</>,
@@ -3777,7 +3789,7 @@ const handleEnter = useCallback((name) => {
     share: <><b>Share via Gist</b><br />Copy a shareable link to the clipboard</>,
     notepad: <><b>New Notepad</b><br />Add a notepad panel<br />  for notes and comments</>,
     msa: <><b>Upload MSA</b><br />Upload a sequence or multiple sequence<br />alignment in FASTA format (.fasta/.fas)</>,
-    tree: <><b>Upload Tree</b><br />Upload a phylogenetic tree<br />in Newick format (.nwk/.nhx)</>,
+    tree: <><b>Upload Tree</b><br />Upload a phylogenetic tree<br />in Newick format (.nwk/.nhx) <br /> ---------- <br /> Enter/paste tree string directly</>,
     data: <><b>Upload Data</b><br />Upload tabular data (.tsv/.csv)<br />or a list of numbers (.txt)</>,
     matrix: <><b>Upload Matrix</b><br />Upload a distance matrix in PHYLIP format<br />(.phy/.phylip/.dist)<br />or an arbitrary matrix in tabular format (.tsv/.csv)</>,
     structure: <><b>Upload Structure</b><br />Upload a molecular structure<br />in PDB format (.pdb) <br /> ---------- <br />Load from PDB's database <br /> with its identifier</>,
@@ -3844,10 +3856,73 @@ const handleEnter = useCallback((name) => {
             <button onClick={() => triggerUpload('alignment')} className={`${uploadBtnClass} bg-green-200 hover:bg-green-300`}>MSA</button>
             <Tooltip name="msa" />
           </div>
-          <div className="relative" onMouseEnter={() => handleEnter('tree')} onMouseLeave={handleLeave}>
-            <button onClick={() => triggerUpload('tree')} className={`${uploadBtnClass} bg-blue-200 hover:bg-blue-300`}>Tree</button>
-            <Tooltip name="tree" />
-          </div>
+          <div ref={treeBtnRef} className="relative" onMouseEnter={() => handleEnter('tree')} onMouseLeave={handleLeave}>
+          <button
+            onClick={() => {
+              clearAllTooltips();
+              const nextState = !showTreeOptions;
+              setShowTreeOptions(nextState);
+              if (!nextState) {
+                setIsPastingTree(false);
+                setTreePasteQuery('');
+              }
+            }}
+            className={`${uploadBtnClass} bg-blue-200 hover:bg-blue-300`}
+          >Tree</button>
+          <Tooltip name="tree" />
+          
+          {showTreeOptions && (
+            <div className="absolute top-full mt-2 w-full flex flex-col items-center gap-2">
+              {isPastingTree ? (
+                <input
+                  type="text"
+                  autoFocus
+                  value={treePasteQuery}
+                  onChange={(e) => setTreePasteQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && treePasteQuery.trim()) {
+                      try {
+                        parseNewick(treePasteQuery);
+                        addPanel({
+                          type: 'tree',
+                          data: { 
+                            data: treePasteQuery, 
+                            filename: "pasted_tree.nwk", 
+                          },
+                          layoutHint: { w: 4, h: 20 }
+                        });
+                        setShowTreeOptions(false);
+                        setIsPastingTree(false);
+                        setTreePasteQuery('');
+                      } catch (err) {
+                        alert("Invalid tree string: " + err.message);
+                      }
+                    } else if (e.key === 'Escape') {
+                      setShowTreeOptions(false);
+                      setIsPastingTree(false);
+                    }
+                  }}
+                  placeholder="Enter string"
+                  className="w-full text-black px-2 py-2 rounded-xl shadow-lg border-2 border-blue-400 focus:outline-none"
+                />
+              ) : (
+                <>
+                  <button
+                    onClick={() => {
+                      triggerUpload('tree');
+                      setShowTreeOptions(false);
+                    }}
+                    className={`${uploadBtnClass} !w-full bg-blue-200 hover:bg-blue-300`}
+                  >Upload File</button>
+                  <button
+                    onClick={() => setIsPastingTree(true)}
+                    className={`${uploadBtnClass} !w-full bg-blue-200 hover:bg-blue-300`}
+                  >Enter String</button>
+                </>
+              )}
+            </div>
+          )}
+        </div>
           <div className="relative" onMouseEnter={() => handleEnter('data')} onMouseLeave={handleLeave}>
             <button onClick={() => triggerUpload('histogram')}  className={`${uploadBtnClass} bg-orange-200 hover:bg-orange-300`}>Data</button>
             <Tooltip name="data" />
@@ -3856,7 +3931,7 @@ const handleEnter = useCallback((name) => {
             <button onClick={() => triggerUpload('heatmap')}  className={`${uploadBtnClass} bg-red-200 hover:bg-red-300`}>Matrix</button>
             <Tooltip name="matrix" />
           </div>
-<div ref={structureBtnRef} className="relative" onMouseEnter={() => handleEnter('structure')} onMouseLeave={handleLeave}>
+          <div ref={structureBtnRef} className="relative" onMouseEnter={() => handleEnter('structure')} onMouseLeave={handleLeave}>
             <button
                 onClick={() => {
                   clearAllTooltips();
