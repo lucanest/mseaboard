@@ -58,6 +58,8 @@ const PhyloTreeViewer = ({
     treeRadius = 1, 
     rightMargin = 100, 
     colorLabels = false,
+    colorBranches = false,
+    arc = 360,
     labelExtension = 30, 
     rotation = 0,
   } = currentViewSettings;
@@ -346,8 +348,11 @@ const PhyloTreeViewer = ({
       });
 
     } else if (radial) {
+      const leavesCount = root.leaves().length;
+      const effectiveArc =  (arc * (leavesCount - 1) / leavesCount);
+      const arcRadians = (effectiveArc * Math.PI) / 180;
       // D3 layout for Radial mode (y = radius, x = angle)
-      d3.tree().size([2 * Math.PI, maxRadius])(root);
+      d3.tree().size([arcRadians, maxRadius])(root);
 
       // Override y based on branch length option
       if (useBranchLengths) {
@@ -371,10 +376,11 @@ const PhyloTreeViewer = ({
         }
       }
 
-      // Equally space leaves in radial mode
+       // Update equally space leaves to respect the arc
       const leaves = root.leaves();
-      const angleStep = (2 * Math.PI) / leaves.length;
+      const angleStep = leaves.length > 1 ? arcRadians / (leaves.length - 1) : 0;
       leaves.forEach((leaf, i) => { leaf.x = i * angleStep; });
+      
       root.eachAfter(node => {
         if (node.children) {
           node.x = d3.mean(node.children, d => d.x);
@@ -516,7 +522,16 @@ const PhyloTreeViewer = ({
       .attr('class', 'branch')
       .attr('fill', 'none')
       .style('pointer-events', 'none')
-      .attr('stroke', LIGHT_GRAY_COLOR)
+      .attr('stroke', d => {
+        if (colorBranches && colorField) {
+          const valS = d.source.data.nhx?.[colorField];
+          const valT = d.target.data.nhx?.[colorField];
+          const colS = valS != null ? colorValueFunction(valS) : LIGHT_GRAY_COLOR;
+          const colT = valT != null ? colorValueFunction(valT) : LIGHT_GRAY_COLOR;
+          return d3.interpolateRgb(colS, colT)(0.5);
+        }
+        return LIGHT_GRAY_COLOR;
+      })
       .attr('stroke-width', 2 * scaleFactor * branchWidth)
       .attr('d', linkPathGen);
 
@@ -551,7 +566,20 @@ const PhyloTreeViewer = ({
       })
       .on('mouseleave', function (event, d) {
         const idx = links.indexOf(event);
-        if (idx > -1) d3.select(branchPaths.nodes()[idx]).attr('stroke', LIGHT_GRAY_COLOR).attr('stroke-width', 2 * scaleFactor * branchWidth);
+        if (idx > -1) {
+          d3.select(branchPaths.nodes()[idx])
+            .attr('stroke', d => {
+              if (colorBranches && colorField) {
+                const valS = d.source.data.nhx?.[colorField];
+                const valT = d.target.data.nhx?.[colorField];
+                const colS = valS != null ? colorValueFunction(valS) : LIGHT_GRAY_COLOR;
+                const colT = valT != null ? colorValueFunction(valT) : LIGHT_GRAY_COLOR;
+                return d3.interpolateRgb(colS, colT)(0.5);
+              }
+              return LIGHT_GRAY_COLOR;
+            })
+            .attr('stroke-width', 2 * scaleFactor * branchWidth);
+        }
         setTooltipContent('');
       })
       .on('click', (event, d) => {
@@ -642,12 +670,16 @@ const PhyloTreeViewer = ({
     }
 
 
-    if (radial && !isUnrooted) {
-      const leaves = root.leaves();
-      const angleStep = (2 * Math.PI) / leaves.length;
-      const outerRadius = radius + Math.max(minMargin, Math.min(maxMargin, minLabelLength * approxCharWidth));
+if (radial && !isUnrooted) {
+  const leaves = root.leaves();
+  const leavesCount = leaves.length;
+  const effectiveArc = (arc * (leavesCount - 1) / leavesCount);
+  const arcRadians = (effectiveArc * Math.PI) / 180;
+  const angleStep = leavesCount > 1 ? arcRadians / (leavesCount - 1) : 0;
+  
+  const outerRadius = radius + Math.max(minMargin, Math.min(maxMargin, minLabelLength * approxCharWidth));
 
-      const arc = d3.arc()
+      const arcGen = d3.arc()
         .innerRadius(radius - 30)
         .outerRadius(outerRadius)
         .startAngle(d => d.x - angleStep / 2)
@@ -658,7 +690,7 @@ const PhyloTreeViewer = ({
         .data(leaves)
         .join('path')
         .attr('class', 'hover-arc')
-        .attr('d', arc)
+        .attr('d', arcGen)
         .attr('fill', 'transparent')
         .on('mouseenter', (event, d) => {
                   setTooltipContent('');
@@ -1014,7 +1046,8 @@ const PhyloTreeViewer = ({
 
   }, [newickStr, size, linkedTo, onHoverTip, highlightedNodes, linkedHighlights, radial, viewMode, useBranchLengths,
      pruneMode, id, setPanelData, toNewick, nhxColorField, labelSize, nodeRadius, branchWidth,
-      treeRadius, rightMargin, labelExtension, rotation, extractMode, selectedLeaves, onLeafSelect, onCountLeaves, colorLabels,]);
+      treeRadius, rightMargin, labelExtension, rotation, extractMode, selectedLeaves,
+      onLeafSelect, onCountLeaves, colorLabels, colorBranches, arc]);
 
   useEffect(() => {
     function handleDocumentMouseMove(e) {
@@ -1232,6 +1265,31 @@ const handleColorFieldChange = (field) => {
                 </Box>
               </Box>
             )}
+            {/* Arc Slider (Radial Only) */}
+            {radial && !isUnrooted && (
+              <Box sx={{ mb: 1 }}>
+                <Chip
+                  label={`Arc: ${arc}°`}
+                  size="small"
+                  sx={{ mb: 0.5, bgcolor: '#E5E7EB', color: 'black', fontWeight: 300, borderRadius: 1.5, fontSize: 9, px: 0.5, boxShadow: 1 }}
+                />
+                <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', width: '100%' }}>
+                  <Slider
+                    value={arc}
+                    onChange={(_, v) => handleSettingChange('arc', v)}
+                    step={1}
+                    min={30}
+                    max={360}
+                    size="small"
+                    sx={{ 
+                      width: '90%', maxWidth: 180, color: 'rgba(0,0,0,0.47)', mx: 'auto',
+                      '& .MuiSlider-track': { border: 'none' },
+                      '& .MuiSlider-thumb': { width: 16, height: 16, backgroundColor: '#fff', '&::before': { boxShadow: '0 4px 8px rgba(0,0,0,0.4)' } }
+                    }}
+                  />
+                </Box>
+              </Box>
+            )}
             {/* Label Extension Slider (Unrooted Mode Only) */}
             {isUnrooted && (
               <Box sx={{ mb: 1 }}>
@@ -1342,18 +1400,31 @@ const handleColorFieldChange = (field) => {
               }) : <div style={{ fontSize: 12, color: DARK_GRAY_COLOR, padding: '4px' }}>No NHX fields found</div>}
             </Stack>
           {nhxColorField && (
-                <FormControlLabel
-                    control={
-                        <Switch
-                            size="small"
-                            checked={!!colorLabels}
-                            onChange={(e) => handleSettingChange('colorLabels', e.target.checked)}
-                        />
-                    }
-                    label={<span style={{ fontSize: '12px', color: DARK_GRAY_COLOR }}>Color labels</span>}
-                    sx={{ mt: 0, ml: 1, display: 'flex', justifyContent: 'left' }}
-                />
-            )}
+          <>
+              <FormControlLabel
+                  control={
+                      <Switch
+                          size="small"
+                          checked={!!colorLabels}
+                          onChange={(e) => handleSettingChange('colorLabels', e.target.checked)}
+                      />
+                  }
+                  label={<span style={{ fontSize: '12px', color: DARK_GRAY_COLOR }}>Color labels</span>}
+                  sx={{ mt: 1, ml: 1, display: 'flex', justifyContent: 'left' }}
+              />
+              <FormControlLabel
+                  control={
+                      <Switch
+                          size="small"
+                          checked={!!colorBranches}
+                          onChange={(e) => handleSettingChange('colorBranches', e.target.checked)}
+                      />
+                  }
+                  label={<span style={{ fontSize: '12px', color: DARK_GRAY_COLOR }}>Color branches</span>}
+                  sx={{ mt: 0, ml: 1, display: 'flex', justifyContent: 'left' }}
+              />
+          </>
+          )}
           </Box>
           )}
         </Box>
