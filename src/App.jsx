@@ -2579,8 +2579,9 @@ const TreePanel = React.memo(function TreePanel({
   onLinkClick, isLinkModeActive,isEligibleLinkTarget,hoveredPanelId,
   setHoveredPanelId, setPanelData,justLinkedPanels,
   linkBadges, onRestoreLink, colorForLink, onUnlink, onCreateTreeStats, onCreateSubtree,
+  onOpenTreeAsNotepad
 }) {
-  const { filename, isNhx, viewMode = data.RadialMode !== false ? 'radial' : 'rectangular', drawBranchLengths=false, pruneMode = false } = data || {};
+  const { filename, viewMode = data.RadialMode !== false ? 'radial' : 'rectangular', drawBranchLengths=false, pruneMode = false } = data || {};
   
   const [showViewOptions, setShowViewOptions] = useState(false);
   const viewOptionsRef = useRef(null);
@@ -2638,7 +2639,8 @@ const TreePanel = React.memo(function TreePanel({
   const handleDownload = useCallback(() => {
     const text = data?.data || '';
     const base = baseName(data?.filename, 'tree');
-    const ext  = data?.isNhx ? 'nhx' : 'nwk';
+    const isNhx = /\.nhx$/i.test(filename) || text.includes('[&&NHX');
+    const ext  = isNhx ? 'nhx' : 'nwk';
     mkDownload(base, text, ext)();
   }, [data]);
 
@@ -2775,6 +2777,10 @@ const TreePanel = React.memo(function TreePanel({
       element: <TreeButton onClick={handleExtractToggle} isActive={extractMode} />,
       tooltip: <>Extract subtree<br /><span className={subtooltipClass}>Choose a subset of leaves to create a new tree</span></>
     },
+    { 
+      element: <SequenceButton onClick={() => onOpenTreeAsNotepad(id)} />, 
+      tooltip: "Edit tree string as text" 
+    },
     { element: <PictureButton onClick={handleDownloadPNG} />, 
       tooltip: "Download image (.png)" },
     { element: <DownloadButton onClick={handleDownload} />,
@@ -2867,7 +2873,6 @@ const TreePanel = React.memo(function TreePanel({
             onHoverTip={onHoverTip}
             linkedTo={linkedTo}
             toNewick={toNewick}
-            isNhx={isNhx}
             radial={viewMode === 'radial'}
             viewMode={viewMode}
             useBranchLengths={drawBranchLengths}
@@ -2939,6 +2944,7 @@ const ImagePanel = React.memo(function ImagePanel({
 const NotepadPanel = React.memo(function NotepadPanel({
   id, data, onRemove, onDuplicate, hoveredPanelId, panelLinks,
   setHoveredPanelId, setPanelData,isEligibleLinkTarget, justLinkedPanels,
+  onCommit
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const textInputRef = useRef(null);
@@ -2946,6 +2952,8 @@ const NotepadPanel = React.memo(function NotepadPanel({
   const scrollRatioRef = useRef(0);
 
   const { filename = "Notes", text = "", markdownMode = false } = data;
+
+  const targetTreeId = data.targetTreeId;
 
   const handleDownload = useCallback(() => {
     const fileExtension = markdownMode ? 'md' : 'txt';
@@ -2958,18 +2966,24 @@ const NotepadPanel = React.memo(function NotepadPanel({
     setIsEditing(false);
   }, [id, setPanelData, markdownMode]);
 
-  const extraButtons = useMemo(() => [
-    { 
-      element: (
-        <MarkdownButton onClick={handleToggleMarkdown} isActive={markdownMode} />
-      ),
-      tooltip: markdownMode ? "Turn off Markdown rendering" : "Render as Markdown"
-    },
-    { 
-      element: <DownloadButton onClick={handleDownload} />,
-      tooltip: `Download ${markdownMode ? 'markdown (.md)' : 'text (.txt)'}` 
-    }
-  ], [handleDownload, handleToggleMarkdown, markdownMode]);
+  const extraButtons = useMemo(() => {
+      const btns = [];
+      // render these buttons only when there is no targetTreeId
+      if (!targetTreeId) {
+        btns.push({
+          element: (
+            <MarkdownButton onClick={handleToggleMarkdown} isActive={markdownMode} />
+          ),
+          tooltip: markdownMode ? "Turn off Markdown rendering" : "Render as Markdown"
+        });
+      
+      btns.push({
+        element: <DownloadButton onClick={handleDownload} />,
+        tooltip: `Download ${markdownMode ? 'markdown (.md)' : 'text (.txt)'}`
+      });
+      }
+      return btns;
+    }, [handleDownload, handleToggleMarkdown, markdownMode, targetTreeId]);
 
   const storeScrollRatio = (element) => {
     if (!element) return;
@@ -2979,15 +2993,17 @@ const NotepadPanel = React.memo(function NotepadPanel({
   };
 
   const handleKeyDown = (e) => {
-    if (e.key === 'Escape') {
+    if (e.key === 'Escape' || (e.key === 'Enter' && targetTreeId)) {
       storeScrollRatio(textInputRef.current);
       setIsEditing(false);
+      if (data.targetTreeId) onCommit?.(text, data.targetTreeId);
     }
   };
 
   const handleBlur = () => {
     storeScrollRatio(textInputRef.current);
     setIsEditing(false);
+    if (data.targetTreeId) onCommit?.(text, data.targetTreeId);
   };
   
   const handleDoubleClick = () => {
@@ -3009,51 +3025,63 @@ const NotepadPanel = React.memo(function NotepadPanel({
   }, [isEditing, markdownMode, text]);
 
   const renderContent = () => {
-    if (!markdownMode) {
-      return (
-        <textarea
-          className="w-full h-full p-2 border rounded-xl resize-none font-mono tracking-normal"
-          value={text}
-          onChange={e => setPanelData(prev => ({ ...prev, [id]: { ...prev[id], text: e.target.value } }))}
-          placeholder="Write your notes here..."
-          spellCheck={false} wrap="soft"
-          style={{ minHeight: 120, tabSize: 2, fontVariantLigatures: 'none' }}
-        />
-      );
-    }
+  const isInvalid = data.isInvalid; // Check validation status
+  const errorStyles = isInvalid ? { color: '#f97316' } : {};
 
-    if (isEditing) {
-      return (
+  if (!markdownMode) {
+    return (
+      <div className="relative h-full">
         <textarea
-          ref={textInputRef}
           className="w-full h-full p-2 border rounded-xl resize-none font-mono tracking-normal"
+          style={{ ...errorStyles, minHeight: 40, tabSize: 2, fontVariantLigatures: 'none' }}
           value={text}
           onChange={e => setPanelData(prev => ({ ...prev, [id]: { ...prev[id], text: e.target.value } }))}
           onBlur={handleBlur}
           onKeyDown={handleKeyDown}
-          placeholder="Write your markdown here..."
-          spellCheck={false} wrap="soft"
-          style={{ minHeight: 120, tabSize: 2, fontVariantLigatures: 'none' }}
+          spellCheck={false}
         />
-      );
-    } else {
-      return (
+      </div>
+    );
+  }
+
+  if (isEditing) {
+    return (
+      <div className="relative h-full">
+        <textarea
+          ref={textInputRef}
+          className="w-full h-full p-2 border rounded-xl resize-none font-mono tracking-normal"
+          style={{minHeight: 40, tabSize: 2, fontVariantLigatures: 'none'}}
+          value={text}
+          onChange={e => setPanelData(prev => ({ ...prev, [id]: { ...prev[id], text: e.target.value } }))}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+          autoFocus
+          spellCheck={false}
+        />
+      </div>
+    );
+  } else {
+    return (
+      <div className="relative h-full">
         <div
           ref={renderedViewRef}
-          className="w-full h-full prose prose-sm max-w-none p-3 overflow-y-auto cursor-text select-text"
+          className={`w-full h-full prose prose-sm max-w-none p-3 overflow-y-auto cursor-text select-text ${isInvalid ? 'text-orange-500' : ''}`}
           onDoubleClick={handleDoubleClick}
         >
           <ReactMarkdown
             remarkPlugins={[remarkGfm, remarkMath]}
-            // Pass our custom schema to the sanitizer
             rehypePlugins={[rehypeRaw, rehypeKatex, [rehypeSanitize, sanitizeSchema]]}
           >
             {text || "*Empty note. Double-click to edit.*"}
           </ReactMarkdown>
         </div>
-      );
-    }
-  };
+        {isInvalid &&  <div className="absolute bottom-2 right-2 z-50 px-2 py-1 rounded-lg bg-orange-500 text-white text-xs font-bold shadow-md pointer-events-none">
+        Invalid tree string
+        </div>}
+      </div>
+    );
+  }
+};
 
   return (
     <PanelContainer
@@ -3501,6 +3529,7 @@ const PanelWrapper = React.memo(({
   handleCreateTreeStats,
   onCreateSubsetMsa,
   onCreateSubtree,
+  handleOpenTreeAsNotepad,
   onCreateColorMatrix,
   setPanelData,
   onPredictOmega,
@@ -3580,6 +3609,30 @@ const PanelWrapper = React.memo(({
       onGenerateDistance: handleTreeToDistance,
       onCreateTreeStats: handleCreateTreeStats,
       onCreateSubtree: onCreateSubtree,
+      onOpenTreeAsNotepad: handleOpenTreeAsNotepad,
+    }),
+    ...(panel.type === 'notepad' && {
+      onCommit: (text, targetTreeId) => {
+        let isValid = false;
+        try {
+          parseNewick(text); // validate Newick string
+          isValid = true;
+        } catch (e) {
+          isValid = false;
+        }
+
+        setPanelData(prev => {
+          const next = { ...prev };
+          // Update the notepad's own status so it can show orange/tooltip
+          next[panel.i] = { ...next[panel.i], isInvalid: !isValid };
+
+          // Only update the Tree Panel data if valid
+          if (isValid && targetTreeId) {
+            next[targetTreeId] = { ...next[targetTreeId], data: text };
+          }
+          return next;
+        });
+      }
     }),
     ...(panel.type === 'heatmap' && {
       onHighlight: handleHighlight,
@@ -3727,7 +3780,7 @@ const handleEnter = useCallback((name) => {
     tree: <><b>Upload Tree</b><br />Upload a phylogenetic tree<br />in Newick format (.nwk/.nhx)</>,
     data: <><b>Upload Data</b><br />Upload tabular data (.tsv/.csv)<br />or a list of numbers (.txt)</>,
     matrix: <><b>Upload Matrix</b><br />Upload a distance matrix in PHYLIP format<br />(.phy/.phylip/.dist)<br />or an arbitrary matrix in tabular format (.tsv/.csv)</>,
-    structure: <><b>Upload Structure</b><br />Upload a molecular structure<br />in PDB format (.pdb) <br /> ---------- <br />Load it from PDB's database <br /> with its identifier</>,
+    structure: <><b>Upload Structure</b><br />Upload a molecular structure<br />in PDB format (.pdb) <br /> ---------- <br />Load from PDB's database <br /> with its identifier</>,
   };
 
   const Tooltip = ({ name }) => {
@@ -4499,6 +4552,20 @@ const handleCreateSubsetMsa = useCallback((id, selectedIndices, quiet = false) =
 }, [panelData, panelLinks, panels, setState, addPanel, upsertHistory, assignPairColor]);
 
 
+const handleOpenTreeAsNotepad = useCallback((treeId) => {
+    const tree = panelData[treeId];
+    addPanel({
+      type: 'notepad',
+      data: {
+        text: tree.data,
+        filename: `Edit: ${tree.filename}`,
+        markdownMode: true,
+        targetTreeId: treeId // reference to source tree
+      },
+      layoutHint: { w: 4, h: 6 }
+    });
+  }, [panelData, addPanel]);
+
 const handleCreateSubtree = useCallback((id, selectedLeaves, quiet = false) => {
     const sourceData = panelData[id];
     if (!sourceData?.data || !selectedLeaves || selectedLeaves.size < 2) {
@@ -5021,7 +5088,6 @@ async function handleFastME(alignmentPanelId, options) {
       data: {
         data: convertFastMeToNhx(newick),
         filename: `${base}${suffix}.nwk`,
-        isNhx: true,
         method: `FastME (${options.method})`,
         sourceAlignment: alignmentPanelId,
       },
@@ -5262,7 +5328,6 @@ const handleHeatmapToTree = useCallback((id) => {
       data: {
         data: newickString,
         filename: `${baseName}.nwk`,
-        isNhx: false
       },
       basedOnId: id,
       layoutHint: { w: 4, h: 18 },
@@ -5837,8 +5902,7 @@ const handleFileUpload = async (e) => {
       panelPayload = { data: parsed, originalOrder, filename };
     } else if (type === 'tree') {
         const text = await file.text();
-        const isNhx = /\.nhx$/i.test(filename) || text.includes('[&&NHX');
-        panelPayload = { data: text, filename, isNhx };
+        panelPayload = { data: text, filename};
     } else if (type === 'histogram') {
         const text = await file.text();
         const lines = text.trim().split(/\r?\n/);
@@ -6279,8 +6343,7 @@ const buildPanelPayloadFromFile = async (file) => {
   }
 
   if (kind === 'tree') {
-    const isNhx = /\.nhx$/i.test(filename) || text.includes('[&&NHX');
-    return { type: 'tree', payload: { data: text, filename, isNhx } };
+    return { type: 'tree', payload: { data: text, filename } };
   }
 
   if (kind === 'histogram') {
@@ -6827,6 +6890,7 @@ const handleRestoreSession = useCallback(() => {
         onCreateSubsetMsa={handleCreateSubsetMsa}
         onCreateSubtree={handleCreateSubtree}
         onCreateColorMatrix={handleCreateColorMatrix}
+        handleOpenTreeAsNotepad={handleOpenTreeAsNotepad}
         setPanelData={setPanelData}
         onPredictOmega={handlePredictOmega}
         modelLoading={modelLoading} // loading state to disable button
