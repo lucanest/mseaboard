@@ -35,6 +35,17 @@ const PhyloTreeViewer = ({
   const [colorbarTooltip, setColorbarTooltip] = useState({ visible: false, x: 0, y: 0, value: null });
   const controlsRef = useRef(null);
 
+  const lastOffset = useRef({ id: null, view: null, x: 0, y: 0 });
+  const [IsShiftPressed, setIsShiftPressed] = useState(false);
+
+  useEffect(() => {
+    // Handle Shift key for panning
+    const handleKey = (e) => { if (e.key === 'Shift') setIsShiftPressed(e.type === 'keydown'); };
+    window.addEventListener('keydown', handleKey);
+    window.addEventListener('keyup', handleKey);
+    return () => { window.removeEventListener('keydown', handleKey); window.removeEventListener('keyup', handleKey); };
+  }, []);
+
   // Destructure view-independent data from panelData.
   const {
     data: newickStr,
@@ -62,6 +73,8 @@ const PhyloTreeViewer = ({
     arc = 360,
     labelExtension = 30, 
     rotation = 0,
+    panX = 0,
+    panY = 0,
   } = currentViewSettings;
 
 
@@ -238,19 +251,14 @@ const PhyloTreeViewer = ({
         }
       }
       
-      if (bestField) {
-        colorField = bestField;
-        // Update both local state and panel data
-        setNhxColorField(bestField);
-        setPanelData(prev => ({
-          ...prev,
-          [id]: {
-            ...prev[id],
-            nhxColorField: bestField,
-          },
-        }));
+    if (bestField && bestField !== initialNhxColorField) {
+    setNhxColorField(bestField);
+    setPanelData(prev => ({
+      ...prev,
+      [id]: { ...prev[id], nhxColorField: bestField },
+    }));  
       }
-    }
+      }
 
     const svg = d3.select(container)
       .append('svg')
@@ -267,19 +275,43 @@ const PhyloTreeViewer = ({
             setHighlightedNode(null);
             onHoverTip?.(null, null);
         }
+    });
+
+    const getTransform = (px, py) => radial && !isUnrooted
+      ? `translate(${radius + margin + px},${radius + margin + py}) rotate(${rotation})`
+      : isUnrooted 
+          ? `translate(${size.width / 2 + px},${size.height / 2 + py}) rotate(${rotation})`
+          : `translate(${20 + px}, ${20 + py})`;
+
+    const g = svg.append('g').attr('transform', getTransform(panX, panY));
+
+    const zoom = d3.zoom()
+      .filter(() => IsShiftPressed)
+      .on('zoom', () => {
+        g.attr('transform', getTransform(d3.event.transform.x, d3.event.transform.y));
+      })
+      .on('end', () => {
+        const { x, y } = d3.event.transform;
+        // Only update if the position actually changed to avoid unnecessary renders
+        if (x === panX && y === panY) return;
+
+        const viewKey = isUnrooted ? 'unrootedSettings' : (radial ? 'radialSettings' : 'rectangularSettings');
+        
+        // Update the Ref so we know this update originated from a drag
+        lastOffset.current = { id, view: viewKey, x, y };
+
+        setPanelData(prev => ({
+          ...prev,
+          [id]: { ...prev[id], [viewKey]: { ...(prev[id][viewKey] || {}), panX: x, panY: y } }
+        }));
       });
+
+    // Initialize position without triggering a re-render loop
+    svg.call(zoom).call(zoom.transform, d3.zoomIdentity.translate(panX, panY));
 
     // Legend in upper left
     const legend = svg.append('g')
       .attr('transform', 'translate(20, 20)');
-
-    // Center the tree group and apply user rotation
-    const g = svg.append('g')
-      .attr('transform', radial && !isUnrooted
-        ? `translate(${radius + margin},${radius + margin}) rotate(${rotation})`
-        : isUnrooted 
-            ? `translate(${size.width / 2},${size.height / 2}) rotate(${rotation})`
-            : `translate(20, 20)`);
 
 
     if (isUnrooted) {
@@ -866,7 +898,7 @@ if (radial && !isUnrooted) {
           const fontSizeToFit = availableWidth / (maxLabelLength * 0.35); // Using 0.35 as a character width heuristic
           baseSize = Math.min(baseSize, fontSizeToFit);
         }
-        let factor = maxLabelLength < 10 ? 2 : 1;
+        let factor = maxLabelLength < 10 ? 2.2 : 1;
         factor = radial ? factor : factor * 0.7;
         const finalSize = Math.max(minFontSize, Math.min(maxFontSize, baseSize * labelSize), 1 * labelSize * minFontSize) * factor;
         return isHighlight || isPersistentHighlight ? `${finalSize * 1.6}px` : `${finalSize}px`;
@@ -1047,7 +1079,7 @@ if (radial && !isUnrooted) {
   }, [newickStr, size, linkedTo, onHoverTip, highlightedNodes, linkedHighlights, radial, viewMode, useBranchLengths,
      pruneMode, id, setPanelData, toNewick, nhxColorField, labelSize, nodeRadius, branchWidth,
       treeRadius, rightMargin, labelExtension, rotation, extractMode, selectedLeaves,
-      onLeafSelect, onCountLeaves, colorLabels, colorBranches, arc]);
+      onLeafSelect, onCountLeaves, colorLabels, colorBranches, arc, IsShiftPressed]);
 
   useEffect(() => {
     function handleDocumentMouseMove(e) {
@@ -1179,7 +1211,7 @@ const handleColorFieldChange = (field) => {
                   onChange={(_, v) => handleSettingChange('labelSize', v)}
                   step={0.1}
                   min={0.2}
-                  max={3}
+                  max={4}
                   size="small"
                   sx={{ width: '90%', maxWidth: 180, color: 'rgba(0,0,0,0.47)', mx: 'auto', '& .MuiSlider-track': { border: 'none' }, '& .MuiSlider-thumb': { width: 16, height: 16, backgroundColor: '#fff', '&::before': { boxShadow: '0 4px 8px rgba(0,0,0,0.4)' }, '&:hover, &.Mui-focusVisible, &.Mui-active': { boxShadow: 'none' } } }}
                 />
@@ -1198,7 +1230,7 @@ const handleColorFieldChange = (field) => {
                   onChange={(_, v) => handleSettingChange('nodeRadius', v)}
                   step={0.1}
                   min={0.2}
-                  max={3}
+                  max={4}
                   size="small"
                   sx={{ width: '90%', maxWidth: 180, color: 'rgba(0,0,0,0.47)', mx: 'auto', '& .MuiSlider-track': { border: 'none' }, '& .MuiSlider-thumb': { width: 16, height: 16, backgroundColor: '#fff', '&::before': { boxShadow: '0 4px 8px rgba(0,0,0,0.4)' }, '&:hover, &.Mui-focusVisible, &.Mui-active': { boxShadow: 'none' } } }}
                 />
@@ -1217,7 +1249,7 @@ const handleColorFieldChange = (field) => {
                   onChange={(_, v) => handleSettingChange('branchWidth', v)}
                   step={0.1}
                   min={0.2}
-                  max={3}
+                  max={4}
                   size="small"
                   sx={{ width: '90%', maxWidth: 180, color: 'rgba(0,0,0,0.47)', mx: 'auto', '& .MuiSlider-track': { border: 'none' }, '& .MuiSlider-thumb': { width: 16, height: 16, backgroundColor: '#fff', '&::before': { boxShadow: '0 4px 8px rgba(0,0,0,0.4)' }, '&:hover, &.Mui-focusVisible, &.Mui-active': { boxShadow: 'none' } } }}
                 />
@@ -1237,7 +1269,7 @@ const handleColorFieldChange = (field) => {
                     onChange={(_, v) => handleSettingChange('treeRadius', v)}
                     step={0.05}
                     min={0.1}
-                    max={3}
+                    max={4}
                     size="small"
                     sx={{ width: '90%', maxWidth: 180, color: 'rgba(0,0,0,0.47)', mx: 'auto', '& .MuiSlider-track': { border: 'none' }, '& .MuiSlider-thumb': { width: 16, height: 16, backgroundColor: '#fff', '&::before': { boxShadow: '0 4px 8px rgba(0,0,0,0.4)' }, '&:hover, &.Mui-focusVisible, &.Mui-active': { boxShadow: 'none' } } }}
                   />
