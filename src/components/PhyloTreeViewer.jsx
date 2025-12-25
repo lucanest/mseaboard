@@ -34,17 +34,28 @@ const PhyloTreeViewer = ({
   const [tooltipContent, setTooltipContent] = useState('');
   const [colorbarTooltip, setColorbarTooltip] = useState({ visible: false, x: 0, y: 0, value: null });
   const controlsRef = useRef(null);
+  const isInteractingRef = useRef(false);
 
   const lastOffset = useRef({ id: null, view: null, x: 0, y: 0 });
-  const [IsShiftPressed, setIsShiftPressed] = useState(false);
+  const shiftPressedRef = useRef(false);
+  const zPressedRef = useRef(false);
 
+
+  // Track Shift and Z key states for panning
   useEffect(() => {
-    // Handle Shift key for panning
-    const handleKey = (e) => { if (e.key === 'Shift') setIsShiftPressed(e.type === 'keydown'); };
+    const handleKey = (e) => { 
+      if (e.key === 'Shift') shiftPressedRef.current = e.type === 'keydown';
+      if (e.key.toLowerCase() === 'z') zPressedRef.current = e.type === 'keydown';
+    };
     window.addEventListener('keydown', handleKey);
     window.addEventListener('keyup', handleKey);
-    return () => { window.removeEventListener('keydown', handleKey); window.removeEventListener('keyup', handleKey); };
+    return () => { 
+      window.removeEventListener('keydown', handleKey); 
+      window.removeEventListener('keyup', handleKey); 
+    };
   }, []);
+
+
 
   // Destructure view-independent data from panelData.
   const {
@@ -75,10 +86,12 @@ const PhyloTreeViewer = ({
     rotation = 0,
     panX = 0,
     panY = 0,
+    legendX = 20,
+    legendY = 20,
   } = currentViewSettings;
 
 
-  // Manage the nhxColorField state. We use an internal state
+  // Manage the nhxColorField state. Use an internal state
   // that is initialized from props. This allows for automatic field detection logic
   // to run without immediately propagating a change upwards.
   const [nhxColorField, setNhxColorField] = useState(initialNhxColorField);
@@ -271,6 +284,7 @@ const PhyloTreeViewer = ({
 
     // Clear highlight whenever the mouse leaves the SVG area
     svg.on('mousemove', function() {
+      if (isInteractingRef.current) return; // Ignore if dragging/panning
         if (d3.event.target === this) {
             setHighlightedNode(null);
             onHoverTip?.(null, null);
@@ -285,21 +299,58 @@ const PhyloTreeViewer = ({
 
     const g = svg.append('g').attr('transform', getTransform(panX, panY));
 
+     // Group for the Legend/Colorbar
+    const legendGroup = svg.append('g')
+      .attr('class', 'legend-container')
+      .attr('transform', `translate(${legendX}, ${legendY})`);
+
+    // Local variables to track the "active" position during the drag
+    let activeX = legendX;
+    let activeY = legendY;
+
+    // --- DRAG LOGIC FOR LEGEND (Key: Z) ---
+    const dragLegend = d3.drag()
+      .filter(() => zPressedRef.current)
+      .on('start', () => {
+        isInteractingRef.current = true;
+        // Disable pointer events on the tree so nodes don't trigger hovers
+        g.style('pointer-events', 'none');
+      })
+      .on('drag', () => {
+        activeX += d3.event.dx;
+        activeY += d3.event.dy;
+        legendGroup.attr('transform', `translate(${activeX}, ${activeY})`);
+      })
+      .on('end', () => {
+        isInteractingRef.current = false;
+        g.style('pointer-events', 'auto'); // Re-enable tree hovers
+
+        if (activeX === legendX && activeY === legendY) return;
+        const viewKey = isUnrooted ? 'unrootedSettings' : (radial ? 'radialSettings' : 'rectangularSettings');
+        setPanelData(prev => ({
+          ...prev,
+          [id]: { ...prev[id], [viewKey]: { ...(prev[id][viewKey] || {}), legendX: activeX, legendY: activeY } }
+        }));
+      });
+
+    // --- PANNING LOGIC FOR TREE (Key: Shift) ---
     const zoom = d3.zoom()
-      .filter(() => IsShiftPressed)
+      .filter(() => shiftPressedRef.current && !d3.event.button)
+      .on('start', () => {
+        isInteractingRef.current = true;
+        // Disable pointer events on the legend so it doesn't interfere
+        legendGroup.style('pointer-events', 'none'); 
+      })
       .on('zoom', () => {
         g.attr('transform', getTransform(d3.event.transform.x, d3.event.transform.y));
       })
       .on('end', () => {
-        const { x, y } = d3.event.transform;
-        // Only update if the position actually changed to avoid unnecessary renders
-        if (x === panX && y === panY) return;
-
-        const viewKey = isUnrooted ? 'unrootedSettings' : (radial ? 'radialSettings' : 'rectangularSettings');
+        isInteractingRef.current = false;
+        legendGroup.style('pointer-events', 'auto');
         
-        // Update the Ref so we know this update originated from a drag
-        lastOffset.current = { id, view: viewKey, x, y };
-
+        const { x, y } = d3.event.transform;
+        if (x === panX && y === panY) return;
+        const viewKey = isUnrooted ? 'unrootedSettings' : (radial ? 'radialSettings' : 'rectangularSettings');
         setPanelData(prev => ({
           ...prev,
           [id]: { ...prev[id], [viewKey]: { ...(prev[id][viewKey] || {}), panX: x, panY: y } }
@@ -308,11 +359,7 @@ const PhyloTreeViewer = ({
 
     // Initialize position without triggering a re-render loop
     svg.call(zoom).call(zoom.transform, d3.zoomIdentity.translate(panX, panY));
-
-    // Legend in upper left
-    const legend = svg.append('g')
-      .attr('transform', 'translate(20, 20)');
-
+    svg.call(dragLegend);
 
     if (isUnrooted) {
       // Unrooted Layout: Equal Angle Algorithm
@@ -579,6 +626,7 @@ const PhyloTreeViewer = ({
       .attr('d', linkPathGen)
       .style('cursor', pruneMode ? 'pointer' : 'default')
       .on('mouseenter', function (event, d) {
+        if (isInteractingRef.current) return;
         const idx = links.indexOf(event);
         if (idx > -1) {
           const branchPath = d3.select(branchPaths.nodes()[idx]);
@@ -725,12 +773,14 @@ if (radial && !isUnrooted) {
         .attr('d', arcGen)
         .attr('fill', 'transparent')
         .on('mouseenter', (event, d) => {
+          if (isInteractingRef.current) return;
                   setTooltipContent('');
                   const nodeName = event.data?.name;
                   onHoverTip?.(nodeName || '', id);
                   setHighlightedNode(nodeName || null);
         })
         .on('mousemove', function (event, d) {
+          if (isInteractingRef.current) return;
           setHighlightedNode(event.data?.name || null);
         })
         .on('mouseleave', (event, d) => {
@@ -767,6 +817,7 @@ if (radial && !isUnrooted) {
         return isHighlight || isPersistentHighlight ? 2 : 1;
       })
       .on('mouseenter', function (event, d) {
+        if (isInteractingRef.current) return;
         const nodeName = event.data?.name;
         const isLeaf = event.height == 0;
         const nhxData = event.data?.nhx || {};
@@ -922,6 +973,7 @@ if (radial && !isUnrooted) {
         return isHighlight || isPersistentHighlight ? 'bold' : 'normal';
       })
       .on('mouseenter', (event, d) => {
+        if (isInteractingRef.current) return;
               setTooltipContent('');
               const nodeName = event.data?.name;
               onHoverTip?.(nodeName || '', id);
@@ -948,29 +1000,22 @@ if (radial && !isUnrooted) {
       }
     )
 
-
-
-
     // Dynamic legend and colorbar rendering
-    legend.selectAll('*').remove();
-    svg.selectAll('.colorbar-group').remove();
 
     // Case 1: The selected field is continuous
     if (isContinuous && fieldStats) {
-        // Colorbar title
-        legend.append('text')
+       // Title
+        legendGroup.append('text')
             .attr('x', 0)
-            .attr('y', (_, i) => i * 20 + 12 -14)
+            .attr('y', -2)
             .text(colorField)
             .style('font-size', '12px')
             .style('fill', DARK_GRAY_COLOR)
             .style('font-weight', '350');
 
-        const colorbarY = 26;
-        const colorbarX = 20
-        const colorbar = svg.append('g')
+        const colorbar = legendGroup.append('g')
             .attr('class', 'colorbar-group')
-            .attr('transform', `translate(${colorbarX}, ${colorbarY})`); // fixed top-left position
+            .attr('transform', `translate(0, 6)`);
         const gradientID = `tree-gradient-${id}`;
         const defs = colorbar.append('defs');
         const linearGradient = defs.append('linearGradient').attr('id', gradientID);
@@ -1032,7 +1077,8 @@ if (radial && !isUnrooted) {
             
                 
             })
-          .on('mousemove', function() { 
+          .on('mousemove', function() {
+                if (isInteractingRef.current) return;
                 const containerRect = containerRef.current.getBoundingClientRect();
                 const barRect = this.getBoundingClientRect(); // Get the colorbar's position
                 const relX = d3.mouse(this)[0];
@@ -1054,32 +1100,30 @@ if (radial && !isUnrooted) {
     // Case 2: The selected field is discrete
     else if (Object.keys(colorMap).length > 0) {
       const items = Object.entries(colorMap);
-      legend.selectAll('rect')
+      legendGroup.selectAll('rect')
         .data(items)
         .join('rect')
         .attr('x', 0)
-        .attr('y', (_, i) => i * 20 -20)
+        .attr('y', (_, i) => i * 20 - 20 )
         .attr('width', 15)
         .attr('height', 15)
         .attr('fill', d => d[1])
         .attr('rx', 4);
-        
 
-      legend.selectAll('text')
+      legendGroup.selectAll('text')
         .data(items)
         .join('text')
         .attr('x', 20)
-        .attr('y', (_, i) => i * 20 + 12 -20)
+        .attr('y', (_, i) => i * 20 + 12 - 20)
         .text(d => `${colorField}: ${d[0]}`)
         .style('font-size', '12px')
-        .style('fill', DARK_GRAY_COLOR)
-        .style('font-weight', '400');
+        .style('fill', DARK_GRAY_COLOR);
     }
 
   }, [newickStr, size, linkedTo, onHoverTip, highlightedNodes, linkedHighlights, radial, viewMode, useBranchLengths,
      pruneMode, id, setPanelData, toNewick, nhxColorField, labelSize, nodeRadius, branchWidth,
       treeRadius, rightMargin, labelExtension, rotation, extractMode, selectedLeaves,
-      onLeafSelect, onCountLeaves, colorLabels, colorBranches, arc, IsShiftPressed]);
+      onLeafSelect, onCountLeaves, colorLabels, colorBranches, arc]);
 
   useEffect(() => {
     function handleDocumentMouseMove(e) {
