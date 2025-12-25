@@ -327,10 +327,14 @@ const PhyloTreeViewer = ({
 
         if (activeX === legendX && activeY === legendY) return;
         const viewKey = isUnrooted ? 'unrootedSettings' : (radial ? 'radialSettings' : 'rectangularSettings');
+        
         setPanelData(prev => ({
           ...prev,
-          [id]: { ...prev[id], [viewKey]: { ...(prev[id][viewKey] || {}), legendX: activeX, legendY: activeY } }
-        }));
+          [id]: { 
+            ...prev[id], 
+            [viewKey]: { ...(prev[id][viewKey] || {}), legendX: activeX, legendY: activeY } 
+          }
+        }), true); // Pass 'true' to save this position to history
       });
 
     // --- PANNING LOGIC FOR TREE (Key: Shift) ---
@@ -353,8 +357,11 @@ const PhyloTreeViewer = ({
         const viewKey = isUnrooted ? 'unrootedSettings' : (radial ? 'radialSettings' : 'rectangularSettings');
         setPanelData(prev => ({
           ...prev,
-          [id]: { ...prev[id], [viewKey]: { ...(prev[id][viewKey] || {}), panX: x, panY: y } }
-        }));
+          [id]: { 
+            ...prev[id], 
+            [viewKey]: { ...(prev[id][viewKey] || {}), panX: x, panY: y } 
+          }
+        }), true);
       });
 
     // Initialize position without triggering a re-render loop
@@ -704,14 +711,14 @@ const PhyloTreeViewer = ({
         // Reserialize the modified tree structure.
         const newNewickString = toNewick(root) + ';';
 
-        // Update the panel data.
+        // Update the panel data and force a history save.
         setPanelData(prev => ({
           ...prev,
           [id]: {
             ...prev[id],
             data: newNewickString,
           }
-        }));
+        }), true);
       });
 
     // Add dotted lines for label alignment (Radial or Unrooted mode)
