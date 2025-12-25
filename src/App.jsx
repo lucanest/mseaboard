@@ -238,7 +238,7 @@ const PanelHeader = React.memo(function PanelHeader({
   return (
     <div
       className="upload-btn-trigger panel-drag-handle bg-gradient-to-b from-gray-100 to-white pt-1 px-1 mb-1 cursor-move
-             flex flex-wrap items-center justify-between gap-x-2 gap-y-1 font-bold"
+             flex flex-wrap items-center justify-between gap-x-2 gap-y-1 font-bold focus:outline-none select-none"
       onBlur={handleLeave}
       tabIndex={-1}
     >
@@ -458,7 +458,7 @@ function PanelContainer({
   return (
     <div
 className={`border rounded-2xl overflow-hidden h-full flex flex-col bg-white
-        shadow-lg
+        shadow-lg focus:outline-none select-none
         ${
           isJustLinked
             ? 'shadow-green-400/80'
@@ -4143,45 +4143,30 @@ function App() {
   const [tempToken, setTempToken] = useState('');
 
     // This is the function passed to child components. It intelligently decides whether to save history.
-    const setPanelData = useCallback(updater => {
+    const setPanelData = useCallback((updater, forceHistory = false) => {
         // By using the functional update form of `setHistory`, we get access to the latest
         // `currentHistory` state without needing to list `history.present` in the dependency array.
         // This makes the `setPanelData` callback stable across all re-renders.
         setHistory(currentHistory => {
-            const oldPresent = currentHistory.present;
-            const newPanelData = typeof updater === 'function' ? updater(oldPresent.panelData) : updater;
-
-            // This logic now correctly detects a prune action using the guaranteed latest state.
-            let isPruneAction = false;
-            if (oldPresent && oldPresent.panelData) {
-                for (const id in newPanelData) {
-                    if (!oldPresent.panelData[id] || !oldPresent.panels) continue;
-                    const panelType = oldPresent.panels.find(p => p.i === id)?.type;
-                    if (panelType === 'tree') {
-                        if (newPanelData[id].data !== oldPresent.panelData[id].data) {
-                            isPruneAction = true;
-                            break;
-                        }
-                    }
-                }
-            }
+        const oldPresent = currentHistory.present;
+        const newPanelData = typeof updater === 'function' ? updater(oldPresent.panelData) : updater;
+        
+        const newPresent = { ...oldPresent, panelData: newPanelData };
             
-            const newPresent = { ...oldPresent, panelData: newPanelData };
-            
-            // Now, we build the next history state based on whether the action was undoable.
-            if (isPruneAction) {
-                return {
-                    past: [...currentHistory.past, oldPresent],
-                    present: newPresent,
-                    future: [],
-                };
-            } else {
-                return {
-                    ...currentHistory,
-                    present: newPresent,
-                };
-            }
-        });
+        // If forceHistory is true, push to past. Otherwise, just update the present.
+        if (forceHistory) {
+          return {
+            past: [...currentHistory.past, oldPresent],
+            present: newPresent,
+            future: [],
+          };
+        } else {
+          return {
+            ...currentHistory,
+            present: newPresent,
+          };
+        }
+      });
     }, [setHistory]); // `setHistory` from useState is guaranteed to be stable.
 
 
