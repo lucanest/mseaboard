@@ -90,6 +90,8 @@ const PhyloTreeViewer = ({
     legendY = 20,
   } = currentViewSettings;
 
+  const COLORBAR_HEIGHT = 50; // Title + Bar + Axis
+
 
   // Manage the nhxColorField state. Use an internal state
   // that is initialized from props. This allows for automatic field detection logic
@@ -291,6 +293,7 @@ const PhyloTreeViewer = ({
         }
     });
 
+    
     const getTransform = (px, py) => radial && !isUnrooted
       ? `translate(${radius + margin + px},${radius + margin + py}) rotate(${rotation})`
       : isUnrooted 
@@ -368,6 +371,8 @@ const PhyloTreeViewer = ({
     svg.call(zoom).call(zoom.transform, d3.zoomIdentity.translate(panX, panY));
     svg.call(dragLegend);
 
+    let treePxPerUnit = 1; // Default fallback  
+
     if (isUnrooted) {
       // Unrooted Layout: Equal Angle Algorithm
       root.count(); 
@@ -428,6 +433,7 @@ const PhyloTreeViewer = ({
       });
       const safeRadius = (Math.min(size.width, size.height) / 2 - margin - 10);
       const multiplier = maxD > 0 ? (safeRadius * treeRadius) / maxD : 1;
+      treePxPerUnit = multiplier; 
       nodes.forEach(d => {
         d.x *= multiplier;
         d.y *= multiplier;
@@ -440,6 +446,7 @@ const PhyloTreeViewer = ({
       // D3 layout for Radial mode (y = radius, x = angle)
       d3.tree().size([arcRadians, maxRadius])(root);
 
+
       // Override y based on branch length option
       if (useBranchLengths) {
         root.each(d => {
@@ -448,6 +455,7 @@ const PhyloTreeViewer = ({
         const maxLen = d3.max(root.descendants(), d => d.y);
         if (maxLen > 0) {
           const radiusScale = maxRadius / maxLen;
+          treePxPerUnit = radiusScale; 
           root.each(d => { d.y *= radiusScale; });
         }
       } else {
@@ -486,6 +494,7 @@ const PhyloTreeViewer = ({
         const maxLen = d3.max(root.descendants(), d => d.y);
         if (maxLen > 0) {
           const scaleY = drawWidth / maxLen;
+          treePxPerUnit = scaleY;
           root.each(d => { d.y *= scaleY; });
         }
       } else {
@@ -1127,6 +1136,56 @@ if (radial && !isUnrooted) {
         .style('fill', DARK_GRAY_COLOR);
     }
 
+    // Calculate Legend Height/Width to position the scale bar relatively
+    let currentLegendHeight = 0;
+    if (nhxColorField) {
+      if (isContinuous && fieldStats) {
+        currentLegendHeight = COLORBAR_HEIGHT;
+      } else if (Object.keys(colorMap).length > 0) {
+        currentLegendHeight = Object.keys(colorMap).length * 20 - 5; 
+      }
+    }
+
+    // Append the scale group to the legend group so that they move together during the drag event
+    const scaleGroup = legendGroup.append('g')
+      .attr('class', 'scale-bar-container')
+      .style('visibility', useBranchLengths ? 'visible' : 'hidden')
+      // Position it below the legend content with a small gap
+      .attr('transform', `translate(0, ${currentLegendHeight})`);
+
+    if (useBranchLengths) {
+      // Calculate Scale Unit
+      const targetPx = 80;
+      const pixelsPerUnit = treePxPerUnit;
+      
+      const rawUnit = targetPx / pixelsPerUnit;
+      const exponent = Math.floor(Math.log10(rawUnit));
+      const fraction = rawUnit / Math.pow(10, exponent);
+      let niceFraction = fraction < 1.5 ? 1 : fraction < 3 ? 2 : fraction < 7 ? 5 : 10;
+      
+      const scaleBarUnit = niceFraction * Math.pow(10, exponent);
+      const scaleBarWidthPx = scaleBarUnit * pixelsPerUnit;
+
+      // Draw Visuals (relative to scaleGroup 0,0)
+      scaleGroup.append('line')
+        .attr('x2', scaleBarWidthPx)
+        .attr('stroke', DARK_GRAY_COLOR)
+        .attr('stroke-width', 2);
+      
+      scaleGroup.append('line').attr('x1', 0).attr('x2', 0).attr('y1', -3).attr('y2', 3).attr('stroke', DARK_GRAY_COLOR);
+      scaleGroup.append('line').attr('x1', scaleBarWidthPx).attr('x2', scaleBarWidthPx).attr('y1', -3).attr('y2', 3).attr('stroke', DARK_GRAY_COLOR);
+
+      scaleGroup.append('text')
+        .attr('x', scaleBarWidthPx / 2)
+        .attr('y', 15)
+        .attr('text-anchor', 'middle')
+        .style('font-size', '10px')
+        .style('fill', DARK_GRAY_COLOR)
+        .style('user-select', 'none')
+        .text(d3.format("~g")(scaleBarUnit));
+    }
+
+
   }, [newickStr, size, linkedTo, onHoverTip, highlightedNodes, linkedHighlights, radial, viewMode, useBranchLengths,
      pruneMode, id, setPanelData, toNewick, nhxColorField, labelSize, nodeRadius, branchWidth,
       treeRadius, rightMargin, labelExtension, rotation, extractMode, selectedLeaves,
@@ -1153,7 +1212,7 @@ if (radial && !isUnrooted) {
     return () => document.removeEventListener('mousemove', handleDocumentMouseMove);
   }, [onHoverTip]);
 
-    // Create a generic handler to update settings for the current view
+    // Generic handler to update settings for the current view
     const handleSettingChange = (setting, value) => {
         const viewSettingsKey = isUnrooted ? 'unrootedSettings' : (radial ? 'radialSettings' : 'rectangularSettings');
         setPanelData(prev => {
@@ -1173,17 +1232,17 @@ if (radial && !isUnrooted) {
     };
 
   // Specific handler for the color field to also update local state.
-const handleColorFieldChange = (field) => {
-    setNhxColorField(field); 
-    setPanelData(prev => ({
-        ...prev,
-        [id]: {
-            ...prev[id],
-            nhxColorField: field,
-            nhxThresholds: { ...((prev[id] || {}).nhxThresholds || {}), [nhxColorField]: null }
-        },
-    }));
-  };
+  const handleColorFieldChange = (field) => {
+      setNhxColorField(field); 
+      setPanelData(prev => ({
+          ...prev,
+          [id]: {
+              ...prev[id],
+              nhxColorField: field,
+              nhxThresholds: { ...((prev[id] || {}).nhxThresholds || {}), [nhxColorField]: null }
+          },
+      }));
+    };
 
    const handleContinuousToggle = (field, isContinuous) => {
     setPanelData(prev => {
