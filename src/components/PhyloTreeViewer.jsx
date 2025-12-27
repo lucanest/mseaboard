@@ -1331,7 +1331,7 @@ if (radial && !isUnrooted) {
                   value={nodeRadius}
                   onChange={(_, v) => handleSettingChange('nodeRadius', v)}
                   step={0.1}
-                  min={0.2}
+                  min={0.0}
                   max={4}
                   size="small"
                   sx={{ width: '90%', maxWidth: 180, color: 'rgba(0,0,0,0.47)', mx: 'auto', '& .MuiSlider-track': { border: 'none' }, '& .MuiSlider-thumb': { width: 16, height: 16, backgroundColor: '#fff', '&::before': { boxShadow: '0 4px 8px rgba(0,0,0,0.4)' }, '&:hover, &.Mui-focusVisible, &.Mui-active': { boxShadow: 'none' } } }}
@@ -1370,7 +1370,7 @@ if (radial && !isUnrooted) {
                     value={treeRadius}
                     onChange={(_, v) => handleSettingChange('treeRadius', v)}
                     step={0.05}
-                    min={0.1}
+                    min={0.2}
                     max={4}
                     size="small"
                     sx={{ width: '90%', maxWidth: 180, color: 'rgba(0,0,0,0.47)', mx: 'auto', '& .MuiSlider-track': { border: 'none' }, '& .MuiSlider-thumb': { width: 16, height: 16, backgroundColor: '#fff', '&::before': { boxShadow: '0 4px 8px rgba(0,0,0,0.4)' }, '&:hover, &.Mui-focusVisible, &.Mui-active': { boxShadow: 'none' } } }}
