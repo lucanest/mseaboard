@@ -2645,35 +2645,60 @@ const TreePanel = React.memo(function TreePanel({
   }, [data]);
 
   const handleDownloadPNG = useCallback(() => {
-    const svgEl = treeContainerRef.current?.querySelector('svg');
-    if (!svgEl) {
-      alert('Could not find the tree SVG to download.');
-      return;
-    }
+  const svgEl = treeContainerRef.current?.querySelector('svg');
+  if (!svgEl) {
+    alert('Could not find the tree SVG to download.');
+    return;
+  }
 
-    const { width, height } = svgEl.getBoundingClientRect();
-    const serializer = new XMLSerializer();
-    let source = serializer.serializeToString(svgEl);
+  // Detect the actual font being used in the UI right now
+  const sampleText = svgEl.querySelector('text');
+  const computedFont = sampleText 
+    ? window.getComputedStyle(sampleText).fontFamily 
+    : 'sans-serif';
 
-    // Add a white background by wrapping the SVG content in a new SVG with a rect
-    source = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
-                <rect width="100%" height="100%" fill="white"></rect>
-                ${svgEl.innerHTML}
-              </svg>`;
+  // Setup Dimensions and Margin
+  const bbox = svgEl.getBBox(); // Gets the actual content size
+  const MARGIN = 20; 
 
-    const blob = new Blob([source], { type: 'image/svg+xml;charset=utf-8' });
-    const url = URL.createObjectURL(blob);
+  // Use the viewbox to create the margin naturally
+  const vBoxX = bbox.x - MARGIN;
+  const vBoxY = bbox.y - MARGIN;
+  const vBoxW = bbox.width + (MARGIN * 2);
+  const vBoxH = bbox.height + (MARGIN * 2);
 
-    const img = new Image();
-    img.onload = () => {
-      const canvas = document.createElement('canvas');
-      const dpr = 5;
-      canvas.width = width * dpr;
-      canvas.height = height * dpr;
-      const ctx = canvas.getContext('2d');
-      ctx.scale(dpr, dpr);
-      ctx.drawImage(img, 0, 0);
+  // Serialize the SVG content
+  const serializer = new XMLSerializer();
 
+  // Wrap in a new SVG container 
+  const finalSvgString = `
+    <svg xmlns="http://www.w3.org/2000/svg" 
+         width="${vBoxW}" 
+         height="${vBoxH}" 
+         viewBox="${vBoxX} ${vBoxY} ${vBoxW} ${vBoxH}">
+      <style>
+        text { font-family: ${computedFont}; }
+        .legend-container, .scale-bar-container { pointer-events: none; }
+      </style>
+      <rect x="${vBoxX}" y="${vBoxY}" width="100%" height="100%" fill="white"></rect>
+      ${Array.from(svgEl.childNodes).map(node => serializer.serializeToString(node)).join('')}
+    </svg>`;
+
+  const blob = new Blob([finalSvgString], { type: 'image/svg+xml;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+
+  const img = new Image();
+  img.onload = () => {
+    const canvas = document.createElement('canvas');
+    const dpr = 3; // 3x resolution is usually plenty for sharp text
+    canvas.width = vBoxW * dpr;
+    canvas.height = vBoxH * dpr;
+    const ctx = canvas.getContext('2d');
+    
+    ctx.scale(dpr, dpr);
+    ctx.drawImage(img, 0, 0);
+
+    try {
       const pngUrl = canvas.toDataURL('image/png');
       const base = baseName(data?.filename, 'tree_figure');
       const a = document.createElement('a');
@@ -2682,14 +2707,21 @@ const TreePanel = React.memo(function TreePanel({
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    };
-    img.onerror = () => {
-        alert("Failed to convert tree to PNG.");
-        URL.revokeObjectURL(url);
+    } catch (e) {
+      console.error("Canvas export failed", e);
+      alert("Browser security settings prevented the PNG export.");
     }
-    img.src = url;
-  }, [data?.filename]);
+    URL.revokeObjectURL(url);
+  };
+  
+  img.onerror = (err) => {
+    console.error("SVG to Image conversion failed. This usually happens if the SVG contains external links or malformed XML.", err);
+    alert("Conversion failed. Please check the console for details.");
+    URL.revokeObjectURL(url);
+  };
+  
+  img.src = url;
+}, [data?.filename]);
 
   const handleExtractToggle = useCallback(() => {
     if (extractMode) {
