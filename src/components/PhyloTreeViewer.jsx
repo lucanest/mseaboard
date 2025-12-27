@@ -1,5 +1,4 @@
 // PhyloTreeViewer.jsx
-
 import React, { useEffect, useRef, useState } from 'react';
 import { parseNewick } from './Utils';
 import * as d3 from 'd3';
@@ -28,7 +27,6 @@ const PhyloTreeViewer = ({
   const containerRef = useRef();
   const [size, setSize] = useState({ width: 0, height: 0 });
   const [highlightedNode, setHighlightedNode] = useState(null);
-  const [highlightedLink, setHighlightedLink] = useState(null);
   const [showControls, setShowControls] = useState(false);
   const [nhxFieldStats, setNhxFieldStats] = useState({});
   const [tooltipContent, setTooltipContent] = useState('');
@@ -36,7 +34,6 @@ const PhyloTreeViewer = ({
   const controlsRef = useRef(null);
   const isInteractingRef = useRef(false);
 
-  const lastOffset = useRef({ id: null, view: null, x: 0, y: 0 });
   const shiftPressedRef = useRef(false);
   const zPressedRef = useRef(false);
 
@@ -206,7 +203,6 @@ const PhyloTreeViewer = ({
     const maxMargin = (radial || isUnrooted) ? 140 : rightMargin;
     const margin = Math.max(minMargin, Math.min(maxMargin, maxLabelLength * approxCharWidth));
     const radius = (Math.min(size.width, size.height) / 2 - margin) * ((radial || isUnrooted) ? treeRadius : 1);
-    const diameter = radius * 2;
     const maxRadius = radius - 30;
 
     //  Count field frequencies and values
@@ -279,9 +275,7 @@ const PhyloTreeViewer = ({
       .append('svg')
       .attr('width', '100%')
       .attr('height', '100%')
-      .attr('viewBox', (radial && !isUnrooted)
-        ? [0, 0, diameter + margin * 2, diameter + margin * 2]
-        : [0, 0, size.width, size.height])
+      .attr('viewBox', [0, 0, size.width, size.height])
       .style('font', '10px sans-serif');
 
     // Clear highlight whenever the mouse leaves the SVG area
@@ -294,11 +288,12 @@ const PhyloTreeViewer = ({
     });
 
     
-    const getTransform = (px, py) => radial && !isUnrooted
-      ? `translate(${radius + margin + px},${radius + margin + py}) rotate(${rotation})`
-      : isUnrooted 
-          ? `translate(${size.width / 2 + px},${size.height / 2 + py}) rotate(${rotation})`
-          : `translate(${20 + px}, ${20 + py})`;
+    const getTransform = (px, py) => {
+      if (isUnrooted || radial) {
+        return `translate(${size.width / 2 + px}, ${size.height / 2 + py}) rotate(${rotation})`;
+      }
+      return `translate(${20 + px}, ${20 + py})`;
+    };
 
     const g = svg.append('g').attr('transform', getTransform(panX, panY));
 
@@ -550,7 +545,7 @@ const PhyloTreeViewer = ({
             };
         }
     } else {
-        // Discrete mode (original logic)
+        // Discrete mode
         let colorIndex = 0;
         const colorScale = d3.schemeCategory10;
         if (fieldStats) {
@@ -1186,10 +1181,10 @@ if (radial && !isUnrooted) {
     }
 
 
-  }, [newickStr, size, linkedTo, onHoverTip, highlightedNodes, linkedHighlights, radial, viewMode, useBranchLengths,
+  }, [newickStr, size, onHoverTip, highlightedNodes, linkedHighlights, radial, viewMode, useBranchLengths,
      pruneMode, id, setPanelData, toNewick, nhxColorField, labelSize, nodeRadius, branchWidth,
       treeRadius, rightMargin, labelExtension, rotation, extractMode, selectedLeaves,
-      onLeafSelect, onCountLeaves, colorLabels, colorBranches, arc]);
+      onLeafSelect, onCountLeaves, colorLabels, colorBranches, arc, linkedTo]);
 
   useEffect(() => {
     function handleDocumentMouseMove(e) {
@@ -1201,10 +1196,8 @@ if (radial && !isUnrooted) {
         e.clientY < rect.top ||
         e.clientY > rect.bottom
       ) {
-
         
         setHighlightedNode(null);
-        setHighlightedLink(null);
         setTooltipContent('');
       }
     }
@@ -1270,7 +1263,6 @@ if (radial && !isUnrooted) {
       onMouseLeave={() => {
         onHoverTip?.(null, null);
         setHighlightedNode(null);
-        setHighlightedLink(null);
         setTooltipContent('');
       }}
     >
