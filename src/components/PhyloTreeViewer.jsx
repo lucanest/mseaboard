@@ -64,6 +64,7 @@ const PhyloTreeViewer = ({
     radialSettings = {}, // Default to empty objects if not present
     rectangularSettings = {},
     unrootedSettings = {},
+    colorSettings = {},
   } = panelData || {};
 
   const isUnrooted = viewMode === 'unrooted';
@@ -140,6 +141,49 @@ const PhyloTreeViewer = ({
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, [showControls]);
+
+  const handleColorChange = (type, value) => {
+  setPanelData(prev => ({
+    ...prev,
+    [id]: {
+      ...prev[id],
+      colorSettings: { ...(prev[id].colorSettings || {}), [type]: value }
+    }
+  }));
+  };
+
+  const handleDiscreteColorChange = (value, color) => {
+    setPanelData(prev => {
+      const current = prev[id].colorSettings || {};
+      const discreteMap = current.discrete || {};
+      const fieldMap = discreteMap[nhxColorField] || {};
+      return {
+        ...prev,
+        [id]: {
+          ...prev[id],
+          colorSettings: {
+            ...current,
+            discrete: { ...discreteMap, [nhxColorField]: { ...fieldMap, [value]: color } }
+          }
+        }
+      };
+    });
+  };
+
+  const handleInvertColors = () => {
+    setPanelData(prev => {
+      const settings = prev[id].colorSettings || {};
+      const high = settings.high || HIGH_COLOR;
+      const low = settings.low || LOW_COLOR;
+      return {
+        ...prev,
+        [id]: {
+          ...prev[id],
+          colorSettings: { ...settings, high: low, low: high }
+        }
+      };
+    });
+  };
 
   useEffect(() => {
     if (!newickStr || !size.width || !size.height) return;
@@ -530,14 +574,18 @@ const PhyloTreeViewer = ({
     let colorValueFunction;
     let colorMap = {};
 
+    const currentHigh = colorSettings.high || HIGH_COLOR;
+    const currentLow = colorSettings.low || LOW_COLOR;
+    const currentDiscrete = colorSettings.discrete?.[colorField] || {};
+
     if (isContinuous && fieldStats) {
         const { min, max } = fieldStats;
         if (threshold != null) {
             // Threshold mode
-            colorValueFunction = (val) => Number(val) >= threshold ? HIGH_COLOR : LOW_COLOR;
+            colorValueFunction = (val) => Number(val) >= threshold ? currentHigh : currentLow;
         } else {
             // Gradient mode
-            const interpolator = d3.interpolateRgb(LOW_COLOR, HIGH_COLOR);
+            const interpolator = d3.interpolateRgb(currentLow, currentHigh);
             const colorScale = d3.scaleSequential(interpolator).domain([min, max]);
             colorValueFunction = (val) => {
                 const numVal = Number(val);
@@ -552,7 +600,7 @@ const PhyloTreeViewer = ({
             const sortedValues = Array.from(fieldStats.values).sort();
             sortedValues.forEach(val => {
                 if (!(val in colorMap)) {
-                    colorMap[val] = colorScale[colorIndex++ % colorScale.length];
+                    colorMap[val] = currentDiscrete[val] || colorScale[colorIndex++ % colorScale.length];
                 }
             });
         }
@@ -1031,8 +1079,8 @@ if (radial && !isUnrooted) {
         const defs = colorbar.append('defs');
         const linearGradient = defs.append('linearGradient').attr('id', gradientID);
         
-        const colorScale = d3.scaleSequential(d3.interpolateRgb(LOW_COLOR, HIGH_COLOR))
-            .domain([fieldStats.min, fieldStats.max]);
+         const colorScale = d3.scaleSequential(d3.interpolateRgb(currentLow, currentHigh))
+        .domain([fieldStats.min, fieldStats.max]);
 
         linearGradient.selectAll("stop")
             .data(d3.range(0, 1.01, 0.1))
@@ -1041,7 +1089,7 @@ if (radial && !isUnrooted) {
             .attr("stop-color", d => {
                 const value = fieldStats.min + d * (fieldStats.max - fieldStats.min);
                 // If threshold is active, the gradient should also be binary
-                return threshold != null ? (value >= threshold ? HIGH_COLOR : LOW_COLOR) : colorScale(value);
+                return threshold != null ? (value >= threshold ? currentHigh : currentLow) : colorScale(value);
             });
 
         const barWidth = Math.min(150, size.width/4);
@@ -1184,7 +1232,7 @@ if (radial && !isUnrooted) {
   }, [newickStr, size, onHoverTip, highlightedNodes, linkedHighlights, radial, viewMode, useBranchLengths,
      pruneMode, id, setPanelData, toNewick, nhxColorField, labelSize, nodeRadius, branchWidth,
       treeRadius, rightMargin, labelExtension, rotation, extractMode, selectedLeaves,
-      onLeafSelect, onCountLeaves, colorLabels, colorBranches, arc, linkedTo]);
+      onLeafSelect, onCountLeaves, colorLabels, colorBranches, arc, linkedTo,colorSettings]);
 
   useEffect(() => {
     function handleDocumentMouseMove(e) {
@@ -1205,23 +1253,44 @@ if (radial && !isUnrooted) {
     return () => document.removeEventListener('mousemove', handleDocumentMouseMove);
   }, [onHoverTip]);
 
-    // Generic handler to update settings for the current view
+    // Handler to update settings
     const handleSettingChange = (setting, value) => {
         const viewSettingsKey = isUnrooted ? 'unrootedSettings' : (radial ? 'radialSettings' : 'rectangularSettings');
-        setPanelData(prev => {
-            const currentPanelData = prev[id] || {};
-            const currentViewSettings = currentPanelData[viewSettingsKey] || {};
-            return {
-                ...prev,
-                [id]: {
-                    ...currentPanelData,
-                    [viewSettingsKey]: {
-                        ...currentViewSettings,
-                        [setting]: Array.isArray(value) ? value[0] : value,
+        if (setting === 'colorLabels' || setting === 'colorBranches') {
+            // set for all views
+            for (const key of ['unrootedSettings', 'radialSettings', 'rectangularSettings']) {
+                setPanelData(prev => {
+                    const currentPanelData = prev[id] || {};
+                    const currentViewSettings = currentPanelData[key] || {};
+                    return {
+                        ...prev,
+                        [id]: {
+                            ...currentPanelData,
+                            [key]: {
+                                ...currentViewSettings,
+                                [setting]: Array.isArray(value) ? value[0] : value,
+                            },
+                        },
+                    };
+                });
+            }
+        } else {
+            // set for current view only
+            setPanelData(prev => {
+                const currentPanelData = prev[id] || {};
+                const currentViewSettings = currentPanelData[viewSettingsKey] || {};
+                return {
+                    ...prev,
+                    [id]: {
+                        ...currentPanelData,
+                        [viewSettingsKey]: {
+                            ...currentViewSettings,
+                            [setting]: Array.isArray(value) ? value[0] : value,
+                        },
                     },
-                },
-            };
-        });
+                };
+            });
+      }
     };
 
   // Specific handler for the color field to also update local state.
@@ -1253,6 +1322,11 @@ if (radial && !isUnrooted) {
         };
     });
   };
+
+   const currentFieldStats = nhxFieldStats[nhxColorField];
+   const isContinuous = (nhxContinuousFields?.[nhxColorField] !== undefined)
+    ? nhxContinuousFields[nhxColorField]
+    : (currentFieldStats?.isNumeric && (currentFieldStats?.hasFloat || isBootstrapField(nhxColorField)));
 
 
   return (
@@ -1558,11 +1632,78 @@ if (radial && !isUnrooted) {
                   sx={{ mt: 0, ml: 1, display: 'flex', justifyContent: 'left' }}
               />
           </>
+          
           )}
+          
+        <Box sx={{ mt: 2, pt: 1, borderTop: '1px solid #eee' , textAlign: 'center' }}>
+        
+        {isContinuous && currentFieldStats ? (
+          <Stack direction="row" spacing={2} justifyContent="center" alignItems="center">
+            {/* High Color */}
+            <Box sx={{ textAlign: 'center' }}>
+              
+              <Box sx={{ width: 22, height: 22, borderRadius: '6px', bgcolor: colorSettings.high || HIGH_COLOR, border: '1px solid #ddd', position: 'relative', overflow: 'hidden' }}>
+                <input 
+                  type="color" 
+                  value={colorSettings.high || HIGH_COLOR} 
+                  onChange={(e) => handleColorChange('high', e.target.value)} 
+                  style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} 
+                />
+              </Box>
+              <div style={{ fontSize: '8px', color: DARK_GRAY_COLOR, fontWeight: 'bold'}}>High</div>
+            </Box>
+
+            {/* Low Color */}
+            <Box sx={{ textAlign: 'center' }}>
+              <Box sx={{ width: 22, height: 22, borderRadius: '6px', bgcolor: colorSettings.low || LOW_COLOR, border: '1px solid #ddd', position: 'relative', overflow: 'hidden' }}>
+                <input 
+                  type="color" 
+                  value={colorSettings.low || LOW_COLOR} 
+                  onChange={(e) => handleColorChange('low', e.target.value)} 
+                  style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} 
+                />
+              </Box>
+              <div style={{ fontSize: '8px', color: DARK_GRAY_COLOR, fontWeight: 'bold'}}>Low</div>
+            </Box>
+
+            {/* Invert Button */}
+            <Box sx={{ textAlign: 'center' }}>
+              <IconButton 
+                size="small" 
+                onClick={handleInvertColors}
+                sx={{ width: 22, height: 22, bgcolor: '#f0f0f0ff', borderRadius: '14px', border: '1px solid #ddd' }}
+              >
+              </IconButton>
+              <div style={{ fontSize: '8px', color: DARK_GRAY_COLOR, fontWeight: 'bold'}}>Invert</div>
+            </Box>
+          </Stack>
+        ) : (
+          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 , justifyContent: 'center' }}>
+            {currentFieldStats && Array.from(currentFieldStats.values).sort().map(val => {
+              // Get the current color for this specific discrete value
+              const valColor = colorSettings.discrete?.[nhxColorField]?.[val] || 
+                            (d3.schemeCategory10[Array.from(currentFieldStats.values).sort().indexOf(val) % 10]);
+              return (
+                <Box key={val} sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                  <Box sx={{ width: 22, height: 22, borderRadius: '6px', bgcolor: valColor, border: '1px solid #ddd', position: 'relative', overflow: 'hidden' }}>
+                    <input 
+                      type="color" 
+                      value={valColor} 
+                      onChange={(e) => handleDiscreteColorChange(val, e.target.value)} 
+                      style={{ position: 'absolute', opacity: 0, width: '100%', height: '100%', cursor: 'pointer' }} 
+                    />
+                  </Box>
+                  <div style={{ fontSize: '8px', maxWidth: '20px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{val}</div>
+                </Box>
+              );
+            })}
           </Box>
-          )}
-        </Box>
-      )}
+        )}
+      </Box>
+                </Box>
+                )}
+              </Box>
+            )}
 
       {/* Tooltip */}
       <div
