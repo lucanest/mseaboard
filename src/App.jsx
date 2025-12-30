@@ -41,7 +41,7 @@ import rehypeSanitize from 'rehype-sanitize';
 import {DuplicateButton, RemoveButton, LinkButton, RadialToggleButton,
 CodonToggleButton, TranslateButton, SiteStatsButton, LogYButton,
 SeqlogoButton, SequenceButton, DistanceMatrixButton, ZeroOneButton,
- DownloadButton, GitHubButton, SearchButton, TreeButton, ColorButton,
+ DownloadButton, GitHubButton, SearchButton, TreeButton, RootButton, ColorButton,
  DiamondButton, BranchLengthsButton, PruneButton, SubMSAButton,
  TableChartButton, OmegaButton, PictureButton, ShuffleButton, MarkdownButton,
 UndoButton, RedoButton, SaveBoardButton, LoadBoardButton, ShareButton 
@@ -2581,7 +2581,13 @@ const TreePanel = React.memo(function TreePanel({
   linkBadges, onRestoreLink, colorForLink, onUnlink, onCreateTreeStats, onCreateSubtree,
   onOpenTreeAsNotepad
 }) {
-  const { filename, viewMode = data.RadialMode !== false ? 'radial' : 'rectangular', drawBranchLengths=false, pruneMode = false } = data || {};
+  const { 
+    filename, 
+    viewMode = data.RadialMode !== false ? 'radial' : 'rectangular', 
+    drawBranchLengths = false, 
+    pruneMode = false,
+    rerootMode = false
+  } = data || {};
   
   const [showViewOptions, setShowViewOptions] = useState(false);
   const viewOptionsRef = useRef(null);
@@ -2608,8 +2614,6 @@ const TreePanel = React.memo(function TreePanel({
     setShowViewOptions(false);
   };
 
-
-
   const [extractMode, setExtractMode] = useState(false);
   const [selectedLeaves, setSelectedLeaves] = useState(new Set());
   const treeContainerRef = useRef(null);
@@ -2627,14 +2631,30 @@ const TreePanel = React.memo(function TreePanel({
   }, [id, setPanelData, drawBranchLengths]);
 
   const handlePruneToggle = useCallback(() => {
+    setExtractMode(false);
     setPanelData(pd => ({
       ...pd,
       [id]: {
         ...pd[id],
-        pruneMode: !pruneMode
+        pruneMode: !pruneMode,
+        rerootMode: false,
+        extractMode: false
       }
     }));
   }, [id, setPanelData, pruneMode]);
+
+  const handleRerootToggle = useCallback(() => {
+    setExtractMode(false);
+    setPanelData(pd => ({
+      ...pd,
+      [id]: {
+        ...pd[id],
+        rerootMode: !rerootMode,
+        pruneMode: false,
+        extractMode: false,
+      }
+    }));
+  }, [id, setPanelData, rerootMode]);
 
   const handleDownload = useCallback(() => {
     const text = data?.data || '';
@@ -2724,6 +2744,15 @@ const TreePanel = React.memo(function TreePanel({
 }, [data?.filename]);
 
   const handleExtractToggle = useCallback(() => {
+    // disable prune and reroot mode if active
+    setPanelData(pd => ({
+      ...pd,
+      [id]: {
+        ...pd[id],
+        pruneMode: false,
+        rerootMode: false
+      }
+    }));
     if (extractMode) {
         setSelectedLeaves(new Set());
     }
@@ -2810,6 +2839,10 @@ const TreePanel = React.memo(function TreePanel({
       tooltip: <>Extract subtree<br /><span className={subtooltipClass}>Choose a subset of leaves to create a new tree</span></>
     },
     { 
+        element: <RootButton onClick={handleRerootToggle} isActive={rerootMode} />, 
+        tooltip: rerootMode ? "Exit reroot mode" : <>Reroot tree<br /><span className={subtooltipClass}>Place root on selected branch</span></>
+    },
+    { 
       element: <SequenceButton onClick={() => onOpenTreeAsNotepad(id)} />, 
       tooltip: "Edit tree string as text" 
     },
@@ -2817,7 +2850,7 @@ const TreePanel = React.memo(function TreePanel({
       tooltip: "Download image (.png)" },
     { element: <DownloadButton onClick={handleDownload} />,
      tooltip: "Download tree" }
-  ], [id, drawBranchLengths, pruneMode, extractMode, handleBranchLengthsToggle, onCreateTreeStats, onGenerateDistance, handlePruneToggle, handleDownload, handleDownloadPNG, handleExtractToggle]);
+  ], [id, drawBranchLengths, pruneMode, extractMode, handleBranchLengthsToggle, handleRerootToggle, onCreateTreeStats, onGenerateDistance, handlePruneToggle, handleDownload, handleDownloadPNG, handleExtractToggle]);
 
   // Dynamic version of the panel data.
   // This lets us merge stored highlights (from clicks) with live highlights (from hovers).
@@ -2909,6 +2942,7 @@ const TreePanel = React.memo(function TreePanel({
             viewMode={viewMode}
             useBranchLengths={drawBranchLengths}
             pruneMode={pruneMode}
+            rerootMode={rerootMode}
             extractMode={extractMode}
             onLeafSelect={handleLeafSelect}
             selectedLeaves={selectedLeaves}

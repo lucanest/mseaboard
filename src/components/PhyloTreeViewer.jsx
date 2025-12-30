@@ -20,6 +20,7 @@ const PhyloTreeViewer = ({
   pruneMode = false,
   toNewick,
   extractMode = false,
+  rerootMode = false,
   onLeafSelect,
   selectedLeaves = new Set(),
   onCountLeaves,
@@ -185,6 +186,96 @@ const PhyloTreeViewer = ({
       };
     });
   };
+
+      const handleRerootClick = (d) => {
+      // d is the link object: {source: parent, target: child}
+      const nodeV = d.target;
+      const nodeU = d.source;
+      const originalLength = nodeV.data.length || 0;
+      const halfLength = originalLength / 2;
+
+      // Helper to recursively reverse parent-child relationships
+      const reverseEdge = (currentNode, newParent, edgeLength) => {
+        const oldParent = currentNode.parent;
+        const oldLength = currentNode.data.length;
+
+        // Set the new parent
+        currentNode.parent = newParent;
+        currentNode.data.length = edgeLength;
+
+        // Remove the new parent from current node's children if it was there
+        if (currentNode.children) {
+            currentNode.children = currentNode.children.filter(c => c !== newParent);
+        }
+
+        // Add the old parent as a child and recurse
+        if (oldParent) {
+            if (!currentNode.children) currentNode.children = [];
+            currentNode.children.push(oldParent);
+            reverseEdge(oldParent, currentNode, oldLength);
+        }
+
+        // If this was an internal node with no children left, remove the children property
+        if (currentNode.children && currentNode.children.length === 0) {
+            delete currentNode.children;
+        }
+      };
+
+      // Create the new root node
+      const newRootData = { name: "new_root", children: [] };
+      const newRoot = d3.hierarchy(newRootData);
+
+      // Child side of the clicked branch
+      nodeV.parent = newRoot;
+      nodeV.data.length = halfLength;
+
+      // Parent side of the clicked branch
+      // We essentially treat the parent node (nodeU) as if it's now a child of newRoot
+      // and reverse all relationships back to the old root.
+      const oldParentOfU = nodeU.parent;
+      const lengthUtoParent = nodeU.data.length;
+
+      // Remove nodeV from nodeU's children
+      nodeU.children = nodeU.children.filter(c => c !== nodeV);
+      
+      if (!nodeU.children) nodeU.children = [];
+      if (oldParentOfU) {
+          nodeU.children.push(oldParentOfU);
+          reverseEdge(oldParentOfU, nodeU, lengthUtoParent);
+      }
+      
+      nodeU.parent = newRoot;
+      nodeU.data.length = halfLength;
+
+      newRoot.children = [nodeV, nodeU];
+
+      // Cleanup unary nodes (specifically the old root which might now have only 1 child)
+      const finalize = (node) => {
+          if (node.children && node.children.length === 1) {
+              const singleChild = node.children[0];
+              const combinedLength = (node.data.length || 0) + (singleChild.data.length || 0);
+              singleChild.parent = node.parent;
+              singleChild.data.length = combinedLength;
+              return singleChild;
+          }
+          if (node.children) {
+              node.children = node.children.map(finalize);
+          }
+          return node;
+      };
+
+      const finalRoot = finalize(newRoot);
+      const newNewick = toNewick(finalRoot) + ";";
+
+      setPanelData(prev => ({
+        ...prev,
+        [id]: {
+          ...prev[id],
+          data: newNewick,
+          rerootMode: false // Exit mode
+        }
+      }), true);
+    };
 
   useEffect(() => {
     if (!newickStr || !size.width || !size.height) return;
@@ -692,7 +783,9 @@ const PhyloTreeViewer = ({
         if (idx > -1) {
           const branchPath = d3.select(branchPaths.nodes()[idx]);
           if (pruneMode) {
-            branchPath.attr('stroke', '#E50000').attr('stroke-width', 3);
+            branchPath.attr('stroke', '#E50000');
+          } else if (rerootMode) {
+            branchPath.attr('stroke', '#C3420D');
           } else {
             branchPath.attr('stroke', MAGENTA_COLOR);
           }
@@ -701,6 +794,8 @@ const PhyloTreeViewer = ({
         const length = event.isRootBranch ? (event.data?.length) : (event?.target?.data?.length);
         if (pruneMode) {
           setTooltipContent(`<strong>Click to prune this branch</strong>`);
+         } else if (rerootMode) {
+          setTooltipContent(`<strong>Click to place root on this branch</strong>`);  
         } else {
           setTooltipContent(`<strong>Branch length:</strong> ${length !== undefined ? d3.format(".4f")(length) : 'N/A'}`);
         }
@@ -724,8 +819,13 @@ const PhyloTreeViewer = ({
         setTooltipContent('');
       })
       .on('click', (event, d) => {
-        if (!pruneMode) return;
+        if (!pruneMode && !rerootMode) return;
 
+        if (rerootMode) {
+          handleRerootClick(event);
+          return;
+        }
+        else if (pruneMode) {
         const nodeToPrune = event.target;
         const parent = nodeToPrune.parent;
 
@@ -773,7 +873,9 @@ const PhyloTreeViewer = ({
             data: newNewickString,
           }
         }), true);
+      }
       });
+
 
     // Add dotted lines for label alignment (Radial or Unrooted mode)
     if (useBranchLengths || isUnrooted) {
@@ -1360,6 +1462,7 @@ if (radial && !isUnrooted) {
     ? nhxContinuousFields[nhxColorField]
     : (currentFieldStats?.isNumeric && (currentFieldStats?.hasFloat || isBootstrapField(nhxColorField)));
 
+  
 
   return (
     <div
