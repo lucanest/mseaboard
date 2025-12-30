@@ -3915,11 +3915,12 @@ const handleEnter = useCallback((name) => {
                     if (e.key === 'Enter' && treePasteQuery.trim()) {
                       try {
                         parseNewick(treePasteQuery);
+                        let isNhx = treePasteQuery.includes('[&&NHX');
                         addPanel({
                           type: 'tree',
                           data: { 
                             data: treePasteQuery, 
-                            filename: "pasted_tree.nwk", 
+                            filename: isNhx? "pasted_tree.nhx" : "pasted_tree.nwk", 
                           },
                           layoutHint: { w: 4, h: 20 }
                         });
