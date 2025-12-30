@@ -423,6 +423,19 @@ function TreeGlyph(props) {
   );
 }
 
+function RootGlyph(props) {
+  return (
+<svg viewBox="0 0 26 26" width="56" height="56" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" {...props}>
+  <g transform="translate(24,24) rotate(180)">
+  <path d="M12 3V21
+           M12 7 Q 9 7 5 2
+           M12 12 Q 18 12 19 5
+           M12 15 Q 9 15 4 12" />
+  </g>
+</svg>
+  );
+}
+
 function RulerGlyph(props) {
   return (
 <svg 
@@ -485,7 +498,7 @@ export function LogYButton({ onClick, isActive,  title = "Toggle log scale on Y"
 
 
 
-export function ZeroOneButton({ onClick, tooltip = null }){
+export function ZeroOneButton({ onClick }) {
   return (
     <button
       type="button"
@@ -501,21 +514,39 @@ export function ZeroOneButton({ onClick, tooltip = null }){
 
 
 
-export function TreeButton({ onClick, tooltip = null }){
+export function TreeButton({ onClick, isActive }) {
   return (
     <button
       type="button"
       onClick={onClick}
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg
-        bg-gray-100 hover:bg-green-200 border border-gray-400">
+      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
+          ${isActive ? 'bg-green-100' : 'bg-gray-100'}
+        bg-gray-100 hover:bg-green-200 border ${isActive ? 'border-2 border-green-400' : 'border-gray-400'}`}>
         <TreeGlyph className="w-4 h-4 text-green-700 flex-shrink-0 -translate-y-[0px]" />
       </span>
     </button>
   );
 };
 
-export function SubMSAButton({ onClick, tooltip = null }){
+export function RootButton({ onClick, isActive}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+    >
+      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
+         hover:bg-orange-200
+        ${isActive ? 'bg-orange-100' : 'bg-gray-100'}
+         border ${isActive ? 'border-2 border-orange-400' : 'border-gray-400'}
+         `}>
+        <RootGlyph className="w-4 h-4 text-orange-700 flex-shrink-0 -translate-y-[0px]" />
+      </span>
+    </button>
+  );
+}
+
+export function SubMSAButton({ onClick }){
   return (
     <button
       type="button"
@@ -529,7 +560,7 @@ export function SubMSAButton({ onClick, tooltip = null }){
   );
 };
 
-export function OmegaButton({ onClick, tooltip = null }){
+export function OmegaButton({ onClick }){
   return (
     <button
       type="button"
@@ -543,7 +574,7 @@ export function OmegaButton({ onClick, tooltip = null }){
   );
 };
 
-export function ShuffleButton({ onClick, tooltip = null }){
+export function ShuffleButton({ onClick }){
   return (
     <button
       type="button"
@@ -558,7 +589,7 @@ export function ShuffleButton({ onClick, tooltip = null }){
 };
 
 
-export function BranchLengthsButton({ onClick, isActive }) {
+export function BranchLengthsButton({ onClick }) {
   return (
 <button
       type="button"
