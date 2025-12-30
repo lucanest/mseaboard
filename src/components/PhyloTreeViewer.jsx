@@ -33,6 +33,7 @@ const PhyloTreeViewer = ({
   const [colorbarTooltip, setColorbarTooltip] = useState({ visible: false, x: 0, y: 0, value: null });
   const controlsRef = useRef(null);
   const isInteractingRef = useRef(false);
+  const [thresholdEdit, setThresholdEdit] = useState({ visible: false, x: 0, y: 0, value: '' });
 
   const shiftPressedRef = useRef(false);
   const zPressedRef = useRef(false);
@@ -408,6 +409,7 @@ const PhyloTreeViewer = ({
 
     // Initialize position without triggering a re-render loop
     svg.call(zoom).call(zoom.transform, d3.zoomIdentity.translate(panX, panY));
+            //.on("dblclick.zoom", null);
     svg.call(dragLegend);
 
     let treePxPerUnit = 1; // Default fallback  
@@ -1116,28 +1118,58 @@ if (radial && !isUnrooted) {
         axis.select(".domain").remove(); // Remove the horizontal axis line
         axis.selectAll(".tick line").remove(); // Remove the vertical tick lines
 
+        // Local variable inside the useEffect to manage click timing
+        let clickTimer;
+
         colorbar.append('rect')
             .attr('width', barWidth)
             .attr('height', barHeight)
             .style('fill', 'transparent')
             .style('cursor', 'pointer')
-            .on('click', function(event) {
-                setPanelData(prev => {
-                    const currentPanelData = prev[id] || {};
-                    const newThresholds = { ...(currentPanelData.nhxThresholds || {}) };
-                    if (newThresholds[colorField] != null) {
-                        delete newThresholds[colorField];
-                    } else {
-                        const clickX = d3.mouse(this)[0];
-                        newThresholds[colorField] = xScale.invert(clickX);
-                    }
-                    return { ...prev, [id]: { ...currentPanelData, nhxThresholds: newThresholds } };
-                });
-            
+            .on('click', function() {
+                if (clickTimer) clearTimeout(clickTimer);
                 
+                // Capture mouse position immediately
+                const mouseX = d3.mouse(this)[0];
+                const valAtClick = xScale.invert(mouseX);
+
+                // Wait slightly to see if a second click arrives
+                clickTimer = setTimeout(() => {
+                    setPanelData(prev => {
+                        const currentPanelData = prev[id] || {};
+                        const newThresholds = { ...(currentPanelData.nhxThresholds || {}) };
+                        if (newThresholds[colorField] != null) {
+                            delete newThresholds[colorField];
+                        } else {
+                            newThresholds[colorField] = valAtClick;
+                        }
+                        return { ...prev, [id]: { ...currentPanelData, nhxThresholds: newThresholds } };
+                    });
+                }, 20); 
+            })
+            .on('dblclick', function() {
+                // Cancel the pending single-click update
+                if (clickTimer) clearTimeout(clickTimer);
+                
+                // Stop D3 from passing this up to the SVG zoom/drag
+                d3.event.stopPropagation(); 
+                
+                const containerRect = containerRef.current.getBoundingClientRect();
+                const barRect = this.getBoundingClientRect();
+                const relX = d3.mouse(this)[0];
+                const value = xScale.invert(relX);
+
+                setThresholdEdit({
+                    visible: true,
+                    x: barRect.left - containerRect.left + relX,
+                    y: barRect.bottom - containerRect.top + 11,
+                    value: value.toFixed(4),
+                });
+                // set colorbarTooltip invisible on dblclick
+                setColorbarTooltip({ visible: false, x: 0, y: 0, value: null });
             })
           .on('mousemove', function() {
-                if (isInteractingRef.current) return;
+                if (isInteractingRef.current || thresholdEdit.visible) return;
                 const containerRect = containerRef.current.getBoundingClientRect();
                 const barRect = this.getBoundingClientRect(); // Get the colorbar's position
                 const relX = d3.mouse(this)[0];
@@ -1232,7 +1264,7 @@ if (radial && !isUnrooted) {
   }, [newickStr, size, onHoverTip, highlightedNodes, linkedHighlights, radial, viewMode, useBranchLengths,
      pruneMode, id, setPanelData, toNewick, nhxColorField, labelSize, nodeRadius, branchWidth,
       treeRadius, rightMargin, labelExtension, rotation, extractMode, selectedLeaves,
-      onLeafSelect, onCountLeaves, colorLabels, colorBranches, arc, linkedTo,colorSettings]);
+      onLeafSelect, onCountLeaves, colorLabels, colorBranches, arc,thresholdEdit.visible,linkedTo]);
 
   useEffect(() => {
     function handleDocumentMouseMove(e) {
@@ -1751,6 +1783,44 @@ if (radial && !isUnrooted) {
           {colorbarTooltip.value.toFixed(4)}
         </div>
       )}
+      {/* Threshold Manual Input */}
+      {thresholdEdit.visible && (
+      <div
+        style={{
+          position: 'absolute',
+          left: thresholdEdit.x,
+          top: thresholdEdit.y,
+          transform: 'translateX(-50%)',
+          zIndex: 100,
+        }}
+      >
+        <input
+          autoFocus
+          className="text-xs rounded px-5 py-2 outline-none bg-transparent"
+          style={{ width: '70px' }}
+          value={thresholdEdit.value}
+          onChange={(e) => setThresholdEdit({ ...thresholdEdit, value: e.target.value })}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              const val = parseFloat(thresholdEdit.value);
+              if (!isNaN(val)) {
+                setPanelData(prev => ({
+                  ...prev,
+                  [id]: {
+                    ...prev[id],
+                    nhxThresholds: { ...(prev[id].nhxThresholds || {}), [nhxColorField]: val }
+                  }
+                }));
+              }
+              setThresholdEdit({ visible: false, x: 0, y: 0, value: '' });
+            } else if (e.key === 'Escape') {
+              setThresholdEdit({ visible: false, x: 0, y: 0, value: '' });
+            }
+          }}
+          onBlur={() => setThresholdEdit({ visible: false, x: 0, y: 0, value: '' })}
+        />
+      </div>
+  )}
     </div>
   );
 };
