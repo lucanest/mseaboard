@@ -155,16 +155,22 @@ export function getLeafOrderFromNewick(newick) {
 }
 
 
-// Very small Newick parser that preserves branch lengths
+// small Newick parser that preserves branch lengths
 export function parseNewickToTree(newickRaw) {
-  const s = stripNhx(newickRaw).trim().replace(/;$/, '');
+  // Strip all NHX tags and all whitespace globally.
+  // This allows tags to be anywhere and handles heavy indentation
+  const s = newickRaw
+    .replace(/\[&&NHX[^\]]*\]/g, '') // Remove NHX tags from any position
+    .replace(/\s/g, '')             // Remove all whitespace/newlines
+    .replace(/;$/, '');             // Remove trailing semicolon
+    
   let i = 0;
 
   const readName = () => {
     let start = i;
-    // names can include underscores, dots, numbers, etc. stop at ,:() whitespace
+    // Names stop at delimiters
     while (i < s.length && !",:()".includes(s[i])) i++;
-    return s.slice(start, i).trim();
+    return s.slice(start, i);
   };
 
   const readNumber = () => {
@@ -179,15 +185,13 @@ export function parseNewickToTree(newickRaw) {
 
     if (s[i] === '(') {
       i++; // consume '('
-      while (true) {
+      while (i < s.length) {
         n.children.push(node());
         if (s[i] === ',') { i++; continue; }
         if (s[i] === ')') { i++; break; }
-        // tolerate whitespace
-        if (/\s/.test(s[i])) { i++; continue; }
-        throw new Error('Newick parse error near ' + s.slice(i, i+20));
+        i++; // fallback to prevent infinite loops
       }
-      // optional node name
+      // optional node name after ')'
       if (s[i] && !",:)".includes(s[i])) n.name = readName();
     } else {
       n.name = readName(); // leaf name
@@ -202,8 +206,7 @@ export function parseNewickToTree(newickRaw) {
     return n;
   };
 
-  const root = node();
-  return root;
+  return node();
 }
 
 export function collectLeaves(root) {
