@@ -2200,117 +2200,125 @@ const handleGridMouseMove = useMemo(() =>
             </button>
           </div>
         )}
-        {ShowFastMEOptions && ( 
-    <div className="absolute inset-0 z-[1000] bg-black/40 flex items-center justify-center rounded-2xl"
-         onClick={() => setShowFastMEOptions(false)}> 
-      <div className="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full flex flex-col gap-4 text-sm"
-           onClick={(e) => e.stopPropagation()}> 
-        
-        <h3 className="text-xl font-bold text-gray-800 border-b pb-2">FastME Options</h3>
+        {ShowFastMEOptions && (
+        <div 
+            className="absolute inset-0 z-[1000] bg-black/40 flex items-center justify-center rounded-2xl p-2" // Added p-2 so it doesn't touch the very edge
+            onClick={() => setShowFastMEOptions(false)}
+        > 
+            <div 
+                className="bg-white p-6 rounded-xl shadow-2xl max-w-sm w-full max-h-full flex flex-col text-sm"
+                onClick={(e) => e.stopPropagation()}
+            > 
+                {/* Header */}
+                <h3 className="text-xl font-bold text-gray-800 border-b pb-2 flex-shrink-0">
+                    FastME Options
+                </h3>
 
-        {/* --- Substitution Model --- */}
-        <div className="flex flex-col gap-1">
-            <label className="font-semibold text-gray-600">Substitution Model</label>
-            <select 
-                className="border rounded-md px-2 py-1 bg-gray-50"
-                value={fastMEOptions.model}
-                onChange={e => setFastMEOptions({...fastMEOptions, model: e.target.value})}
-            >
-                {(isNuc ? dnaModels : proteinModels).map(m => (
-                    <option key={m} value={m}>{m}</option>
-                ))}
-            </select>
+                {/* Scrollable body */}
+                <div className="overflow-y-auto py-4 flex-1 space-y-4 custom-scrollbar"> 
+                    {/* --- Substitution Model --- */}
+                    <div className="flex flex-col gap-1">
+                        <label className="font-semibold text-gray-600">Substitution Model</label>
+                        <select 
+                            className="border rounded-md px-2 py-1 bg-gray-50"
+                            value={fastMEOptions.model}
+                            onChange={e => setFastMEOptions({...fastMEOptions, model: e.target.value})}
+                        >
+                            {(isNuc ? dnaModels : proteinModels).map(m => (
+                                <option key={m} value={m}>{m}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* --- Inference Method --- */}
+                    <div className="flex flex-col gap-1">
+                        <label className="font-semibold text-gray-600">Tree Inference Method</label>
+                        <select 
+                            className="border rounded-md px-2 py-1 bg-gray-50"
+                            value={fastMEOptions.method}
+                            onChange={e => setFastMEOptions({...fastMEOptions, method: e.target.value})}
+                        >
+                            {methodOptions.map(m => (
+                                <option key={m} value={m}>{m}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {/* --- Gamma Rate Variation --- */}
+                    <div className="flex flex-col gap-1">
+                        <label className="font-semibold text-gray-600">
+                            Gamma Parameter (Alpha)
+                            <span className="text-gray-400 font-normal ml-2 text-xs">(Empty = none)</span>
+                        </label>
+                        <input 
+                            type="number" 
+                            step="0.1" 
+                            min="0"
+                            placeholder="e.g. 1.0"
+                            className="border rounded-md px-2 py-1"
+                            value={fastMEOptions.gamma}
+                            onChange={e => setFastMEOptions({...fastMEOptions, gamma: e.target.value})}
+                        />
+                    </div>
+
+                    {/* --- Topology Search --- */}
+                    <div className="flex flex-col gap-1">
+                        <label className="font-semibold text-gray-600">Topology Optimization</label>
+                        <div className="flex gap-4 mt-1">
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    checked={fastMEOptions.nni}
+                                    onChange={e => setFastMEOptions({...fastMEOptions, nni: e.target.checked})}
+                                />
+                                NNI
+                            </label>
+                            <label className="flex items-center gap-2 cursor-pointer">
+                                <input 
+                                    type="checkbox" 
+                                    checked={fastMEOptions.spr}
+                                    onChange={e => setFastMEOptions({...fastMEOptions, spr: e.target.checked})}
+                                />
+                                SPR
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* --- Bootstrap --- */}
+                    <div className="flex flex-col gap-1">
+                        <label className="font-semibold text-gray-600">
+                            Bootstraps
+                            <span className="text-gray-400 font-normal ml-2 text-xs">(0 = none)</span>
+                        </label>
+                        <input 
+                            type="number" 
+                            step="1" 
+                            min="0"
+                            max="1000"
+                            className="border rounded-md px-2 py-1"
+                            value={fastMEOptions.bootstrap}
+                            onChange={e => setFastMEOptions({...fastMEOptions, bootstrap: e.target.value})}
+                        />
+                    </div>
+                </div>
+
+                {/* Footer */}
+                <div className="flex justify-end gap-2 mt-2 pt-3 border-t flex-shrink-0">
+                    <button 
+                        className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
+                        onClick={() => setShowFastMEOptions(false)}
+                    >
+                        Cancel
+                    </button>
+                    <button 
+                        className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg font-semibold shadow-md"
+                        onClick={handleFastMESubmit}
+                    >
+                        Build Tree
+                    </button>
+                </div>
+            </div> 
         </div>
-
-        {/* --- Inference Method --- */}
-        <div className="flex flex-col gap-1">
-            <label className="font-semibold text-gray-600">Tree Inference Method</label>
-            <select 
-                className="border rounded-md px-2 py-1 bg-gray-50"
-                value={fastMEOptions.method}
-                onChange={e => setFastMEOptions({...fastMEOptions, method: e.target.value})}
-            >
-                {methodOptions.map(m => (
-                    <option key={m} value={m}>{m}</option>
-                ))}
-            </select>
-        </div>
-
-        {/* --- Gamma Rate Variation --- */}
-        <div className="flex flex-col gap-1">
-            <label className="font-semibold text-gray-600">
-                Gamma Parameter (Alpha)
-                <span className="text-gray-400 font-normal ml-2 text-xs">(Empty = none)</span>
-            </label>
-            <input 
-                type="number" 
-                step="0.1" 
-                min="0"
-                placeholder="e.g. 1.0"
-                className="border rounded-md px-2 py-1"
-                value={fastMEOptions.gamma}
-                onChange={e => setFastMEOptions({...fastMEOptions, gamma: e.target.value})}
-            />
-        </div>
-
-        {/* --- Topology Search (Checkboxes) --- */}
-        <div className="flex flex-col gap-1">
-            <label className="font-semibold text-gray-600">Topology Optimization</label>
-            <div className="flex gap-4 mt-1">
-                <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                        type="checkbox" 
-                        checked={fastMEOptions.nni}
-                        onChange={e => setFastMEOptions({...fastMEOptions, nni: e.target.checked})}
-                    />
-                    NNI
-                </label>
-                <label className="flex items-center gap-2 cursor-pointer">
-                    <input 
-                        type="checkbox" 
-                        checked={fastMEOptions.spr}
-                        onChange={e => setFastMEOptions({...fastMEOptions, spr: e.target.checked})}
-                    />
-                    SPR
-                </label>
-            </div>
-        </div>
-
-        {/* --- Bootstrap --- */}
-         <div className="flex flex-col gap-1">
-            <label className="font-semibold text-gray-600">
-                Bootstraps
-                <span className="text-gray-400 font-normal ml-2 text-xs">(0 = none)</span>
-            </label>
-            <input 
-                type="number" 
-                step="1" 
-                min="0"
-                max="1000"
-                className="border rounded-md px-2 py-1"
-                value={fastMEOptions.bootstrap}
-                onChange={e => setFastMEOptions({...fastMEOptions, bootstrap: e.target.value})}
-            />
-        </div>
-
-        {/* --- Buttons --- */}
-        <div className="flex justify-end gap-2 mt-2 pt-3 border-t">
-            <button 
-                className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg"
-                onClick={() => setShowFastMEOptions(false)}
-            >
-                Cancel
-            </button>
-            <button 
-                className="px-4 py-2 bg-blue-600 text-white hover:bg-blue-700 rounded-lg font-semibold shadow-md"
-                onClick={handleFastMESubmit}
-            >
-                Build Tree
-            </button>
-        </div>
-
-      </div> 
-    </div>
     )}
     {/* Distance matrix options */}
         {showDistOptions && (
