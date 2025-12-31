@@ -109,13 +109,12 @@ const MemoizedButtonWithHover = React.memo(function ButtonWithHover({ name, chil
 });
 
 const MemoizedLinkBadge = React.memo(function LinkBadge({ partnerId, active, colorForLink, id, onUnlink, onRestoreLink, handleEnter, handleLeave }) {
-  const baseColor = colorForLink?.(id, partnerId, true) ?? 'bg-blue-400';
+  const baseColor = colorForLink?.(id, partnerId, true) ?? 'bg-blue-400'; //color class for this link
+
   return (
     <button
       type="button"
-      className={`w-4 h-4 rounded-full shadow hover:scale-110
-        ${active ? baseColor : 'bg-gray-300'}
-        ${!active ? `hover:bg-blue-300` : ''}`}
+      className="group relative w-4 h-4 rounded-full shadow transition-transform hover:scale-110 bg-gray-300 overflow-hidden"
       onMouseEnter={() => handleEnter(partnerId, true)}
       onPointerLeave={handleLeave}
       onFocus={() => handleEnter(partnerId, true)}
@@ -125,7 +124,18 @@ const MemoizedLinkBadge = React.memo(function LinkBadge({ partnerId, active, col
         if (active) onUnlink?.(id, partnerId);
         else onRestoreLink?.(id, partnerId);
       }}
-    />
+    >
+      {/* 
+         Colored Overlay Layer: 
+         - Full opacity (100) when active.
+         - Invisible (0) when disabled, showing the gray background.
+         - Dimmed opacity (35) when disabled but hovered.
+      */}
+      <div 
+        className={`absolute inset-0 transition-opacity duration-200 ${baseColor} 
+          ${active ? 'opacity-100' : 'opacity-0 group-hover:opacity-35'}`} 
+      />
+    </button>
   );
 });
 
@@ -3482,6 +3492,7 @@ const HistogramPanel = React.memo(function HistogramPanel({
     prevProps.data === nextProps.data &&
     prevProps.hoveredPanelId === nextProps.hoveredPanelId &&
     prevProps.highlightedSite === nextProps.highlightedSite &&
+    prevProps.linkBadges === nextProps.linkBadges && 
     //prevProps.highlightOrigin === nextProps.highlightOrigin &&
     prevProps.justLinkedPanels.join() === nextProps.justLinkedPanels.join()
   );
@@ -3757,7 +3768,8 @@ const PanelWrapper = React.memo(({
     prevProps.panel.i === nextProps.panel.i &&
     prevProps.linkMode === nextProps.linkMode &&
     prevProps.panelData[prevProps.panel.i] === nextProps.panelData[nextProps.panel.i] &&
-    prevProps.panelLinks[prevProps.panel.i] === nextProps.panelLinks[nextProps.panel.i] &&
+    // Check if the link status has changed
+    prevProps.panelLinks[prevProps.panel.i]?.length === nextProps.panelLinks[nextProps.panel.i]?.length &&
     prevProps.hoveredPanelId === nextProps.hoveredPanelId &&
     prevProps.justLinkedPanels.join() === nextProps.justLinkedPanels.join() &&
     // Deep compare scrollPositions to avoid unnecessary re-renders if content is same
