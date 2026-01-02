@@ -6379,79 +6379,79 @@ const rehydrateBoardState = (board) => {
     }
   }, [githubToken, history.present]);
 
-  // Load board from Gist on initial render
-    useEffect(() => {
-    const loadBoardFromGist = async (gistId) => {
-        try {
-            //alert(`Loading shared board: ${gistId}...`);
-            // Step 1: Fetch Gist metadata to find the raw_url
-            const gistMetaResponse = await fetch(`https://api.github.com/gists/${gistId}`);
-            if (!gistMetaResponse.ok) {
-                throw new Error('Could not find the shared board Gist.');
-            }
-            const gist = await gistMetaResponse.json();
+  const loadBoardFromGist = useCallback(async (gistId) => {
+    
+    try {
+        const gistMetaResponse = await fetch(`https://api.github.com/gists/${gistId}`);
+        if (!gistMetaResponse.ok) {
+            throw new Error('Could not find the shared board Gist.');
+        }
+        const gist = await gistMetaResponse.json();
 
-            const boardFile = gist.files['board.json'];
-            if (!boardFile) {
-                throw new Error("Gist is empty or has an invalid format (missing board.json).");
-            }
+        const boardFile = gist.files['board.json'];
+        if (!boardFile) {
+            throw new Error("Gist is empty or has an invalid format (missing board.json).");
+        }
 
-            // Step 2: Fetch the full content from the raw_url to avoid truncation
-            const rawUrl = boardFile.raw_url;
-            const contentResponse = await fetch(rawUrl);
-            if (!contentResponse.ok) {
-                throw new Error("Could not fetch the board's raw content.");
-            }
-            const boardWrapper = await contentResponse.json();
-            
-            // Step 3: Decompress and parse the board state
-            const base64 = boardWrapper.compressed_base64;
-            if (!base64) {
-                throw new Error("Gist content is missing the compressed data.");
-            }
-            
-            const compressed = base64ToUint8Array(base64);
-            const jsonString = pako.inflate(compressed, { to: 'string' });
-            const parsedBoard = JSON.parse(jsonString);
-            const board = rehydrateBoardState(parsedBoard);
+        const rawUrl = boardFile.raw_url;
+        const contentResponse = await fetch(rawUrl);
+        if (!contentResponse.ok) {
+            throw new Error("Could not fetch the board's raw content.");
+        }
+        const boardWrapper = await contentResponse.json();
 
-            if (board.panels && board.layout && board.panelData) {
-                setHistory({
-                    past: [],
-                    present: {
-                        panels: board.panels,
-                        layout: board.layout,
-                        panelData: board.panelData,
-                        panelLinks: board.panelLinks || {},
-                        panelLinkHistory: buildHistory(board),
-                        linkColors: board.linkColors || {},
-                    },
-                    future: [],
-                });
-                setTitleFlipKey(Date.now());
-            } else {
-                throw new Error("Board data is missing required fields.");
-            }
+        const base64 = boardWrapper.compressed_base64;
+        if (!base64) {
+            throw new Error("Gist content is missing the compressed data.");
+        }
+        
+        const compressed = base64ToUint8Array(base64);
+        const jsonString = pako.inflate(compressed, { to: 'string' });
+        const parsedBoard = JSON.parse(jsonString);
+        const board = rehydrateBoardState(parsedBoard);
 
-        } catch (error) {
-            console.error("Failed to load board from Gist:", error);
-            alert(`Error loading shared board: ${error.message}`);
-        } finally {
-            // Clean the URL to prevent re-loading on refresh
-            if (window.history.replaceState) {
-                const url = new URL(window.location);
+        if (board.panels && board.layout && board.panelData) {
+            setHistory({
+                past: [],
+                present: {
+                    panels: board.panels,
+                    layout: board.layout,
+                    panelData: board.panelData,
+                    panelLinks: board.panelLinks || {},
+                    panelLinkHistory: buildHistory(board),
+                    linkColors: board.linkColors || {},
+                },
+                future: [],
+            });
+            setTitleFlipKey(Date.now());
+        } else {
+            throw new Error("Board data is missing required fields.");
+        }
+
+    } catch (error) {
+        console.error("Failed to load board from Gist:", error);
+        alert(`Error loading shared board: ${error.message}`);
+    } finally {
+        // Clean the URL to prevent re-loading on refresh if we started from a URL param
+        if (window.history.replaceState) {
+            const url = new URL(window.location);
+            if (url.searchParams.has('board')) {
                 url.searchParams.delete('board');
                 window.history.replaceState({}, '', url.toString());
             }
         }
-    };
-    
-    const urlParams = new URLSearchParams(window.location.search);
-    const gistId = urlParams.get('board');
-    if (gistId) {
-        loadBoardFromGist(gistId);
     }
-  }, []); // Empty dependency array ensures this runs only once on mount
+}, [setHistory, rehydrateBoardState, buildHistory, setTitleFlipKey, setTransientMessage]); 
+    
+
+  // Load board from Gist on initial render
+    useEffect(() => {
+        const urlParams = new URLSearchParams(window.location.search);
+        const gistId = urlParams.get('board');
+        if (gistId) {
+            loadBoardFromGist(gistId);
+        }
+    }, []); // Empty dependency array ensures this runs only once on mount
 
 
 // Drag-and-drop file upload
@@ -6912,7 +6912,7 @@ const handleRestoreSession = useCallback(() => {
 
   <button
     className="bg-gray-200 hover:bg-gray-300 text-gray-700 text-2xl font-semibold px-4 py-4 rounded-xl shadow-xl transition text-center"
-    onClick={() => window.open('https://www.mseaboard.com/?board=ddbcd607cbe8cfec3736521433f4ead8', '_self')}
+    onClick={() => loadBoardFromGist('ddbcd607cbe8cfec3736521433f4ead8')}
   >
     Manual, showcase <br /> and example boards
   </button>
@@ -6921,7 +6921,7 @@ const handleRestoreSession = useCallback(() => {
 
   <button
     className="bg-gray-200 hover:bg-gray-300 text-gray-700 text-2xl font-semibold px-4 py-4 rounded-xl shadow-xl transition text-center"
-    onClick={() => window.open('https://www.mseaboard.com/?board=219ab0d7eb433c94d548179b37b6a432', '_self')}
+    onClick={() => {loadBoardFromGist('219ab0d7eb433c94d548179b37b6a432'); }}
   >
     Load an example <br /> directly
   </button>
