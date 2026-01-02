@@ -2919,7 +2919,7 @@ const TreePanel = React.memo(function TreePanel({
       {extractMode && (
           <div className="absolute right-3 top-10 z-[1100] bg-white border rounded-xl shadow p-2 flex items-center gap-2">
               <span className="text-sm text-gray-700 px-2">
-                  Click nodes to select or deselect all its children<br /><strong>{selectedLeaves.size}/{totalLeaves} leaves selected</strong>
+                  Click on nodes/branches to select/deselect all their children<br /><strong>{selectedLeaves.size}/{totalLeaves} leaves selected</strong>
               </span>
               <button className="px-2 py-1 rounded-md bg-gray-200 text-gray-700 hover:bg-red-300"
                   onClick={handleCancelSelection}>

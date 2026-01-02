@@ -776,7 +776,7 @@ const PhyloTreeViewer = ({
       .attr('stroke', 'transparent')
       .attr('stroke-width', 13)
       .attr('d', linkPathGen)
-      .style('cursor', pruneMode ? 'pointer' : 'default')
+      .style('cursor', (pruneMode || rerootMode || extractMode) ? 'pointer' : 'default')
       .on('mouseenter', function (event, d) {
         if (isInteractingRef.current) return;
         const idx = links.indexOf(event);
@@ -786,6 +786,8 @@ const PhyloTreeViewer = ({
             branchPath.attr('stroke', '#E50000');
           } else if (rerootMode) {
             branchPath.attr('stroke', '#C3420D');
+          } else if (extractMode) {
+            branchPath.attr('stroke', '#2563EB');
           } else {
             branchPath.attr('stroke', MAGENTA_COLOR);
           }
@@ -796,6 +798,8 @@ const PhyloTreeViewer = ({
           setTooltipContent(`<strong>Click to prune this branch</strong>`);
          } else if (rerootMode) {
           setTooltipContent(`<strong>Click to place root on this branch</strong>`);  
+         } else if (extractMode) {
+          setTooltipContent(`<strong>Click to select/deselect this clade</strong>`);
         } else {
           setTooltipContent(`<strong>Branch length:</strong> ${length !== undefined ? d3.format(".4f")(length) : 'N/A'}`);
         }
@@ -819,7 +823,12 @@ const PhyloTreeViewer = ({
         setTooltipContent('');
       })
       .on('click', (event, d) => {
-        if (!pruneMode && !rerootMode) return;
+        if (!pruneMode && !rerootMode && !extractMode) return;
+
+        if (extractMode) {
+          onLeafSelect?.(event.target);
+          return;
+        }
 
         if (rerootMode) {
           handleRerootClick(event);
