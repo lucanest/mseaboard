@@ -2610,6 +2610,7 @@ const TreePanel = React.memo(function TreePanel({
   const [showViewOptions, setShowViewOptions] = useState(false);
   const viewOptionsRef = useRef(null);
   const viewButtonWrapperRef = useRef(null);
+  //console.log(viewMode);
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -2857,8 +2858,8 @@ const TreePanel = React.memo(function TreePanel({
       tooltip: <>Extract subtree<br /><span className={subtooltipClass}>Choose a subset of leaves to create a new tree</span></>
     },
     { 
-        element: <RootButton onClick={handleRerootToggle} isActive={rerootMode} />, 
-        tooltip: rerootMode ? "Exit reroot mode" : <>Reroot tree<br /><span className={subtooltipClass}>Place root on selected branch</span></>
+        element: <RootButton onClick={handleRerootToggle} isActive={rerootMode} disabled={viewMode == 'unrooted'} />, 
+        tooltip: rerootMode ? "Exit reroot mode" : viewMode == 'unrooted'? <>Reroot tree<br /><span className={subtooltipClass}>Switch to a rooted view to reroot</span></> : <>Reroot tree<br /><span className={subtooltipClass}>Place root on selected branch</span></>
     },
     { 
       element: <SequenceButton onClick={() => onOpenTreeAsNotepad(id)} />, 
