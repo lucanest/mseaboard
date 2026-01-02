@@ -46,11 +46,19 @@ const PhyloTreeViewer = ({
       if (e.key === 'Shift') shiftPressedRef.current = e.type === 'keydown';
       if (e.key.toLowerCase() === 'z') zPressedRef.current = e.type === 'keydown';
     };
+
+    // Reset everything if the window loses focus
+    const handleBlur = () => {
+      shiftPressedRef.current = false;
+      zPressedRef.current = false;
+    };
     window.addEventListener('keydown', handleKey);
     window.addEventListener('keyup', handleKey);
-    return () => { 
-      window.removeEventListener('keydown', handleKey); 
-      window.removeEventListener('keyup', handleKey); 
+    window.addEventListener('blur', handleBlur);
+    return () => {
+      window.removeEventListener('keydown', handleKey);
+      window.removeEventListener('keyup', handleKey);
+      window.removeEventListener('blur', handleBlur);
     };
   }, []);
 
