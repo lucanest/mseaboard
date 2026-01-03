@@ -158,12 +158,14 @@ function Histogram({
     (v) => {
       if (discrete) return cmap[v];
       const baseR = 96, baseG = 165, baseB = 250;
-      const denom = max - min || 1;
-      const t = Math.sqrt((v - min) / denom);
-      const r = baseR + Math.round((255 - baseR) * 3*(1 - t)/4);
-      const g = baseG + Math.round((255 - baseG) * 3*(1 - t)/4);
-      const b = baseB + Math.round((255 - baseB) * 3*(1 - t)/4);
-      return `rgb(${r},${g},${b})`;
+      return `rgb(${baseR},${baseG},${baseB})`;
+      // Gradient logic (disabled)
+      //const denom = max - min || 1;
+      //const t = Math.sqrt((v - min) / denom);
+      //const r = baseR + Math.round((255 - baseR) * 3*(1 - t)/4);
+      //const g = baseG + Math.round((255 - baseG) * 3*(1 - t)/4);
+      //const b = baseB + Math.round((255 - baseB) * 3*(1 - t)/4);
+      //return `rgb(${r},${g},${b})`;
     },
     [discrete, cmap, min, max]
   );
@@ -720,7 +722,7 @@ function Histogram({
                 width={innerWidth}
                 itemCount={values.length}
                 itemSize={itemSize}
-                overscanCount={64}
+                overscanCount={32}
                 onScroll={onListScroll}
               >
                 {Item}
