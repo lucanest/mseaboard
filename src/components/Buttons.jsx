@@ -358,14 +358,14 @@ export function RootButton({ onClick, isActive, disabled }) {
   );
 }
 
-export function SubMSAButton({ onClick }){
+export function SubMSAButton({ onClick, isActive }){
   return (
     <button
       type="button"
       onClick={onClick}
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg
-        bg-gray-100 hover:bg-gray-300 border border-gray-400">
+      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
+        ${isActive ? 'border-2 border-gray-400 bg-gray-300' : 'border border-gray-400 bg-gray-100'} hover:bg-gray-300`}>
         <SubMSAGlyph className="w-4 h-4 flex-shrink-0 m-0 p-0 -translate-y-[0px]" />
       </span>
     </button>
