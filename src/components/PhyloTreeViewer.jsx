@@ -1314,20 +1314,26 @@ if (radial && !isUnrooted) {
         .data(items)
         .join('rect')
         .attr('x', 0)
-        .attr('y', (_, i) => i * 20 - 20 )
+        .attr('y', (_, i) => i * 20 + 6)
         .attr('width', 15)
         .attr('height', 15)
         .attr('fill', d => d[1])
         .attr('rx', 4);
-
       legendGroup.selectAll('text')
         .data(items)
         .join('text')
         .attr('x', 20)
-        .attr('y', (_, i) => i * 20 + 12 - 20)
-        .text(d => `${colorField}: ${d[0]}`)
+        .attr('y', (_, i) => i * 20 + 18)
+        .text(d => `${d[0]}`)
         .style('font-size', '12px')
         .style('fill', DARK_GRAY_COLOR);
+      legendGroup.append('text')
+        .attr('x', 0)
+        .attr('y', -2)
+        .text(colorField)
+        .style('font-size', '12px')
+        .style('fill', DARK_GRAY_COLOR)
+        .style('font-weight', '350');
     }
 
     // Calculate Legend Height/Width to position the scale bar relatively
@@ -1336,7 +1342,7 @@ if (radial && !isUnrooted) {
       if (isContinuous && fieldStats) {
         currentLegendHeight = COLORBAR_HEIGHT;
       } else if (Object.keys(colorMap).length > 0) {
-        currentLegendHeight = Object.keys(colorMap).length * 20 - 5; 
+        currentLegendHeight = Object.keys(colorMap).length * 20 + 20; 
       }
     }
 
