@@ -1186,7 +1186,7 @@ if (radial && !isUnrooted) {
     if (isContinuous && fieldStats) {
        // Title
         legendGroup.append('text')
-            .attr('x', 0)
+            .attr('x', 12)
             .attr('y', -2)
             .text(colorField)
             .style('font-size', '12px')
@@ -1195,7 +1195,7 @@ if (radial && !isUnrooted) {
 
         const colorbar = legendGroup.append('g')
             .attr('class', 'colorbar-group')
-            .attr('transform', `translate(0, 6)`);
+            .attr('transform', `translate(12, 6)`);
         const gradientID = `tree-gradient-${id}`;
         const defs = colorbar.append('defs');
         const linearGradient = defs.append('linearGradient').attr('id', gradientID);
@@ -1313,7 +1313,7 @@ if (radial && !isUnrooted) {
       legendGroup.selectAll('rect')
         .data(items)
         .join('rect')
-        .attr('x', 0)
+        .attr('x', 12)
         .attr('y', (_, i) => i * 20 + 6)
         .attr('width', 15)
         .attr('height', 15)
@@ -1322,13 +1322,13 @@ if (radial && !isUnrooted) {
       legendGroup.selectAll('text')
         .data(items)
         .join('text')
-        .attr('x', 20)
+        .attr('x', 32)
         .attr('y', (_, i) => i * 20 + 18)
         .text(d => `${d[0]}`)
         .style('font-size', '12px')
         .style('fill', DARK_GRAY_COLOR);
       legendGroup.append('text')
-        .attr('x', 0)
+        .attr('x', 12)
         .attr('y', -2)
         .text(colorField)
         .style('font-size', '12px')
@@ -1351,7 +1351,7 @@ if (radial && !isUnrooted) {
       .attr('class', 'scale-bar-container')
       .style('visibility', useBranchLengths ? 'visible' : 'hidden')
       // Position it below the legend content with a small gap
-      .attr('transform', `translate(0, ${currentLegendHeight})`);
+      .attr('transform', `translate(12, ${currentLegendHeight})`);
 
     if (useBranchLengths) {
       // Calculate Scale Unit
