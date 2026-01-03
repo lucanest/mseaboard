@@ -2934,7 +2934,7 @@ const TreePanel = React.memo(function TreePanel({
       )}
       {/* Styled Dropdown Menu */}
       {showViewOptions && (
-        <div ref={viewOptionsRef} className="absolute top-11 right-32 z-50 bg-white border border-gray-300 rounded-xl shadow px-1 py-1 flex flex-col items-stretch space-y-1">
+        <div ref={viewOptionsRef} className="absolute top-11 right-3 z-50 bg-white border border-gray-300 rounded-xl shadow px-1 py-1 flex flex-col items-stretch space-y-1">
           {['radial', 'rectangular', 'unrooted'].map((mode) => (
             <button 
               key={mode}
