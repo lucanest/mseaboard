@@ -1608,6 +1608,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
 
   useEffect(() => {
     if (!showReorderOptions) return;
+    setShowSearch(false);
     const closeOnEsc = (e) => {
       if (e.key === 'Escape') {
         setShowReorderOptions(false);
@@ -1709,6 +1710,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
 
   useEffect(() => {
     if (!showDistOptions) return;
+    setShowSearch(false);
     const closeOnClickOutside = (e) => {
       if (
         distOptionsRef.current &&
@@ -2003,14 +2005,14 @@ const onScroll = useMemo(() =>
         { 
             element: (
                 <div ref={distButtonWrapperRef}>
-                    <DistanceMatrixButton onClick={() => setShowDistOptions(s => !s)} />
+                    <DistanceMatrixButton onClick={() => {setIsSelectionMode(false); setShowDistOptions(s => !s)}} />
                 </div>
             ), 
             tooltip: "Build distance matrix"
         },
         { element: <RadialToggleButton onClick={() => onCreateColorMatrix(id)} />, tooltip: "Create alignment color matrix"},
         { element: <SubMSAButton onClick={() => { setShowSearch(false); handleToggleSelectionMode(); }} isActive={isSelectionMode} />, tooltip : <> Extract sequences <br /> <span className={subtooltipClass}>Choose a subset to create a new panel </span> </> },
-        { element: <div ref={shuffleButtonWrapperRef}><ShuffleButton onClick={() => setShowReorderOptions(s => !s)} /></div>, tooltip: "Reorder sequences" },
+        { element: <div ref={shuffleButtonWrapperRef}><ShuffleButton onClick={() => {setIsSelectionMode(false); setShowReorderOptions(s => !s)}} /></div>, tooltip: "Reorder sequences" },
         { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
     ] : [
         { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowFastMEOptions(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
@@ -2020,14 +2022,14 @@ const onScroll = useMemo(() =>
         { 
             element: (
                 <div ref={distButtonWrapperRef}>
-                    <DistanceMatrixButton onClick={() => setShowDistOptions(s => !s)} />
+                    <DistanceMatrixButton onClick={() => {setIsSelectionMode(false); setShowDistOptions(s => !s)}} />
                 </div>
             ), 
             tooltip: "Build distance matrix" 
         },
         { element: <RadialToggleButton onClick={() => onCreateColorMatrix(id)} />, tooltip: "Create alignment color matrix"},
         { element: <SubMSAButton onClick={() => { setShowSearch(false); handleToggleSelectionMode(); }} isActive={isSelectionMode} />, tooltip : <> Extract sequences <br /> <span className={subtooltipClass}>Choose a subset to create a new panel </span> </> },
-        { element: <div ref={shuffleButtonWrapperRef}><ShuffleButton onClick={() => setShowReorderOptions(s => !s)} /></div>, tooltip: "Reorder sequences" },
+        { element: <div ref={shuffleButtonWrapperRef}><ShuffleButton onClick={() => {setIsSelectionMode(false); setShowReorderOptions(s => !s)}} /></div>, tooltip: "Reorder sequences" },
         { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" },
         
     ]
