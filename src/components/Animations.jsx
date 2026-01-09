@@ -3,15 +3,16 @@ import { useRef, useState, useEffect } from 'react';
 import { motion, useInView } from 'framer-motion';
 import { residueColorHex } from '../constants/colors';
 
-export function TitleFlip({ text, colors, tileSize = 40 }) {
+export function TitleFlip({ text, colors, tileSize = 40, setTitleFlipKey }) {
   return (
-    <div className="flex items-center justify-start w-full gap-0">
+    <div className="flex items-center justify-start w-full gap-0 cursor-default">
       {text.split('').map((ch, i) => {
         const color = colors[ch] || 'bg-gray-200';
         return (
           <div
             key={i}
             className="flip-card"
+            onClick={() => {setTitleFlipKey(Date.now())}}
             style={{
               width: tileSize,
               height: tileSize,
