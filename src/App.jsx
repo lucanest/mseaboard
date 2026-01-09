@@ -6890,7 +6890,7 @@ const handleRestoreSession = useCallback(() => {
         marginRight: 0,
       }}
     >
-    <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors}/>
+    <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors} setTitleFlipKey={setTitleFlipKey} />
     </div><div
       style={{
         height: 120,
@@ -6943,7 +6943,7 @@ const handleRestoreSession = useCallback(() => {
           </div>
         )}
 
-              {panels.length > 0 && (
+{panels.length > 0 && (
         <div className="flex-grow overflow-auto pb-20">
  <div
       style={{
@@ -6960,7 +6960,7 @@ const handleRestoreSession = useCallback(() => {
       }}
     >
       <div className="flex flex-col items-center justify-center px-3 w-full" style={{ marginTop: 6 }}>
-      <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors}/>
+      <TitleFlip key={titleFlipKey} text="MSEABOARD" colors={logoColors} setTitleFlipKey={setTitleFlipKey} />
       </div>
     </div>
           <GridLayout
