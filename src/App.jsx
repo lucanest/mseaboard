@@ -54,7 +54,7 @@ reorderHeatmapByLeafOrder, reorderMsaByLeafOrder, msaColToResidueIndex,
 parsePdbChains, mkDownload, baseName, removeGappedSequences, convertFastMeToNhx, msaToPhylip, computeCorrelationMatrix, uint8ArrayToBase64, base64ToUint8Array,
 computeTreeStats, parseTsvMatrix, parseNewick, toNewick, detectIndexingMode, sanitizeSchema,
 } from './components/Utils.jsx';
-import { residueColors, logoColors, linkpalette, residueSvgColors } from './constants/colors.js';
+import { ResidueColorSchemes, logoColors, linkpalette, residueSvgColors } from './constants/colors.js';
 import { CELL_SIZE, LABEL_WIDTH } from './constants/sizes.js';
 import { TitleFlip, AnimatedList } from './components/Animations.jsx';
 import PhyloTreeViewer from './components/PhyloTreeViewer.jsx';
@@ -898,6 +898,8 @@ const handleDownloadTSV = useCallback(() => {
               onHighlight={siteIdx => { if (onHighlight) onHighlight(siteIdx, id); }}
               scrollLeft={scrollLeft}
               viewportWidth={viewportWidth}
+              isNucleotide={data.isNucleotide}
+              msaColorScheme={data.msaColorScheme}
             />
           </div>
         )}
@@ -1234,6 +1236,8 @@ const extraButtons = useMemo(() => {
           highColor={data.highColor}
           lowColor={data.lowColor}
           isMsaColorMatrix={data.isMsaColorMatrix}
+          isProtein={data.isProtein}
+          msaColorScheme={data.msaColorScheme}
           visibleWindow={visibleWindow}
           onWindowDrag={onWindowDrag}
         />
@@ -1447,9 +1451,14 @@ const MSACell = React.memo(function MSACell({
   isPersistentHighlight,
   isSearchHighlight,
   rowIndex,
-  columnIndex
+  columnIndex,
+  scheme = 'default',
+  isNuc,
 }) {
-  const background = residueColors[char?.toUpperCase()] || 'bg-white';
+
+  const category = isNuc ? 'nucleotide' : 'protein';
+  const mapping = ResidueColorSchemes[category][scheme] || ResidueColorSchemes[category].default;
+  const background = mapping[char?.toUpperCase()] || 'bg-white';
   
   let highlightClass = '';
   if (isHoverHighlight || isLinkedHighlight) {
@@ -1476,6 +1485,7 @@ const MSACell = React.memo(function MSACell({
 }, (prevProps, nextProps) => {
   return (
     prevProps.char === nextProps.char &&
+    prevProps.scheme === nextProps.scheme &&
     prevProps.isHoverHighlight === nextProps.isHoverHighlight &&
     prevProps.isLinkedHighlight === nextProps.isLinkedHighlight &&
     prevProps.isPersistentHighlight === nextProps.isPersistentHighlight &&
@@ -1543,6 +1553,10 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   const reorderOptionsRef = useRef(null);
   const shuffleButtonWrapperRef = useRef(null);
 
+  const [showColorSchemeOptions, setShowColorSchemeOptions] = useState(false);
+  const colorSchemeOptionsRef = useRef(null);
+  const colorButtonWrapperRef = useRef(null);
+
 
 
    // Store original order of IDs if it doesn't exist yet
@@ -1605,6 +1619,27 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
     }));
     setShowReorderOptions(false);
   }, [id, data.data, setPanelData]);
+
+  useEffect(() => {
+  if (!showColorSchemeOptions) return;
+  const closeOnClickOutside = (e) => {
+    if (colorSchemeOptionsRef.current && !colorSchemeOptionsRef.current.contains(e.target) &&
+        (!colorButtonWrapperRef.current || !colorButtonWrapperRef.current.contains(e.target))) {
+      setShowColorSchemeOptions(false);
+    }
+  };
+  document.addEventListener('mousedown', closeOnClickOutside);
+  return () => document.removeEventListener('mousedown', closeOnClickOutside);
+}, [showColorSchemeOptions]);
+
+  const handleSchemeChange = (scheme) => {
+    setPanelData(pd => ({
+      ...pd,
+      [id]: { ...pd[id], residueColorScheme: scheme }
+    }));
+    setShowColorSchemeOptions(false);
+  };
+
 
   useEffect(() => {
     if (!showReorderOptions) return;
@@ -1993,6 +2028,14 @@ const onScroll = useMemo(() =>
   const extraButtons = useMemo(() => (
     isNuc ? [ 
         { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowFastMEOptions(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
+        { element: (
+            <div ref={colorButtonWrapperRef}>
+              <ColorButton onClick={() => {setShowColorSchemeOptions(s => !s); setShowSearch(false); setIsSelectionMode(false);}} />
+            </div>
+          ), 
+          tooltip: "Choose color scheme" 
+        },
+
         { element: <CodonToggleButton onClick={() => setCodonMode(m => !m)} isActive={codonMode} />, tooltip: "Toggle codon mode" },
         { element: <TranslateButton onClick={() => onDuplicateTranslate(id)} />, tooltip: "Translate to amino acids" },
         { 
@@ -2016,6 +2059,14 @@ const onScroll = useMemo(() =>
         { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
     ] : [
         { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowFastMEOptions(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
+        { element: (
+            <div ref={colorButtonWrapperRef}>
+              <ColorButton onClick={() => {setShowColorSchemeOptions(s => !s); setShowSearch(false); setIsSelectionMode(false);}} />
+            </div>
+          ), 
+          tooltip: "Choose color scheme" 
+        },
+
         { element: <TreeButton onClick={() => { setIsSelectionMode(false); setShowSearch(false); handleTreeClick(); }} />, tooltip: <>Build phylogenetic tree <br /> <span className={subtooltipClass}>FastME</span></> },
         { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
         { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, tooltip: <>Compute {codonMode ? "per-codon" : "per-site"} statistics<br /><span className={subtooltipClass}>Conservation and gap fraction</span></> },
@@ -2182,7 +2233,7 @@ const handleGridMouseMove = useMemo(() =>
             id={id}
             filename={filename} 
             setPanelData={setPanelData} 
-            forceHideTooltip={showSearch || isSelectionMode || showReorderOptions || ShowFastMEOptions || showDistOptions} 
+            forceHideTooltip={showSearch || isSelectionMode || showReorderOptions || ShowFastMEOptions || showDistOptions || showColorSchemeOptions} 
             extraButtons={extraButtons}
             onDuplicate={onDuplicate}
             onLinkClick={onLinkClick} 
@@ -2195,6 +2246,30 @@ const handleGridMouseMove = useMemo(() =>
         </div>
 
         {/* --- Overlays --- */}
+
+        {showColorSchemeOptions && (
+        <div 
+          ref={colorSchemeOptionsRef}
+          className="absolute top-11 right-3 z-50 bg-white border border-gray-300 rounded-xl shadow px-1 py-1 flex flex-col items-stretch space-y-1"
+          onMouseEnter={() => setIsUiElementHovered(true)}
+          onMouseLeave={() => setIsUiElementHovered(false)}
+          style={{ maxHeight: 'min(60vh, calc(100%))', overflowY: 'auto' }} 
+        >
+          {Object.keys(isNuc ? ResidueColorSchemes.nucleotide : ResidueColorSchemes.protein).map((s) => (
+            <button 
+              key={s}
+              onClick={() => handleSchemeChange(s)} 
+              className={`text-sm text-left px-3 py-1 rounded-lg hover:bg-gray-200 capitalize ${
+                (data.residueColorScheme === s || (!data.residueColorScheme && s === 'default')) 
+                ? 'bg-blue-100' 
+                : ''
+              }`}
+            >
+              {s === 'default' ? 'Default' : s.replace(/([A-Z])/g, ' $1')}
+            </button>
+          ))}
+        </div>
+      )}
         {showReorderOptions && (
           <div ref={reorderOptionsRef} className="absolute top-11 right-3 z-50 bg-white border border-gray-300 rounded-xl shadow px-1 py-1 flex flex-col items-stretch space-y-1"
           onMouseEnter={() => setIsUiElementHovered(true)} 
@@ -2572,6 +2647,8 @@ const handleGridMouseMove = useMemo(() =>
                               isLinkedHighlight={isLinkedHighlight}
                               isPersistentHighlight={isPersistentHighlight}
                               isSearchHighlight={isSearchHighlight}
+                              scheme={data.residueColorScheme || 'default'}
+                              isNuc={isNuc}
                             />
                           );
                         }
@@ -2580,7 +2657,7 @@ const handleGridMouseMove = useMemo(() =>
                     }, [
                       rowIndices, colIndices, msaData, codonMode, persistentHighlightSet, 
                       searchHighlightPositions, hoveredCol, finalLinkedSite, 
-                      data.linkedSiteHighlight, isGlobalLinkActive, CELL_SIZE
+                      data.linkedSiteHighlight, isGlobalLinkActive, CELL_SIZE, data.residueColorScheme
                     ])}
                   </div>
                 </div>
@@ -2612,7 +2689,6 @@ const TreePanel = React.memo(function TreePanel({
   const [showViewOptions, setShowViewOptions] = useState(false);
   const viewOptionsRef = useRef(null);
   const viewButtonWrapperRef = useRef(null);
-  //console.log(viewMode);
 
   // Handle click outside to close dropdown
   useEffect(() => {
@@ -4990,10 +5066,12 @@ const handleCreateSubtree = useCallback((id, selectedLeaves, quiet = false) => {
     });
   }, [panelData, addPanel]);
 
-    const handleCreateSeqLogo = useCallback((id) => {
+  const handleCreateSeqLogo = useCallback((id) => {
     const data = panelData[id];
     if (!data) return;
-    const isNuc = Array.isArray(data.data) && isNucleotide(data.data);
+    const msa = data.data;
+    const isNuc = isNucleotide(msa);
+    const colorScheme = data.residueColorScheme || 'default';
     const shouldLink = !(isNuc && data.codonMode);
 
     addPanel({
@@ -5001,6 +5079,8 @@ const handleCreateSubtree = useCallback((id, selectedLeaves, quiet = false) => {
       data: {
         msa: data.data,
         filename: (data.filename ? data.filename : 'alignment')+'.sl.png',
+        msaColorScheme: colorScheme,
+        isNucleotide: isNuc,
       },
       basedOnId: id,
       layoutHint: { h: 8, w: 6 },
@@ -6009,15 +6089,17 @@ const handleCreateColorMatrix = useCallback((id) => {
       alert('Cannot create color matrix from empty or invalid alignment.');
       return;
     }
-
     const msa = sourceData.data;
     const rowLabels = msa.map(seq => seq.id);
     const colCount = msa[0]?.sequence.length || 0;
+    const rowCount = msa.length ? msa.length : 1;
     const colLabels = Array.from({ length: colCount }, (_, i) => String(i + 1));
     const matrix = msa.map(seq => seq.sequence.split(''));
-
     const baseName = (sourceData.filename ? sourceData.filename.replace(/\.[^.]+$/, '') : 'alignment');
     const newFilename = `${baseName}.colors.tsv`;
+    const isNuc = isNucleotide(msa);
+    const msaColorScheme = sourceData.residueColorScheme || 'default';
+    const height = Math.min(Math.max(28 * rowCount / colCount, 3), 20); // Dynamic height based on aspect ratio
 
     addPanel({
       type: 'heatmap',
@@ -6027,10 +6109,12 @@ const handleCreateColorMatrix = useCallback((id) => {
         colLabels,
         filename: newFilename,
         isMsaColorMatrix: true,
+        isProtein: !isNuc,
+        msaColorScheme: msaColorScheme,
         isSquare: false,
       },
       basedOnId: id,
-      layoutHint: { w: 6, h: 20 },
+      layoutHint: { w: 6, h: height },
       autoLinkTo: id,
     });
 }, [panelData, addPanel]);

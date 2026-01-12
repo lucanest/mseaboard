@@ -1,6 +1,6 @@
 // Heatmap.jsx
 import React, { useRef, useEffect, useState, useMemo } from "react";
-import { residueColorHex } from "../constants/colors";
+import { ResidueColorHexSchemes } from "../constants/colors";
 
 function hexToRgb(hex) {
   if (!hex) return null;
@@ -102,6 +102,8 @@ function Heatmap({
   highColor,
   lowColor,
   isMsaColorMatrix,
+  isProtein,
+  msaColorScheme,
   highlightSite,
   onWindowDrag,
   visibleWindow, 
@@ -126,7 +128,8 @@ function Heatmap({
     content: null,
   });
 
-  
+  const msaType = isProtein ? 'protein' : 'nucleotide';
+  const colorScheme = ResidueColorHexSchemes[msaType]?.[msaColorScheme] || ResidueColorHexSchemes[msaType]?.['default'];
   // Handle both new and legacy label props for backward compatibility
   const rowLabels = rowLabelsProp || legacyLabels;
   const colLabels = colLabelsProp || legacyLabels;
@@ -438,7 +441,7 @@ const handleColorbarMouseMove = (e) => {
         for (let i = 0; i < nRows; i++) {
           for (let j = 0; j < nCols; j++) {
             const char = matrix[i]?.[j]?.toUpperCase();
-            ctx.fillStyle = residueColorHex[char] || '#FFFFFF'; // Use canvas colors, default to white
+            ctx.fillStyle = colorScheme[char] || '#FFFFFF'; // Use canvas colors, default to white
             ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
           }
         }

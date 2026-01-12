@@ -1,12 +1,11 @@
 // Seqlogo.jsx
 import React, { useMemo, useRef, useEffect, useCallback } from "react";
-import { residueSvgColors } from "../constants/colors.js";
+import { DarkerResidueColorHexSchemes } from "../constants/colors.js";
 import { CELL_SIZE } from '../constants/sizes.js';
 
 function log2(x) {
   return x <= 0 ? 0 : Math.log2(x);
 }
-
 
 export default React.memo(function SequenceLogoCanvas({
   sequences,
@@ -16,6 +15,8 @@ export default React.memo(function SequenceLogoCanvas({
   highlightedSite = null,
   scrollLeft = 0,
   viewportWidth = 0,
+  isNucleotide,
+  msaColorScheme,
 }) {
   const canvasRef = useRef(null);
   const seqLen = sequences[0]?.length || 0;
@@ -60,6 +61,8 @@ export default React.memo(function SequenceLogoCanvas({
   const maxInfo = log2(alphabet.length) || 2;
   const yScale = (val) => (val / maxInfo) * height;
   const textHeightPx = colWidth * 1.1;
+  const mode = isNucleotide ? "nucleotide" : "protein";
+  const colorScheme = DarkerResidueColorHexSchemes[mode]?.[msaColorScheme] || DarkerResidueColorHexSchemes[mode]?.['default'];
 
   // Simple virtualization approach
   const startCol = Math.max(0, Math.floor(scrollLeft / colWidth) - 2);
@@ -106,7 +109,8 @@ export default React.memo(function SequenceLogoCanvas({
         const charHeight = yScale(p * col.info);
         if (charHeight < 0.1) continue;
         y0 -= charHeight;
-        ctx.fillStyle = residueSvgColors[res] || "#444";
+
+        ctx.fillStyle = colorScheme[res] || "#444";
         const xCenter = xPos + colWidth / 2;
         
         // Use a consistent rendering approach
