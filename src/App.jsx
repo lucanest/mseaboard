@@ -545,7 +545,6 @@ const SeqLogoPanel = React.memo(function SeqLogoPanel({
   }, [sequences, alphabet]);
 
   const scrollContainerRef = useRef(null);
-  const [scrollTop, setScrollTop] = useState(0);
   const [scrollLeft, setScrollLeft] = useState(0);
   const [viewportWidth, setViewportWidth] = useState(0);
   const isScrollingRef = useRef(false);
