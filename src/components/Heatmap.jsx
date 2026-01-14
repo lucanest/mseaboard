@@ -2,43 +2,34 @@
 import React, { useRef, useEffect, useState, useMemo } from "react";
 import { ResidueColorHexSchemes } from "../constants/colors";
 
+const hexCache = new Map();
 function hexToRgb(hex) {
-  if (!hex) return null;
+  if (!hex) return [0, 0, 0];
+  if (hexCache.has(hex)) return hexCache.get(hex);
   const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
-  return result
-    ? [ parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16) ]
-    : null;
+  const rgb = result
+    ? [parseInt(result[1], 16), parseInt(result[2], 16), parseInt(result[3], 16)]
+    : [0, 0, 0];
+  hexCache.set(hex, rgb);
+  return rgb;
 }
 
-function valueToColor(val, min, max, threshold = null, lowColorStr, highColorStr) {
-  // Handle NaN or non-finite values by returning black
+function valueToColor(val, min, max, threshold, lowColor, highColor) {
   if (!Number.isFinite(val)) return "#000000";
-
-  const lowColor = lowColorStr || '#FFFF00';  // Default: Yellow
-  const highColor = highColorStr || '#3C00A0'; // Default: Purple
-
   if (max === min) return lowColor;
+  if (threshold !== null) return val < threshold ? lowColor : highColor;
   
-  if (threshold !== null) {
-    return val < threshold ? lowColor : highColor;
-  }
-  
-  const t = (val - min) / (max - min);
+  const t = Math.max(0, Math.min(1, (val - min) / (max - min)));
   
   const c1 = hexToRgb(lowColor);
   const c2 = hexToRgb(highColor);
-
-  // Fallback to default if hex parsing fails
-  if (!c1 || !c2) {
-    const r_def = Math.round(255 - 195 * t); const g_def = Math.round(255 - 255 * t); const b_def = Math.round(0 + 160 * t);
-    return `rgb(${r_def},${g_def},${b_def})`;
-  }
 
   const r = Math.round(c1[0] + (c2[0] - c1[0]) * t);
   const g = Math.round(c1[1] + (c2[1] - c1[1]) * t);
   const b = Math.round(c1[2] + (c2[2] - c1[2]) * t);
   return `rgb(${r},${g},${b})`;
 }
+
 
 
 /* ---------- diamond helpers ---------- */
@@ -108,6 +99,9 @@ function Heatmap({
   onWindowDrag,
   visibleWindow, 
 }) {
+
+
+
   const containerRef = useRef();
   const canvasRef = useRef();
   const rafIdRef = useRef(null);
@@ -274,6 +268,38 @@ const { min, max } = useMemo(() => {
     return { min: 0, max: 1 };
   }, [matrix, minVal, maxVal, isMsaColorMatrix]);
 
+  // Use default colors if not provided
+  const effectiveLowColor = lowColor || '#FFFF00';
+  const effectiveHighColor = highColor || '#3C00A0';
+
+  // Memoized color mapper for the grid
+  const getColor = useMemo(() => {
+    const cache = new Map();
+    return (val) => {
+      if (cache.has(val)) return cache.get(val);
+      // Pass the effective colors here
+      const color = valueToColor(val, min, max, threshold, effectiveLowColor, effectiveHighColor);
+      cache.set(val, color);
+      return color;
+    };
+  }, [min, max, threshold, effectiveLowColor, effectiveHighColor]);
+
+  const colorbarGradient = useMemo(() => {
+  const steps = 80;
+  const colors = Array.from({ length: steps }, (_, i) => {
+    const v = min + ((max - min) * i) / (steps - 1);
+    return valueToColor(v, min, max, threshold, effectiveLowColor, effectiveHighColor);
+  });
+
+  if (isDiamondView) {
+    // We want the first color (min) to be at the top
+    // Use 'to bottom' so colors[0] is at the top of the bar
+    return `linear-gradient(to bottom, ${colors.join(",")})`;
+  } else {
+    return `linear-gradient(to right, ${colors.join(",")})`;
+  }
+}, [min, max, threshold, effectiveLowColor, effectiveHighColor, isDiamondView]);
+
   /* ----- mouse → cell ----- */
   const computeCellFromEvent = (event) => {
     const gridEl = canvasRef.current;
@@ -420,11 +446,13 @@ const handleColorbarMouseMove = (e) => {
     setColorbarTooltip({ visible: false, x: 0, y: 0, value: null });
   };
 
+
   /* ----- canvas drawing ----- */
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     const ctx = canvas.getContext("2d");
+
 
     const dpr = window.devicePixelRatio || 1;
     if (canvas.width !== gridWidth * dpr || canvas.height !== gridHeight * dpr) {
@@ -448,7 +476,7 @@ const handleColorbarMouseMove = (e) => {
       } else { // original modality for numeric matrices
         for (let i = 0; i < nRows; i++) {
           for (let j = 0; j < nCols; j++) {
-            ctx.fillStyle = valueToColor(matrix[i][j], min, max, threshold, lowColor, highColor);
+            ctx.fillStyle = getColor(matrix[i][j]);
             ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
           }
         }
@@ -468,9 +496,8 @@ const handleColorbarMouseMove = (e) => {
       const d = cellSize;
       for (let i = 1; i < nRows; i++) {
         for (let j = 0; j < i; j++) {
-          const val = matrix[i][j];
+          ctx.fillStyle = getColor(matrix[i][j]);
           const { cx, cy } = dCenterFromIJ(i, j, d, gridWidth);
-          ctx.fillStyle = valueToColor(val, min, max, threshold, lowColor, highColor);
           drawDiamond(ctx, cx, cy, d);
           ctx.fill();
         }
@@ -532,7 +559,8 @@ const handleColorbarMouseMove = (e) => {
 
     if (hoverCell && showHoverHighlight)  strokeSel(hoverCell.row, hoverCell.col, "rgba(0, 0, 0, 1)");
   }, [isDiamondView, matrix, gridWidth, gridHeight, cellSize, nRows, nCols, min, max,
-     hoverCell, highlightedCells, linkedHighlightCellIdx, showGridLines,threshold,showHoverHighlight, lowColor, highColor, isMsaColorMatrix, highlightSite]);
+     hoverCell, highlightedCells, linkedHighlightCellIdx, showGridLines,threshold,
+     showHoverHighlight, lowColor, highColor, isMsaColorMatrix, highlightSite, getColor]);
 
   let linkedTooltip = null;
   if (
@@ -577,19 +605,6 @@ const handleColorbarMouseMove = (e) => {
   const diamondHeight = isDiamondView ? cellSize * (nRows/2) : 0;
   const needToHideLegend = isDiamondView && (labelSpace + gridWidth + 10 + 46 > dims.width);
   const showLegend = showlegend && !needToHideLegend && !isMsaColorMatrix;
-
-  const getColorbarGradient = () => {
-    if (threshold === null) {
-      return isDiamondView
-        ? `linear-gradient(to top, ${Array.from({ length: 20 }, (_, i) => valueToColor(min + ((max - min) * i) / 19, min, max, null, lowColor, highColor)).reverse().join(",")})`
-        : `linear-gradient(to right, ${Array.from({ length: 20 }, (_, i) => valueToColor(min + ((max - min) * i) / 19, min, max, null, lowColor, highColor)).join(",")})`;
-    } else {
-      const steps = 40;
-      return isDiamondView
-        ? `linear-gradient(to top, ${Array.from({ length: steps }, (_, i) => { const v = min + ((max - min) * i) / (steps - 1); return valueToColor(v, min, max, threshold, lowColor, highColor); }).reverse().join(",")})`
-        : `linear-gradient(to right, ${Array.from({ length: steps }, (_, i) => { const v = min + ((max - min) * i) / (steps - 1); return valueToColor(v, min, max, threshold, lowColor, highColor); }).join(",")})`;
-    }
-  };
 
   return (
   <div
@@ -826,7 +841,7 @@ const handleColorbarMouseMove = (e) => {
           style={{
             width: 12,
             height: gridHeight,
-            background: getColorbarGradient(),
+            background: colorbarGradient,
             borderRadius: 4,
             border: "1px solid #ccc",
             position: "relative",
@@ -909,7 +924,7 @@ const handleColorbarMouseMove = (e) => {
           style={{
             width: "100%",
             height: 12,
-            background: getColorbarGradient(),
+            background: colorbarGradient,
             borderRadius: 4,
             border: "1px solid #ccc",
             pointerEvents: "auto",
