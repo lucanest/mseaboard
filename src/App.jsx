@@ -1122,12 +1122,14 @@ const extraButtons = useMemo(() => {
     });
     if (isSquare) {
       buttons.push({ 
-          element: <TreeButton onClick={() => onGenerateTree(id)} />,
-          tooltip: (<>Build tree from distances<br /><span className={subtooltipClass}>Neighbor-Joining</span></>)
-      });
-      buttons.push({ 
           element: diamondMode ? <DistanceMatrixButton onClick={handleDiamondToggle} /> : <DiamondButton onClick={handleDiamondToggle} />,
           tooltip: diamondMode ? <>Switch to square view</> : <>Switch to diamond view</>
+        });
+      }
+    if (!data.isProteinDistanceMatrix) {
+      buttons.push({ 
+          element: <TreeButton onClick={() => onGenerateTree(id)} />,
+          tooltip: (<>Build tree from distances<br /><span className={subtooltipClass}>Neighbor-Joining</span></>)
       });
     }
     return buttons.concat(commonButtons);
@@ -5167,6 +5169,7 @@ const handleStructureDistanceMatrix = useCallback((sourcePanelId, calculationRes
       isSquare: true,
       matrix, 
       filename: `${base}_${suffix}.phy`,
+      isProteinDistanceMatrix: true,
       minVal: 0,
       maxVal: maxVal
     },
