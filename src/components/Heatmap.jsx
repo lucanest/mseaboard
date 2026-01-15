@@ -33,8 +33,8 @@ function valueToColor(val, min, max, threshold, lowColor, highColor) {
 
 
 /* ---------- diamond helpers ---------- */
-function drawDiamond(ctx, cx, cy, d) {
-  const r = d / 2;
+function drawDiamond(ctx, cx, cy, d, overlap=0) {
+  const r = (d + overlap) / 2;
   ctx.beginPath();
   ctx.moveTo(cx, cy - r); // top
   ctx.lineTo(cx + r, cy); // right
@@ -447,22 +447,15 @@ const handleColorbarMouseMove = (e) => {
   };
 
 
-  /* ----- canvas drawing ----- */
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
-    const ctx = canvas.getContext("2d");
-
-
+  /* ----- performance: offscreen static buffer ----- */
+  // Draws the static matrix once to a buffer to avoid O(N^2) redraws on hover
+  const matrixBuffer = useMemo(() => {
+    const canvas = document.createElement('canvas');
     const dpr = window.devicePixelRatio || 1;
-    if (canvas.width !== gridWidth * dpr || canvas.height !== gridHeight * dpr) {
-      canvas.width = gridWidth * dpr;
-      canvas.height = gridHeight * dpr;
-      canvas.style.width = `${gridWidth}px`;
-      canvas.style.height = `${gridHeight}px`;
-      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    }
-    ctx.clearRect(0, 0, gridWidth, gridHeight);
+    canvas.width = gridWidth * dpr;
+    canvas.height = gridHeight * dpr;
+    const ctx = canvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const overlap = 1 / dpr;
 
@@ -483,18 +476,7 @@ const handleColorbarMouseMove = (e) => {
           }
         }
       }
-      if (showGridLines) {
-        ctx.strokeStyle = "rgba(220,220,220,0.5)";
-        ctx.lineWidth = 1 / dpr;
-        for (let i = 1; i < nRows; i++) {
-          ctx.beginPath(); ctx.moveTo(0, i * cellSize); ctx.lineTo(gridWidth, i * cellSize); ctx.stroke();
-        }
-        for (let j = 1; j < nCols; j++) {
-            ctx.beginPath(); ctx.moveTo(j * cellSize, 0); ctx.lineTo(j * cellSize, gridHeight); ctx.stroke();
-        }
-      }
     } else {
-      // diamond (lower triangle)
       const d = cellSize;
       for (let i = 1; i < nRows; i++) {
         for (let j = 0; j < i; j++) {
@@ -504,16 +486,55 @@ const handleColorbarMouseMove = (e) => {
           ctx.fill();
         }
       }
-      if (showGridLines) {
+    }
+    return canvas;
+  }, [matrix, gridWidth, gridHeight, cellSize, getColor, isDiamondView, isMsaColorMatrix, colorScheme, nRows, nCols]);
+
+
+  /* ----- main canvas rendering ----- */
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !matrixBuffer) return;
+    const ctx = canvas.getContext("2d");
+
+    const dpr = window.devicePixelRatio || 1;
+    if (canvas.width !== gridWidth * dpr || canvas.height !== gridHeight * dpr) {
+      canvas.width = gridWidth * dpr;
+      canvas.height = gridHeight * dpr;
+      canvas.style.width = `${gridWidth}px`;
+      canvas.style.height = `${gridHeight}px`;
+    }
+    
+    // Clear the physical canvas area
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Stamp the pre-rendered buffer. Since both are physical size, 
+    // we draw 1:1 onto the backing store to ensure it fills the canvas.
+    ctx.drawImage(matrixBuffer, 0, 0);
+
+    // Now apply logical coordinates for high-frequency overlays (Grid & Highlights)
+    ctx.save();
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    if (showGridLines) {
       ctx.strokeStyle = "rgba(220,220,220,0.6)";
       ctx.lineWidth = 1 / dpr;
-      for (let i = 1; i < nRows; i++) {
-        for (let j = 0; j < i; j++) {
-          const { cx, cy } = dCenterFromIJ(i, j, cellSize, gridWidth);
-          drawDiamond(ctx, cx, cy, cellSize);
-          ctx.stroke();
+      if (!isDiamondView) {
+        for (let i = 1; i < nRows; i++) {
+          ctx.beginPath(); ctx.moveTo(0, i * cellSize); ctx.lineTo(gridWidth, i * cellSize); ctx.stroke();
         }
-      }}
+        for (let j = 1; j < nCols; j++) {
+            ctx.beginPath(); ctx.moveTo(j * cellSize, 0); ctx.lineTo(j * cellSize, gridHeight); ctx.stroke();
+        }
+      } else {
+        for (let i = 1; i < nRows; i++) {
+          for (let j = 0; j < i; j++) {
+            const { cx, cy } = dCenterFromIJ(i, j, cellSize, gridWidth);
+            drawDiamond(ctx, cx, cy, cellSize);
+            ctx.stroke();
+          }
+        }
+      }
     }
 
     // shared highlights
@@ -558,11 +579,12 @@ const handleColorbarMouseMove = (e) => {
       strokeCol(highlightSite, "rgba(0, 0, 0, 1)");
     }
 
+    if (hoverCell && showHoverHighlight) strokeSel(hoverCell.row, hoverCell.col, "rgba(0, 0, 0, 1)");
 
-    if (hoverCell && showHoverHighlight)  strokeSel(hoverCell.row, hoverCell.col, "rgba(0, 0, 0, 1)");
-  }, [isDiamondView, matrix, gridWidth, gridHeight, cellSize, nRows, nCols, min, max,
-     hoverCell, highlightedCells, linkedHighlightCellIdx, showGridLines,threshold,
-     showHoverHighlight, lowColor, highColor, isMsaColorMatrix, highlightSite, getColor]);
+    ctx.restore();
+  }, [matrixBuffer, isDiamondView, gridWidth, gridHeight, cellSize, nRows, nCols, 
+      hoverCell, highlightedCells, linkedHighlightCellIdx, showGridLines, 
+      showHoverHighlight, isMsaColorMatrix, highlightSite]);
 
   let linkedTooltip = null;
   if (
