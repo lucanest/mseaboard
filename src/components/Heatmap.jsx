@@ -464,20 +464,22 @@ const handleColorbarMouseMove = (e) => {
     }
     ctx.clearRect(0, 0, gridWidth, gridHeight);
 
+    const overlap = 1 / dpr;
+
     if (!isDiamondView) {
       if (isMsaColorMatrix) { // modality for MSA character matrices
         for (let i = 0; i < nRows; i++) {
           for (let j = 0; j < nCols; j++) {
             const char = matrix[i]?.[j]?.toUpperCase();
             ctx.fillStyle = colorScheme[char] || '#FFFFFF'; // Use canvas colors, default to white
-            ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
+            ctx.fillRect(j * cellSize, i * cellSize, cellSize + overlap, cellSize + overlap);
           }
         }
       } else { // original modality for numeric matrices
         for (let i = 0; i < nRows; i++) {
           for (let j = 0; j < nCols; j++) {
             ctx.fillStyle = getColor(matrix[i][j]);
-            ctx.fillRect(j * cellSize, i * cellSize, cellSize, cellSize);
+            ctx.fillRect(j * cellSize, i * cellSize, cellSize + overlap, cellSize + overlap);
           }
         }
       }
@@ -498,7 +500,7 @@ const handleColorbarMouseMove = (e) => {
         for (let j = 0; j < i; j++) {
           ctx.fillStyle = getColor(matrix[i][j]);
           const { cx, cy } = dCenterFromIJ(i, j, d, gridWidth);
-          drawDiamond(ctx, cx, cy, d);
+          drawDiamond(ctx, cx, cy, d, overlap);
           ctx.fill();
         }
       }
