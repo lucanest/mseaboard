@@ -15,12 +15,6 @@ html, body {
   transform: none !important;
 }
 
-/* highlight-overlay */
-.highlight-overlay {
-  outline: 2px solid #000000;
-  /* or background-color: rgba(255, 215, 0, 0.3); */
-}
-
 .alignment-highlight {
   position: relative;
   z-index: 1;
