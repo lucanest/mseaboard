@@ -2227,7 +2227,7 @@ const handleGridMouseMove = useMemo(() =>
     setHoveredPanelId={setHoveredPanelId}
     isEligibleLinkTarget={isEligibleLinkTarget}
     justLinkedPanels={justLinkedPanels}>
-      <div ref={containerRef} className="relative flex flex-col h-full rounded-xl bg-white overflow-hidden">
+      <div ref={containerRef} className="relative flex flex-col h-full bg-white overflow-hidden">
         {/* Panel Header and UI Buttons */}
         <div onMouseEnter={() => setIsUiElementHovered(true)} onMouseLeave={() => setIsUiElementHovered(false)}>
             <PanelHeader
