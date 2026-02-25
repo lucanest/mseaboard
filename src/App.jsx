@@ -417,7 +417,7 @@ function MSATooltip({ x, y, children, boundary }) {
 
   const rightEdge = boundary ? boundary.right : vw;
 
-  // 3. Calculate flip based on the right edge.
+  // Calculate flip based on the right edge.
   const flipX = x + 15 * GAP > rightEdge;
 
 
@@ -5767,7 +5767,7 @@ const handleVisibleWindowChange = useCallback((originId, windowData) => {
 
 
 const handleHighlight = useCallback((site, originId) => {
-    // 1. Update Highlight Origin State
+    // Update Highlight Origin State
     setHighlightOrigin(prevOrigin => {
         if (site === null && prevOrigin !== null) return null;
         if (site !== null) return originId;
@@ -5783,13 +5783,13 @@ const handleHighlight = useCallback((site, originId) => {
       const currentTreeLeafNamesCache = treeLeafNamesCacheRef.current;
       const currentAlignmentStructureChainCache = alignmentStructureChainCacheRef.current;
 
-      // 2. Update the origin panel
+      // Update the origin panel
       next[originId] = { ...next[originId], highlightedSite: site };
 
       const targetIdsRaw = panelLinks[originId] || [];
       const targetIds = Array.isArray(targetIdsRaw) ? targetIdsRaw : (targetIdsRaw ? [targetIdsRaw] : []);
 
-      // 3. Cleanup Logic
+      // Cleanup Logic
       if (site === null) {
         targetIds.forEach(targetId => {
            const cur = next[targetId] || {};
@@ -5807,7 +5807,7 @@ const handleHighlight = useCallback((site, originId) => {
         return next;
       }
 
-      // 4. Propagation Logic
+      // Propagation Logic
       targetIds.forEach(targetId => {
         const sourcePanel = currentPanels.find(p => p.i === originId);
         const targetPanel = currentPanels.find(p => p.i === targetId);
@@ -5967,7 +5967,7 @@ const handleHighlight = useCallback((site, originId) => {
 
             targetSite = Number(site);
 
-            // 2. Apply to Target
+            // Apply to Target
             if (targetSite !== null && !Number.isNaN(targetSite) && targetSite >= 0 && Number.isInteger(targetSite)) {
                next[targetId] = { ...cur, highlightedSite: targetSite };
                
