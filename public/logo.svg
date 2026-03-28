@@ -1,0 +1,12 @@
+<svg width="200" height="200" viewBox="-30 -30 60 60" xmlns="http://www.w3.org/2000/svg">
+  <path id="arc" d="M -25 -0 A 25 25 0 0 1 -0 -15"  fill="none" stroke-width="6" stroke-linecap=""/>
+   <use href="#arc" stroke="#BFD7FF" transform="" />
+  <use href="#arc" stroke="#FDE68A" transform="rotate(40)" />
+  <use href="#arc" stroke="#AFF2F9" transform="rotate(80)" />
+  <use href="#arc" stroke="#BFF6D0" transform="rotate(120)" />
+  <use href="#arc" stroke="#FFAEAE" transform="rotate(160)" />
+  <use href="#arc" stroke="#D5BFFF" transform="rotate(200)" />
+  <use href="#arc" stroke="#BEF1CD" transform="rotate(240)" />
+  <use href="#arc" stroke="#FFC58E" transform="rotate(280)" />
+  <use href="#arc" stroke="#FFD1D1" transform="rotate(320)" />
+</svg>
