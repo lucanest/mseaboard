@@ -2028,7 +2028,10 @@ const onScroll = useMemo(() =>
   
   const extraButtons = useMemo(() => (
     isNuc ? [ 
-        { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowFastMEOptions(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
+        { element: <SearchButton
+           onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowFastMEOptions(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }}
+           isActive={showSearch} />,
+          tooltip: "Search site or motif" },
         { element: (
             <div ref={colorButtonWrapperRef}>
               <ColorButton onClick={() => {setShowColorSchemeOptions(s => !s); setShowSearch(false); setIsSelectionMode(false);}} />
@@ -2059,7 +2062,10 @@ const onScroll = useMemo(() =>
         { element: <div ref={shuffleButtonWrapperRef}><ShuffleButton onClick={() => {setIsSelectionMode(false); setShowReorderOptions(s => !s)}} /></div>, tooltip: "Reorder sequences" },
         { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
     ] : [
-        { element: <SearchButton onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowFastMEOptions(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }} />, tooltip: "Search site or motif" },
+        { element: <SearchButton
+           onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowFastMEOptions(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }}
+           isActive={showSearch} />,
+          tooltip: "Search site or motif" },
         { element: (
             <div ref={colorButtonWrapperRef}>
               <ColorButton onClick={() => {setShowColorSchemeOptions(s => !s); setShowSearch(false); setIsSelectionMode(false);}} />

@@ -13,8 +13,8 @@ export function ColorButton({ onClick }) {
       className="p-0.5"
       //title="Duplicate panel"
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-lime-200">
-        <SwatchIcon className="w-4 h-4 text-lime-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className="panel-button hover:bg-lime-200">
+        <SwatchIcon className="panel-button-icon text-lime-700" />
       </span>
     </button>
   );
@@ -27,8 +27,8 @@ export function DuplicateButton({ onClick }) {
       className="p-0.5"
       //title="Duplicate panel"
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-blue-200">
-        <DocumentDuplicateIcon className="w-4 h-4 text-blue-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className="panel-button hover:bg-blue-200">
+        <DocumentDuplicateIcon className="panel-button-icon text-blue-700" />
       </span>
     </button>
   );
@@ -41,9 +41,8 @@ export function RemoveButton({ onClick }) {
       className="p-0.5"
       //title="Remove panel"
     >
-      <span className="inline-flex items-center justify-center w-6 h-6
-       rounded-lg bg-gray-100 border border-gray-400 hover:bg-red-300">
-       <XMarkIcon className="w-4 h-4 text-red-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className="panel-button hover:bg-red-300">
+        <XMarkIcon className="panel-button-icon text-red-700" />
       </span>
     </button>
   );
@@ -60,7 +59,7 @@ export function LinkButton({ onClick, isLinkModeActive, isEligibleLinkTarget }) 
 ${isLinkModeActive ? 'bg-blue-200' :'bg-gray-100'}
 ${isEligibleLinkTarget ? 'border-2 border-blue-400' : 'border border-gray-400'}`}>
           <LinkIcon
-          className={`w-4 h-4 flex-shrink-0 -translate-y-[0px]
+          className={`panel-button-icon
             ${isLinkModeActive ? 'text-blue-700' : 'text-yellow-700'}`
             }
           />
@@ -75,9 +74,8 @@ export function PictureButton({ onClick }) {
       onClick={onClick}
       className="p-0.5"
     >
-      <span className="inline-flex items-center justify-center w-6 h-6
-       rounded-lg bg-gray-100 border border-gray-400 hover:bg-indigo-200">
-       <PhotoIcon className="w-4 h-4 text-indigo-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className="panel-button hover:bg-indigo-200">
+        <PhotoIcon className="panel-button-icon text-indigo-700" />
       </span>
     </button>
   );
@@ -90,11 +88,11 @@ export function RadialToggleButton({ onClick, isActive }) {
       className="p-0.5"
       //title="Switch tree view"
     >
-      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
+      <span className={`panel-button
         ${isActive ? 'bg-gray-100' : 'bg-gray-100'}
         border border-gray-400 hover:bg-orange-200`}>
         <span className="text-xs font-bold text-orange-800 leading-none">
-          <EyeIcon className="w-4 h-4 flex-shrink-0 -translate-y-[0px]" />
+          <EyeIcon className="panel-button-icon" />
         </span>
       </span>
     </button>
@@ -108,11 +106,11 @@ export function CodonToggleButton({ onClick, isActive }) {
       className="p-0.5"
       //title="Toggle codon view"
     >
-      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
+      <span className={`panel-button
         ${isActive ? 'bg-purple-200' : 'bg-gray-100'}
-        border border-gray-400 hover:bg-purple-200`}>
-        <span className="text-xs font-bold text-orange-800 leading-none">
-          <Bars3Icon className="w-4 h-4 flex-shrink-0 -translate-y-[0px] rotate-90" />
+        hover:bg-purple-200`}>
+        <span className="text-xs font-bold text-purple-800 leading-none">
+          <Bars3Icon className="panel-button-icon rotate-90" />
         </span>
       </span>
     </button>
@@ -125,13 +123,13 @@ export function TableChartButton({ onClick, isActive }) {
       onClick={onClick}
       className="p-0.5"
     >
-      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100
-        border border-gray-400 hover:bg-green-200`}>
+      <span className={`panel-button
+       hover:bg-green-200`}>
                 <span className="text-xs font-bold text-green-800 leading-none">
           {!isActive ? (
-            <Bars3Icon className="w-4 h-4 flex-shrink-0 -translate-y-[0px] rotate-0" />
+            <Bars3Icon className="panel-button-icon" />
           ) : (
-            <ChartBarIcon className="w-4 h-4 flex-shrink-0 -translate-y-[0px]" />
+            <ChartBarIcon className="panel-button-icon" />
           )}
         </span>
       </span>
@@ -146,9 +144,8 @@ export function SiteStatsButton({ onClick }) {
       className="p-0.5"
       //title="Compute per-site conservation and gap fraction"
     >
-      <span className="inline-flex items-center justify-center w-6 h-6
-       rounded-lg bg-gray-100 border border-gray-400 hover:bg-orange-200">
-       <ChartBarIcon className="w-4 h-4 text-orange-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className="panel-button hover:bg-orange-200">
+       <ChartBarIcon className="panel-button-icon text-orange-700" />
       </span>
     </button>
   );
@@ -162,8 +159,8 @@ export function TranslateButton({ onClick }) {
       onClick={onClick}
       //title="Duplicate and translate to protein"
     >
-      <span className="inline-flex items-center text-orange-700 justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-orange-200">
-          <LanguageIcon className="w-4 h-4 flex-shrink-0 -translate-y-[0px]" />
+      <span className="panel-button hover:bg-orange-200">
+          <LanguageIcon className="panel-button-icon text-orange-700" />
       </span>
     </button>
   );
@@ -177,8 +174,8 @@ export function SeqlogoButton({ onClick }){
       onClick={onClick}
       //title="Generate sequence logo"
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-pink-200">
-        <SeqLogoGlyph className="w-4 h-4 text-gray-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className="panel-button hover:bg-pink-200">
+        <SeqLogoGlyph className="panel-button-icon text-gray-700" />
       </span>
     </button>
   );
@@ -192,8 +189,8 @@ export function SequenceButton({ onClick }) {
       onClick={onClick}
       //title="Extract sequences from structure"
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-yellow-200">
-        <CodeBracketIcon className="w-4 h-4 text-yellow-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className="panel-button hover:bg-yellow-200">
+        <CodeBracketIcon className="panel-button-icon text-yellow-700" />
       </span>
     </button>
   );
@@ -210,7 +207,7 @@ export function MarkdownButton({ onClick, isActive }) {
         ${isActive ? 'bg-green-100' : 'bg-gray-100'}
         border border-gray-400
         hover:bg-green-200`}>
-        <CodeBracketIcon className="w-4 h-4 text-green-700 flex-shrink-0 -translate-y-[0px]" />
+        <CodeBracketIcon className="panel-button-icon text-green-700" />
       </span>
     </button>
   );
@@ -224,8 +221,8 @@ export function DistanceMatrixButton({ onClick, title = "Build distance matrix f
       onClick={onClick}
       //title={title}
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-purple-200">
-        <Squares2X2Icon className="w-4 h-4 text-purple-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className="panel-button hover:bg-purple-200">
+        <Squares2X2Icon className="panel-button-icon text-purple-700" />
       </span>
     </button>
   );
@@ -238,8 +235,8 @@ export function DiamondButton({ onClick }) {
       className="p-0.5"
       onClick={onClick}
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-purple-200">
-        <DiamondGlyph className="w-4 h-4 text-gray-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className="panel-button hover:bg-purple-200">
+        <DiamondGlyph className="panel-button-icon text-gray-700" />
       </span>
     </button>
   );
@@ -253,8 +250,8 @@ export function DownloadButton({ onClick, title = "Download" }) {
       className='p-0.5'
       //title={title}
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-cyan-200">
-        <ArrowDownTrayIcon className="w-4 h-4 text-cyan-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className="panel-button hover:bg-cyan-200">
+        <ArrowDownTrayIcon className="panel-button-icon text-cyan-700" />
       </span>
     </button>
   );
@@ -272,22 +269,25 @@ export function PruneButton({ onClick, isActive}) {
         ${isActive ? 'bg-red-200' : 'bg-gray-100'}
         border ${isActive ? 'border-2 border-red-400' : 'border-gray-400'}
         hover:bg-red-200`}>
-        <ScissorsIcon className="w-4 h-4 text-red-700 flex-shrink-0 -translate-y-[0px]" />
+        <ScissorsIcon className="panel-button-icon text-red-700" />
       </span>
     </button>
   );
 
 }
 
-export function SearchButton({ onClick }) {
+export function SearchButton({ onClick, isActive }) {
   return (
     <button
       type="button"
       onClick={onClick}
       className='p-0.5'
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg bg-gray-100 border border-gray-400 hover:bg-cyan-200">
-        <MagnifyingGlassIcon className="w-4 h-4 text-cyan-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
+        border ${isActive ? 'border-2 border-cyan-400' : 'border-gray-400'}
+        ${isActive ? 'bg-cyan-100' : 'bg-gray-100'}
+        hover:bg-cyan-200`}>
+        <MagnifyingGlassIcon className="panel-button-icon text-cyan-700" />
       </span>
     </button>
   );
@@ -305,7 +305,7 @@ export function LogYButton({ onClick, isActive,  title = "Toggle log scale on Y"
       <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
        ${isActive ? 'bg-orange-100' : 'bg-gray-100'}
         border border-gray-400 hover:bg-orange-200`}>
-        <LogGlyph className="w-4 h-4 text-gray-700 flex-shrink-0 -translate-y-[0px]" />
+        <LogGlyph className="panel-button-icon text-gray-700" />
       </span>
     </button>
   );
@@ -317,9 +317,8 @@ export function ZeroOneButton({ onClick }) {
       type="button"
       onClick={onClick}
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg
-        bg-gray-100 hover:bg-red-200 border border-gray-400">
-        <ZeroOneGlyph className="w-4 h-4 text-green-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className="panel-button hover:bg-red-200">
+        <ZeroOneGlyph className="panel-button-icon text-red-700" />
       </span>
     </button>
   );
@@ -331,10 +330,10 @@ export function TreeButton({ onClick, isActive }) {
       type="button"
       onClick={onClick}
     >
-      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
+      <span className={`panel-button
           ${isActive ? 'bg-green-100' : 'bg-gray-100'}
-        bg-gray-100 hover:bg-green-200 border ${isActive ? 'border-2 border-green-400' : 'border-gray-400'}`}>
-        <TreeGlyph className="w-4 h-4 text-green-700 flex-shrink-0 -translate-y-[0px]" />
+        hover:bg-green-200 border ${isActive ? 'border-2 border-green-400' : 'border-gray-400'}`}>
+        <TreeGlyph className="panel-button-icon text-green-700" />
       </span>
     </button>
   );
@@ -352,7 +351,7 @@ export function RootButton({ onClick, isActive, disabled }) {
         ${isActive ? 'bg-orange-100' : 'bg-gray-100'}
          border ${isActive ? 'border-2 border-orange-400' : 'border-gray-400'}
          `}>
-        <RootGlyph className={`w-4 h-4 ${disabled ? 'text-gray-400' : 'text-orange-700'} flex-shrink-0 -translate-y-[0px]`} />
+        <RootGlyph className={`panel-button-icon ${disabled ? 'text-gray-400' : 'text-orange-700'}`} />
       </span>
     </button>
   );
@@ -366,7 +365,7 @@ export function SubMSAButton({ onClick, isActive }){
     >
       <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
         ${isActive ? 'border-2 border-gray-400 bg-gray-300' : 'border border-gray-400 bg-gray-100'} hover:bg-gray-300`}>
-        <SubMSAGlyph className="w-4 h-4 flex-shrink-0 m-0 p-0 -translate-y-[0px]" />
+        <SubMSAGlyph className="panel-button-icon" />
       </span>
     </button>
   );
@@ -378,9 +377,8 @@ export function OmegaButton({ onClick }){
       type="button"
       onClick={onClick}
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg
-        bg-gray-100 hover:bg-fuchsia-200 border border-gray-400">
-        <OmegaGlyph className="w-4 h-4 flex-shrink-0 m-0 p-0 -translate-y-[0px]" />
+      <span className="panel-button hover:bg-fuchsia-200">
+        <OmegaGlyph className="panel-button-icon" />
       </span>
     </button>
   );
@@ -392,9 +390,8 @@ export function ShuffleButton({ onClick }){
       type="button"
       onClick={onClick}
     >
-      <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg
-        bg-gray-100 hover:bg-green-200 border border-gray-400">
-        <ShuffleGlyph className="w-4 h-4 text-green-700 flex-shrink-0 m-0 p-0 -translate-y-[0px]" />
+      <span className="panel-button hover:bg-green-200">
+        <ShuffleGlyph className="panel-button-icon text-green-700" />
       </span>
     </button>
   );
@@ -406,12 +403,10 @@ export function BranchLengthsButton({ onClick }) {
 <button
       type="button"
       onClick={onClick}
-      className='p-0.5  '
+      className='p-0.5'
     >
-      <span className={`inline-flex items-center justify-center w-6 h-6 rounded-lg
-      bg-gray-100
-        border border-gray-400 hover:bg-green-200`}>
-        <RulerGlyph className="w-4 h-4 text-green-700 flex-shrink-0 -translate-y-[0px]" />
+      <span className={`panel-button hover:bg-green-200`}>
+        <RulerGlyph className="panel-button-icon text-green-700" />
       </span>
     </button>
   );
@@ -448,12 +443,12 @@ export function GitHubButton() {
 
 export function UndoButton({ onClick, disabled }) {
   return (
-    <div className="w-12 h-12 flex items-center justify-center">
+    <div className="header-button-wrapper">
       <button
         type="button"
         onClick={onClick}
         disabled={disabled}
-        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition"
+        className="header-button"
       >
         <ArrowUturnLeftIcon className="w-6 h-6" />
       </button>
@@ -463,12 +458,12 @@ export function UndoButton({ onClick, disabled }) {
 
 export function RedoButton({ onClick, disabled }) {
   return (
-    <div className="w-12 h-12 flex items-center justify-center">
+    <div className="header-button-wrapper">
       <button
         type="button"
         onClick={onClick}
         disabled={disabled}
-        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed transition"
+        className="header-button"
       >
         <ArrowUturnRightIcon className="w-6 h-6" />
       </button>
@@ -478,11 +473,11 @@ export function RedoButton({ onClick, disabled }) {
 
 export function SaveBoardButton({ onClick }) {
   return (
-    <div className="w-12 h-12 flex items-center justify-center">
+    <div className="header-button-wrapper">
       <button
         type="button"
         onClick={onClick}
-        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center transition"
+        className="header-button"
       >
         <ArrowDownTrayIcon className="w-6 h-6" />
       </button>
@@ -492,11 +487,11 @@ export function SaveBoardButton({ onClick }) {
 
 export function LoadBoardButton({ onClick }) {
   return (
-    <div className="w-12 h-12 flex items-center justify-center">
+    <div className="header-button-wrapper">
       <button
         type="button"
         onClick={onClick}
-        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center transition"
+        className="header-button"
       >
         <ArrowUpTrayIcon className="w-6 h-6" />
       </button>
@@ -506,11 +501,11 @@ export function LoadBoardButton({ onClick }) {
 
 export function ShareButton({ onClick }) {
   return (
-    <div className="w-12 h-12 flex items-center justify-center">
+    <div className="header-button-wrapper">
       <button
         type="button"
         onClick={onClick}
-        className="w-10 h-10 bg-gray-200 text-gray-700 rounded-xl hover:bg-gray-300 shadow-lg hover:shadow-xl flex items-center justify-center transition"
+        className="header-button"
       >
         <ArrowUpOnSquareIcon className="w-6 h-6" />
       </button>
