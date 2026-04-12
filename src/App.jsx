@@ -23,7 +23,7 @@ import 'katex/dist/katex.min.css';
 import React, { useState, useRef, useEffect, useCallback, useMemo,useLayoutEffect  } from 'react';
 import throttle from 'lodash.throttle'
 import debounce from 'lodash.debounce';
-import GridLayout from 'react-grid-layout';
+import GridLayout, { WidthProvider } from 'react-grid-layout';
 import ReactDOM from 'react-dom';
 import pako from 'pako';
 import { jsPDF } from 'jspdf';
@@ -66,6 +66,7 @@ import StructureViewer from './components/StructureViewer.jsx';
 import useElementSize from './hooks/useElementSize.js'
 import { useOmegaModel } from './hooks/useOmegaModel.js';
 
+const gridWidth = WidthProvider(GridLayout);
 
 function useIsVisible(ref) {
   const [isIntersecting, setIntersecting] = useState(false);
@@ -4309,6 +4310,7 @@ function App() {
   const [titleFlipKey, setTitleFlipKey] = useState(() => Date.now());
   const hideErrors = true;
   const [transientMessage, setTransientMessage] = useState('');
+  const [gridContainerRef, { width: gridWidth }] = useElementSize();
 
   // state for GitHub Token
   const [githubToken, setGithubToken] = useState(() => localStorage.getItem('github-pat') || '');
@@ -7060,7 +7062,7 @@ const handleRestoreSession = useCallback(() => {
             layout={layout}
             cols={12}
             rowHeight={30}
-            width={windowWidth}
+            width={gridWidth > 0 ? gridWidth : windowWidth - 10}
             autoSize={false}
             isResizable
             isDraggable
