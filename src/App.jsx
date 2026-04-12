@@ -1524,7 +1524,7 @@ const AlignmentPanel = React.memo(function AlignmentPanel({
   highlightedSequenceId, setHighlightedSequenceId,
   hoveredPanelId, setHoveredPanelId, setPanelData, justLinkedPanels,
   linkBadges, onRestoreLink, colorForLink, onUnlink, onCreateSubsetMsa,onCreateColorMatrix,
-  onPredictOmega, modelLoading,  onVisibleWindowChange, 
+  onPredictOmega, modelLoading,  onVisibleWindowChange, onOpenAlignmentAsNotepad
 }) {
   const msaData = useMemo(() => data.data, [data.data]);
   const filename = data.filename;
@@ -2026,7 +2026,6 @@ const onScroll = useMemo(() =>
   const handleLabelClick = (index) => { if (!isSelectionMode) return; const sel = new Set(selectedSequences); if (sel.has(index)) sel.delete(index); else sel.add(index); setSelectedSequences(sel); };
 
   // Memoized extraButtons to prevent re-render loops.
-  
   const extraButtons = useMemo(() => (
     isNuc ? [ 
         { element: <SearchButton
@@ -2040,15 +2039,18 @@ const onScroll = useMemo(() =>
           ), 
           tooltip: "Choose color scheme" 
         },
-
+        
         { element: <CodonToggleButton onClick={() => setCodonMode(m => !m)} isActive={codonMode} />, tooltip: "Toggle codon mode" },
         { element: <TranslateButton onClick={() => onDuplicateTranslate(id)} />, tooltip: "Translate to amino acids" },
         { 
-            element: <OmegaButton onClick={() => onPredictOmega(id)} disabled={modelLoading} />, 
-            tooltip: modelLoading ? "Model is loading..." : <>Predict omega values <br /><span className={subtooltipClass}>Predict per-codon omega (dN/dS) values <br /> with DaNaiDeS (experimental)</span></> 
+          element: <OmegaButton onClick={() => onPredictOmega(id)} disabled={modelLoading} />, 
+          tooltip: modelLoading ? "Model is loading..." : <>Predict omega values <br /><span className={subtooltipClass}>Predict per-codon omega (dN/dS) values <br /> with DaNaiDeS (experimental)</span></> 
         },
         { element: <TreeButton onClick={() => { setIsSelectionMode(false); setShowSearch(false); handleTreeClick(); }} />, tooltip: <>Build phylogenetic tree <br /> <span className={subtooltipClass}>FastME</span></> },
         { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
+        { 
+          element: <SequenceButton onClick={() => onOpenAlignmentAsNotepad(id)} />, tooltip: "Edit alignment as text" 
+        },
         { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, tooltip: <>Compute {codonMode ? "per-codon" : "per-site"} statistics<br /><span className={subtooltipClass}>Conservation and gap fraction</span></> },
         { 
             element: (
@@ -2064,19 +2066,22 @@ const onScroll = useMemo(() =>
         { element: <DownloadButton onClick={handleDownload} />, tooltip: "Download alignment" }
     ] : [
         { element: <SearchButton
-           onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowFastMEOptions(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }}
-           isActive={showSearch} />,
+          onClick={() => { setShowSearch(s => !s); if (!showSearch) {setShowFastMEOptions(false); setIsSelectionMode(false); setSelectedSequences(new Set()); } }}
+          isActive={showSearch} />,
           tooltip: "Search site or motif" },
         { element: (
-            <div ref={colorButtonWrapperRef}>
-              <ColorButton onClick={() => {setShowColorSchemeOptions(s => !s); setShowSearch(false); setIsSelectionMode(false);}} />
-            </div>
-          ), 
-          tooltip: "Choose color scheme" 
+          <div ref={colorButtonWrapperRef}>
+            <ColorButton onClick={() => {setShowColorSchemeOptions(s => !s); setShowSearch(false); setIsSelectionMode(false);}} />
+          </div>
+        ), 
+        tooltip: "Choose color scheme" 
         },
-
+        
         { element: <TreeButton onClick={() => { setIsSelectionMode(false); setShowSearch(false); handleTreeClick(); }} />, tooltip: <>Build phylogenetic tree <br /> <span className={subtooltipClass}>FastME</span></> },
         { element: <SeqlogoButton onClick={() => onCreateSeqLogo(id)} />, tooltip: "Create sequence logo" },
+        { 
+            element: <SequenceButton onClick={() => onOpenAlignmentAsNotepad(id)} />, tooltip: "Edit alignment as text" 
+        },
         { element: <SiteStatsButton onClick={() => onCreateSiteStatsHistogram(id)} />, tooltip: <>Compute {codonMode ? "per-codon" : "per-site"} statistics<br /><span className={subtooltipClass}>Conservation and gap fraction</span></> },
         { 
             element: (
@@ -2113,7 +2118,7 @@ const onScroll = useMemo(() =>
     }, [hoveredPanelId, id, linkedTo, highlightOrigin, onHighlight, setHighlightedSequenceId]);
 
   const rowCount = msaData.length;
-  const colCount = msaData[0]?.sequence.length || 0;
+  const colCount = Math.max(...msaData.map(seq => seq.sequence.length), 0);
   const totalGridWidth = colCount * CELL_SIZE;
   const totalGridHeight = rowCount * CELL_SIZE;
   const RULER_HEIGHT = CELL_SIZE/Math.round(1.5);
@@ -3125,6 +3130,8 @@ const NotepadPanel = React.memo(function NotepadPanel({
   const { filename = "Notes", text = "", markdownMode = false } = data;
 
   const targetTreeId = data.targetTreeId;
+  const targetAlignmentId = data.targetAlignmentId;
+  const isEditorMode = !!(targetTreeId || targetAlignmentId);
 
   const handleDownload = useCallback(() => {
     const fileExtension = markdownMode ? 'md' : 'txt';
@@ -3138,23 +3145,23 @@ const NotepadPanel = React.memo(function NotepadPanel({
   }, [id, setPanelData, markdownMode]);
 
   const extraButtons = useMemo(() => {
-      const btns = [];
-      // render these buttons only when there is no targetTreeId
-      if (!targetTreeId) {
-        btns.push({
-          element: (
-            <MarkdownButton onClick={handleToggleMarkdown} isActive={markdownMode} />
-          ),
-          tooltip: markdownMode ? "Turn off Markdown rendering" : "Render as Markdown"
-        });
-      
-      btns.push({
-        element: <DownloadButton onClick={handleDownload} />,
-        tooltip: `Download ${markdownMode ? 'markdown (.md)' : 'text (.txt)'}`
-      });
-      }
-      return btns;
-    }, [handleDownload, handleToggleMarkdown, markdownMode, targetTreeId]);
+  const btns = [];
+  // Render these buttons only when not in editor mode (Tree or MSA)
+  if (!isEditorMode) {
+    btns.push({
+      element: (
+        <MarkdownButton onClick={handleToggleMarkdown} isActive={markdownMode} />
+      ),
+      tooltip: markdownMode ? "Turn off Markdown rendering" : "Render as Markdown"
+    });
+  
+    btns.push({
+      element: <DownloadButton onClick={handleDownload} />,
+      tooltip: `Download ${markdownMode ? 'markdown (.md)' : 'text (.txt)'}`
+    });
+  }
+  return btns;
+}, [handleDownload, handleToggleMarkdown, markdownMode, isEditorMode]);
 
   const storeScrollRatio = (element) => {
     if (!element) return;
@@ -3167,14 +3174,14 @@ const NotepadPanel = React.memo(function NotepadPanel({
     if (e.key === 'Escape' || (e.key === 'Enter' && targetTreeId)) {
       storeScrollRatio(textInputRef.current);
       setIsEditing(false);
-      if (data.targetTreeId) onCommit?.(text, data.targetTreeId);
+      if (isEditorMode) onCommit?.(text, targetTreeId || targetAlignmentId);
     }
   };
 
   const handleBlur = () => {
     storeScrollRatio(textInputRef.current);
     setIsEditing(false);
-    if (data.targetTreeId) onCommit?.(text, data.targetTreeId);
+    if (isEditorMode) onCommit?.(text, targetTreeId || targetAlignmentId);
   };
   
   const handleDoubleClick = () => {
@@ -3246,9 +3253,11 @@ const NotepadPanel = React.memo(function NotepadPanel({
             {text || "*Empty note. Double-click to edit.*"}
           </ReactMarkdown>
         </div>
-        {isInvalid &&  <div className="absolute bottom-2 right-2 z-50 px-2 py-1 rounded-lg bg-orange-500 text-white text-xs font-bold shadow-md pointer-events-none">
-        Invalid tree string
-        </div>}
+        {isInvalid && (
+          <div className="absolute bottom-2 right-2 z-50 px-2 py-1 rounded-lg bg-orange-500 text-white text-xs font-bold shadow-md pointer-events-none">
+            {targetAlignmentId ? 'Invalid FASTA format' : 'Invalid tree string'}
+          </div>
+        )}
       </div>
     );
   }
@@ -3282,7 +3291,7 @@ const NotepadPanel = React.memo(function NotepadPanel({
 const HistogramPanel = React.memo(function HistogramPanel({ 
   id, data, onRemove, onDuplicate,
   onLinkClick, isLinkModeActive, isEligibleLinkTarget, linkedTo, panelLinks,
-  highlightOrigin, onHighlight, hoveredPanelId, justLinkedPanels,
+  onHighlight, hoveredPanelId, justLinkedPanels,
   setHoveredPanelId, setPanelData,
   linkBadges, onRestoreLink, colorForLink, onUnlink,
   onGenerateCorrelationMatrix
@@ -3580,7 +3589,6 @@ const HistogramPanel = React.memo(function HistogramPanel({
     prevProps.hoveredPanelId === nextProps.hoveredPanelId &&
     prevProps.highlightedSite === nextProps.highlightedSite &&
     prevProps.linkBadges === nextProps.linkBadges && 
-    //prevProps.highlightOrigin === nextProps.highlightOrigin &&
     prevProps.justLinkedPanels.join() === nextProps.justLinkedPanels.join()
   );
 });
@@ -3702,6 +3710,7 @@ const PanelWrapper = React.memo(({
   onCreateSubsetMsa,
   onCreateSubtree,
   handleOpenTreeAsNotepad,
+  handleOpenAlignmentAsNotepad,
   onCreateColorMatrix,
   setPanelData,
   onPredictOmega,
@@ -3772,6 +3781,7 @@ const PanelWrapper = React.memo(({
       onCreateColorMatrix: onCreateColorMatrix,
       onCreateSubsetMsa: onCreateSubsetMsa,
       onPredictOmega: onPredictOmega,
+      onOpenAlignmentAsNotepad: handleOpenAlignmentAsNotepad,
       modelLoading: modelLoading,
       onVisibleWindowChange: handleVisibleWindowChange,
     }),
@@ -3784,28 +3794,44 @@ const PanelWrapper = React.memo(({
       onOpenTreeAsNotepad: handleOpenTreeAsNotepad,
     }),
     ...(panel.type === 'notepad' && {
-      onCommit: (text, targetTreeId) => {
+      onCommit: (text, targetId) => {
+        // Determine if we are editing an Alignment or a Tree
+        const isAlignment = !!panelData[panel.i].targetAlignmentId;
+        const finalTargetId = targetId || panelData[panel.i].targetAlignmentId;
+        
         let isValid = false;
+        let parsedData = null;
+
         try {
-          parseNewick(text); // validate Newick string
-          isValid = true;
+          if (isAlignment) {
+            parsedData = parseFasta(text);
+            isValid = parsedData.length > 0;
+          } else {
+            parseNewick(text); // validate Newick string
+            isValid = true;
+          }
         } catch (e) {
           isValid = false;
         }
 
         setPanelData(prev => {
           const next = { ...prev };
-          // Update the notepad's own status so it can show orange/tooltip
+          // Update the notepad's own status so it can show orange/tooltip if invalid
           next[panel.i] = { ...next[panel.i], isInvalid: !isValid };
-
-          // Only update the Tree Panel data if valid
-          if (isValid && targetTreeId) {
-            next[targetTreeId] = { ...next[targetTreeId], data: text };
+          
+          // Only update the Tree/Alignment Panel data if valid
+          if (isValid && finalTargetId) {
+            if (isAlignment) {
+              next[finalTargetId] = { ...next[finalTargetId], data: parsedData };
+            } else {
+              next[finalTargetId] = { ...next[finalTargetId], data: text };
+            }
           }
           return next;
         });
       }
     }),
+
     ...(panel.type === 'heatmap' && {
       onHighlight: handleHighlight,
       onGenerateTree: handleHeatmapToTree,
@@ -4786,6 +4812,21 @@ const handleCreateSubsetMsa = useCallback((id, selectedIndices, quiet = false) =
     });
 }, [panelData, panelLinks, panels, setState, addPanel, upsertHistory, assignPairColor]);
 
+const handleOpenAlignmentAsNotepad = useCallback((alnId) => {
+  const aln = panelData[alnId];
+  if (!aln || !aln.data) return;
+  
+  addPanel({
+    type: 'notepad',
+    data: {
+      text: toFasta(aln.data), // existing helper
+      filename: `Edit: ${aln.filename}`,
+      markdownMode: false,
+      targetAlignmentId: alnId // Reference to the source alignment
+    },
+    layoutHint: { w: 6, h: 10 }
+  });
+}, [panelData, addPanel]);
 
 const handleOpenTreeAsNotepad = useCallback((treeId) => {
     const tree = panelData[treeId];
@@ -7135,6 +7176,7 @@ const handleRestoreSession = useCallback(() => {
         onCreateSubtree={handleCreateSubtree}
         onCreateColorMatrix={handleCreateColorMatrix}
         handleOpenTreeAsNotepad={handleOpenTreeAsNotepad}
+        handleOpenAlignmentAsNotepad={handleOpenAlignmentAsNotepad}
         setPanelData={setPanelData}
         onPredictOmega={handlePredictOmega}
         modelLoading={modelLoading} // loading state to disable button
