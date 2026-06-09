@@ -2118,7 +2118,7 @@ const onScroll = useMemo(() =>
     }, [hoveredPanelId, id, linkedTo, highlightOrigin, onHighlight, setHighlightedSequenceId]);
 
   const rowCount = msaData.length;
-  const colCount = Math.max(...msaData.map(seq => seq.sequence.length), 0);
+  const colCount = msaData.reduce((max, seq) => Math.max(max, seq.sequence?.length || 0), 0);
   const totalGridWidth = colCount * CELL_SIZE;
   const totalGridHeight = rowCount * CELL_SIZE;
   const RULER_HEIGHT = CELL_SIZE/Math.round(1.5);
@@ -5574,23 +5574,31 @@ const handleTreeToDistance = useCallback((id) => {
 
 
 const handleAlignmentToDistance = useCallback((id) => {
-  const a = panelData[id];
-  if (!a || !Array.isArray(a.data) || a.data.length < 2) {
-    alert('Need at least two sequences in the MSA to build a distance matrix.');
-    return;
-  }
+    const a = panelData[id];
+    if (!a || !Array.isArray(a.data) || a.data.length < 2) {
+      alert('Need at least two sequences in the MSA to build a distance matrix.');
+      return;
+    }
 
-  const { labels, matrix } = computeNormalizedHammingMatrix(a.data);
-
-  const base = (a.filename ? a.filename : 'alignment');
-  addPanel({
-    type: 'heatmap',
-    data: { rowLabels: labels, colLabels: labels, isSquare: true, matrix, filename: `${base}.phy` },
-    basedOnId: id,
-    layoutHint: { w: 4, h: 16 },
-    autoLinkTo: id,
-  });
-}, [panelData, addPanel]);
+    const { labels, matrix } = computeNormalizedHammingMatrix(a.data);
+    const base = (a.filename ? a.filename : 'alignment');
+    
+    addPanel({
+      type: 'heatmap',
+      data: { 
+        rowLabels: labels, 
+        colLabels: labels, 
+        isSquare: true, 
+        matrix, 
+        filename: `${base}.phy`, 
+        minVal: 0, 
+        maxVal: 1 
+      },
+      basedOnId: id,
+      layoutHint: { w: 4, h: 16 },
+      autoLinkTo: id,
+    });
+  }, [panelData, addPanel]);
 
 const handleHeatmapToTree = useCallback((id) => {
   const heatmapData = panelData[id];
