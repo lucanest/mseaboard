@@ -619,27 +619,32 @@ export function computeNormalizedHammingMatrix(msaArray) {
   const N = seqs.length;
   const matrix = Array.from({ length: N }, () => Array(N).fill(0));
 
-  const isGap = (c) => c === '-' || c === '.';
+  // Helper to treat all gap types (-, .) as the same character
+  const normalizeChar = (c) => (c === '-' || c === '.') ? '-' : c;
 
   for (let i = 0; i < N; i++) {
     matrix[i][i] = 0;
     for (let j = i + 1; j < N; j++) {
       const A = seqs[i].seq;
       const B = seqs[j].seq;
-      const L = Math.min(A.length, B.length);
+      
+      // In an MSA, lengths should be equal. 
+      // We use the maximum length to ensure full comparison.
+      const L = Math.max(A.length, B.length);
 
-      let comparable = 0;
       let mismatches = 0;
 
       for (let k = 0; k < L; k++) {
-        const aChar = A[k];
-        const bChar = B[k];
-        if (isGap(aChar) || isGap(bChar)) continue;
-        comparable++;
-        if (aChar !== bChar) mismatches++;
+        const charA = normalizeChar(A[k] || '-'); // Default to gap if string ends
+        const charB = normalizeChar(B[k] || '-'); // Default to gap if string ends
+        
+        if (charA !== charB) {
+          mismatches++;
+        }
       }
 
-      const d = comparable > 0 ? (mismatches / comparable) : 0;
+      // The denominator is now the full length of the alignment
+      const d = L > 0 ? (mismatches / L) : 0;
       matrix[i][j] = d;
       matrix[j][i] = d;
     }
